@@ -4,8 +4,3 @@ secrets.json
 *.tfstate
 __pycache__/
 .venv/
-# terraform/.gitignore
-.terraform/
-*.tfstate
-*.tfstate.backup
-.terraform.lock.hcl

@@ -14,11 +14,11 @@ variable "project_id" {
 resource "google_secret_manager_secret" "secrets" {
   for_each  = toset(["FINNHUB_KEY", "IBKR_KEY", "APIFY_TOKEN"])
   secret_id = each.key
-
+          
   replication {
     automatic = true
-  }
-}
+  } 
+} 
 
 # 2. ANALYTICS TIER (BigQuery)
 resource "google_bigquery_dataset" "trading_data" {
