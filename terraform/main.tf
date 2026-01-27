@@ -116,3 +116,22 @@ resource "google_bigquery_table" "performance_logs" {
 ]
 EOF
 }
+
+# terraform/main.tf - Tax & FX Extension
+
+resource "google_bigquery_table" "performance_logs" {
+  dataset_id = google_bigquery_dataset.trading_data.dataset_id
+  table_id   = "performance_logs"
+  deletion_protection = false
+
+  schema = <<EOF
+[
+  {"name": "timestamp", "type": "TIMESTAMP", "mode": "REQUIRED"},
+  {"name": "paper_equity", "type": "FLOAT", "mode": "REQUIRED"},
+  {"name": "index_price", "type": "FLOAT", "mode": "REQUIRED"},
+  {"name": "fx_rate_aud", "type": "FLOAT", "mode": "REQUIRED", "description": "USD to AUD rate at time of log"},
+  {"name": "brokerage_fees_usd", "type": "FLOAT", "mode": "NULLABLE"},
+  {"name": "node_id", "type": "STRING", "mode": "NULLABLE"}
+]
+EOF
+}
