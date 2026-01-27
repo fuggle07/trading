@@ -41,23 +41,31 @@ async def run_audit(ticker, multiplier):
     return f"{ticker}_SUCCESS"
 
 async def main_handler(request=None):
-    """Main Entry Point using Python 3.13 TaskGroups."""
-    logger.info({"event": "system_start", "tickers": TICKERS})
+    """Main Entry Point: Now Tax & Regime Aware."""
     
-    vix_value = await get_current_vix()
+    # 1. Poll Sensors (Concurrent execution for speed)
+    vix_task = get_current_vix()
+    fx_task = get_usd_aud_rate()
+    vix_value, fx_rate = await asyncio.gather(vix_task, fx_task)
+    
     risk_multiplier = calculate_risk_multiplier(vix_value)
     
-    # TaskGroup: The 2026 standard for robust concurrency
-    try:
-        async with asyncio.TaskGroup() as tg:
-            for ticker in TICKERS:
-                tg.create_task(run_audit(ticker, risk_multiplier))
-    except Exception as e:
-        logger.error({"event": "task_group_error", "error": str(e)})
-
-    # Telemetry Sync
-    sim_equity, sim_index = 100000.0, 505.2
-    log_performance(sim_equity, sim_index)
+    # 2. Execute Ticker Audits
+    async with asyncio.TaskGroup() as tg:
+        for ticker in TICKERS:
+            tg.create_task(run_audit(ticker, risk_multiplier))
+     
+    # 3. Tax-Aware Telemetry
+    # Stage 2 will replace these with live broker balance calls
+    sim_equity = 100000.00
+    sim_index = 505.20 
     
-    return f"Audit Complete. Multiplier: {risk_multiplier}", 200
+    log_performance(
+        paper_equity=sim_equity, 
+        index_price=sim_index, 
+        fx_rate_aud=fx_rate,  # <--- No longer hardcoded
+        brokerage=0.0         # Adjusted per trade logic
+    )
+    
+    return f"Audit Complete. FX: {fx_rate}, VIX: {vix_value}", 200
 
