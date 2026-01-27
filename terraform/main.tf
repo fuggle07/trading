@@ -19,7 +19,14 @@ resource "google_service_account" "bot_sa" {
 resource "google_secret_manager_secret" "secrets" {
   for_each  = toset(["FINNHUB_KEY", "IBKR_KEY", "APIFY_TOKEN"])
   secret_id = each.key
-  replication { auto {} }
+  replication {
+    user_managed {
+      # For a simpler 'auto' setup in 2026:
+      # If your provider version supports it, use:
+    }
+    # Standard 'automatic' replication for global nodes:
+    automatic = true 
+  }
 }
 
 # 2. CLOUD RUN SERVICE (The missing resource for your scheduler)
