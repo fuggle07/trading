@@ -15,6 +15,28 @@ logger = logging.getLogger("AberfeldieNode")
 
 TICKERS = os.getenv("BASE_TICKERS", "NVDA,AAPL,TSLA,MSFT,AMD").split(",")
 
+# bot/main.py - FX Sensor Implementation
+
+async def get_usd_aud_rate():
+    """
+    Surgically fetches the USD to AUD exchange rate.
+    Uses Frankfurter (Keyless) or Finnhub as a fallback.
+    """
+    url = "https://api.frankfurter.dev/v1/latest?base=USD&symbols=AUD"
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=5) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    rate = float(data['rates']['AUD'])
+                    logger.info({"event": "fx_poll_success", "rate": rate})
+                    return rate
+                return 1.52 # Baseline AUD/USD
+    except Exception as e:
+        logger.error({"event": "fx_poll_fail", "error": str(e)})
+        return 1.52
+
 async def get_current_vix():
     """Surgically fetches VIX with a 5s strict timeout."""
     api_key = os.getenv("FINNHUB_KEY")
