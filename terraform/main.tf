@@ -70,3 +70,49 @@ resource "google_bigquery_table" "performance_logs" {
 EOF
 }
 
+# terraform/main.tf - Telemetry Extension
+
+resource "google_bigquery_dataset" "trading_data" {
+  dataset_id                  = "trading_data"
+  friendly_name               = "Aberfeldie Trading Analytics"
+  description                 = "Performance logs for Nasdaq Agentic Audits"
+  location                    = "us-central1" # Keep in same region as Cloud Run
+  delete_contents_on_destroy = false
+}
+
+resource "google_bigquery_table" "performance_logs" {
+  dataset_id = google_bigquery_dataset.trading_data.dataset_id
+  table_id   = "performance_logs"
+  
+  # Prevents accidental deletion of your historical gains
+  deletion_protection = false 
+
+  schema = <<EOF
+[
+  {
+    "name": "timestamp",
+    "type": "TIMESTAMP",
+    "mode": "REQUIRED",
+    "description": "UTC Execution Time"
+  },
+  {
+    "name": "paper_equity",
+    "type": "FLOAT",
+    "mode": "REQUIRED",
+    "description": "Total account value (USD)"
+  },
+  {
+    "name": "index_price",
+    "type": "FLOAT",
+    "mode": "REQUIRED",
+    "description": "Benchmark price (e.g., QQQ)"
+  },
+  {
+    "name": "node_id",
+    "type": "STRING",
+    "mode": "NULLABLE",
+    "description": "Source Node Identifier"
+  }
+]
+EOF
+}

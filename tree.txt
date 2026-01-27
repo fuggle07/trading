@@ -1,12 +1,38 @@
-trading_node/
-├── setup_node.sh         # MASTER ACTUATOR: Run this to deploy everything.
-├── env.yaml              # FLIGHT LOGISTICS: Watchlist, Risk, and Tiers.
-├── main.tf               # HARDWARE: GCP Infrastructure (Terraform).
-├── .env                  # LOCAL MIRROR: Git-ignored local secrets.
-├── .gitignore            # SECURITY: Ensures secrets never hit the cloud.
-└── bot/                  # SURGICAL LOGIC: The core agentic code.
-    ├── main.py           # ENTRY POINT: Concurrent audit & trading loop.
-    ├── verification.py   # MSV SENSOR: Hard-proof (SEC/Insider) verification.
-    ├── health_check.py   # SENTINEL: Pre-flight diagnostic script.
-    └── requirements.txt  # DEPENDENCIES: Manifest of all required libraries.
+trading/
+├── setup_node.sh         # MASTER ACTUATOR: 7-step automated bootstrap.
+├── env.yaml              # LOGISTICS: Central source for watchlist & tiers.
+├── tree.txt              # SNAPSHOT: Current directory structure record.
+├── .gitignore            # SECURITY: Protects .env, .pem, and tfstate.
+├── .gcloudignore         # SECURITY: Inherits gitignore for lean GCP uploads.
+│
+├── bot/                  # SURGICAL LOGIC: The "Brain" of the Node.
+│   ├── main.py           # ORCHESTRATOR: Handles concurrent audits & telemetry.
+│   ├── agent.py          # REASONING: Interface for Vertex AI / Gemini.
+│   ├── verification.py   # SENSORS: MSV logic (SEC filings, Insider data).
+│   ├── telemetry.py      # VISUALIZATION: Pushes performance to BigQuery.
+│   ├── liquidate.py      # EMERGENCY: Integrated kill-switch module.
+│   ├── requirements.txt  # MANIFEST: Python dependencies (pined versions).
+│   └── Dockerfile        # CONTAINER: Environment definition for Cloud Run.
+│
+├── scripts/              # THE HANDS: Modular deployment actuators.
+│   ├── 01_deploy_infra.sh    # Infra trigger.
+│   ├── 02_harden_iam.sh     # Least-privilege IAM application.
+│   ├── 03_sync_secrets.sh   # Secret Manager injection.
+│   ├── 04_deploy_bot.sh     # Cloud Function/Run deployment logic.
+│   ├── 05_sync_env.sh       # Environment variable synchronization.
+│   ├── install_dependencies.sh # Step -1: Ubuntu/GCP/Tfenv setup.
+│   ├── sanity_test.sh       # Pre-flight logic verification.
+│   ├── live_audit.sh        # Post-deploy log viewer and browser trigger.
+│   └── [legacy helpers]     # sync_secrets.sh, harden_iam.sh, etc.
+│
+├── terraform/            # THE HARDWARE: Infrastructure as Code (IaC).
+│   ├── main.tf           # CORE: Cloud Run, BigQuery, and IAM resources.
+│   ├── scheduler.tf      # TRIGGER: Cron logic for Nasdaq session audits.
+│   └── .terraform-version # PIN: Ensures tfenv uses 1.10.5.
+│
+└── docs/                 # INTELLIGENCE: System documentation.
+    ├── blueprint.md      # ARCHITECTURE: The 7-step deployment guide.
+    ├── secrets.md        # PROCUREMENT: Key sources and cost centers.
+    ├── observability.md  # TELEMETRY: Accessing logs and performance URLs.
+    └── references.md     # KNOWLEDGE: External docs and tutorial links.
 
