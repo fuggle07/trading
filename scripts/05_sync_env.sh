@@ -20,6 +20,7 @@ VIX_THRESHOLD_HIGH="30.0"
 VOLATILITY_SENSITIVITY="1.0"
 MORTGAGE_HURDLE_RATE="0.052" # 5.2%
 CAPITAL_USD="50000.0"        # Your potential offset withdrawal
+MIN_EDGE_THRESHOLD="0.015" # 1.5% minimum predicted gain to override brokerage drag
 
 # 3. Construct/Update env.yaml
 # We use a heredoc to ensure clean YAML formatting for GCP.
@@ -31,6 +32,7 @@ VIX_THRESHOLD_HIGH: "$VIX_THRESHOLD_HIGH"
 VOLATILITY_SENSITIVITY: "$VOLATILITY_SENSITIVITY"
 MORTGAGE_HURDLE_RATE: "$MORTGAGE_HURDLE_RATE"
 CAPITAL_USD: "$CAPITAL_USD"
+MIN_EDGE_THRESHOLD: "$MIN_EDGE_THRESHOLD"
 EOF
 
 # 4. Generate Local .env for Development
