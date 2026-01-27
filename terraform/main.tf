@@ -135,3 +135,34 @@ resource "google_bigquery_table" "performance_logs" {
 ]
 EOF
 }
+
+# terraform/main.tf - Opportunity Cost Extension
+
+resource "google_bigquery_table" "performance_logs" {
+  dataset_id = google_bigquery_dataset.trading_data.dataset_id
+  table_id   = "performance_logs"
+  
+  # Ensure this is set to true to prevent accidental data loss
+  deletion_protection = true 
+
+  schema = <<EOF
+[
+  {"name": "timestamp", "type": "TIMESTAMP", "mode": "REQUIRED"},
+  {"name": "paper_equity", "type": "FLOAT", "mode": "REQUIRED"},
+  {"name": "index_price", "type": "FLOAT", "mode": "REQUIRED"},
+  {"name": "fx_rate_aud", "type": "FLOAT", "mode": "REQUIRED"},
+  {"name": "brokerage_fees_usd", "type": "FLOAT", "mode": "NULLABLE"},
+  
+  # --- NEW HURDLE SENSOR ---
+  {
+    "name": "opportunity_cost_aud", 
+    "type": "FLOAT", 
+    "mode": "NULLABLE", 
+    "description": "Daily mortgage interest saved if capital stayed in offset (5.2%)"
+  },
+  
+  {"name": "node_id", "type": "STRING", "mode": "NULLABLE"}
+]
+EOF
+}
+
