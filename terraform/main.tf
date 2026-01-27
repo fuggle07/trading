@@ -1,9 +1,10 @@
-# main.tf
+# main.tf - Unified Aberfeldie Node Infrastructure
 provider "google" {
   project = var.project_id
   region  = "us-central1"
 }
 
+# 1. CORE COMPUTE & STORAGE SHELLS
 resource "google_artifact_registry_repository" "repo" {
   location      = "us-central1"
   repository_id = "trading-node-repo"
@@ -20,72 +21,45 @@ resource "google_secret_manager_secret" "secrets" {
   secret_id = each.key
   replication { auto {} }
 }
-# monitoring.tf - Automated Alerting
-resource "google_monitoring_uptime_check_config" "bot_uptime" {
-  display_name = "Bot-Uptime-Check"
-  timeout      = "10s"
-  period       = "60s"
 
-  http_check {
-    path = "/" # Point this to your Cloud Function trigger URL
-    port = 443
-    use_ssl = true
-  }
-}
+# 2. CLOUD RUN SERVICE (The missing resource for your scheduler)
+resource "google_cloud_run_v2_service" "trading_bot" {
+  name     = "trading-audit-agent"
+  location = "us-central1"
+  ingress  = "INGRESS_TRAFFIC_ALL"
 
-resource "google_monitoring_alert_policy" "logic_failure_alert" {
-  display_name = "Logic Failure Alert"
-  combiner     = "OR"
-  conditions {
-    display_name = "Error log detected"
-    condition_matched_log {
-      filter = "resource.type=\"cloud_function\" textPayload:\"ERROR\""
+  template {
+    service_account = google_service_account.bot_sa.email
+    containers {
+      image = "us-central1-docker.pkg.dev/${var.project_id}/trading-node-repo/trading-bot:latest"
+      
+      # Injecting Secrets as Env Vars
+      env {
+        name = "FINNHUB_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = google_secret_manager_secret.secrets["FINNHUB_KEY"].secret_id
+            version = "latest"
+          }
+        }
+      }
     }
   }
-  notification_channels = [google_monitoring_notification_channel.email.name]
 }
 
-# terraform/main.tf - Analytics Extension
-
+# 3. UNIFIED ANALYTICS TIER (BigQuery)
 resource "google_bigquery_dataset" "trading_data" {
-  dataset_id                  = "trading_data"
-  friendly_name               = "Trading Analytics"
-  description                 = "Performance logs for the Aberfeldie Node"
-  location                    = "us-central1"
+  dataset_id                 = "trading_data"
+  friendly_name              = "Aberfeldie Trading Analytics"
+  description                = "Unified performance, tax, and hurdle logs"
+  location                   = "us-central1"
   delete_contents_on_destroy = false
 }
 
 resource "google_bigquery_table" "performance_logs" {
-  dataset_id = google_bigquery_dataset.trading_data.dataset_id
-  table_id   = "performance_logs"
-  deletion_protection = false
-
-  schema = <<EOF
-[
-  {"name": "timestamp", "type": "TIMESTAMP", "mode": "REQUIRED"},
-  {"name": "paper_equity", "type": "FLOAT", "mode": "REQUIRED"},
-  {"name": "index_price", "type": "FLOAT", "mode": "REQUIRED"},
-  {"name": "node_id", "type": "STRING", "mode": "NULLABLE"}
-]
-EOF
-}
-
-# terraform/main.tf - Telemetry Extension
-
-resource "google_bigquery_dataset" "trading_data" {
-  dataset_id                  = "trading_data"
-  friendly_name               = "Aberfeldie Trading Analytics"
-  description                 = "Performance logs for Nasdaq Agentic Audits"
-  location                    = "us-central1" # Keep in same region as Cloud Run
-  delete_contents_on_destroy = false
-}
-
-resource "google_bigquery_table" "performance_logs" {
-  dataset_id = google_bigquery_dataset.trading_data.dataset_id
-  table_id   = "performance_logs"
-  
-  # Prevents accidental deletion of your historical gains
-  deletion_protection = false 
+  dataset_id          = google_bigquery_dataset.trading_data.dataset_id
+  table_id            = "performance_logs"
+  deletion_protection = true # Critical for historical tax data
 
   schema = <<EOF
 [
@@ -108,6 +82,24 @@ resource "google_bigquery_table" "performance_logs" {
     "description": "Benchmark price (e.g., QQQ)"
   },
   {
+    "name": "fx_rate_aud",
+    "type": "FLOAT",
+    "mode": "REQUIRED",
+    "description": "USD to AUD rate for ATO reporting"
+  },
+  {
+    "name": "brokerage_fees_usd",
+    "type": "FLOAT",
+    "mode": "NULLABLE",
+    "description": "Deductible transaction costs"
+  },
+  {
+    "name": "opportunity_cost_aud",
+    "type": "FLOAT",
+    "mode": "NULLABLE",
+    "description": "Daily interest saved if capital stayed in 5.2% offset"
+  },
+  {
     "name": "node_id",
     "type": "STRING",
     "mode": "NULLABLE",
@@ -117,52 +109,23 @@ resource "google_bigquery_table" "performance_logs" {
 EOF
 }
 
-# terraform/main.tf - Tax & FX Extension
-
-resource "google_bigquery_table" "performance_logs" {
-  dataset_id = google_bigquery_dataset.trading_data.dataset_id
-  table_id   = "performance_logs"
-  deletion_protection = false
-
-  schema = <<EOF
-[
-  {"name": "timestamp", "type": "TIMESTAMP", "mode": "REQUIRED"},
-  {"name": "paper_equity", "type": "FLOAT", "mode": "REQUIRED"},
-  {"name": "index_price", "type": "FLOAT", "mode": "REQUIRED"},
-  {"name": "fx_rate_aud", "type": "FLOAT", "mode": "REQUIRED", "description": "USD to AUD rate at time of log"},
-  {"name": "brokerage_fees_usd", "type": "FLOAT", "mode": "NULLABLE"},
-  {"name": "node_id", "type": "STRING", "mode": "NULLABLE"}
-]
-EOF
+# 4. MONITORING TIER
+resource "google_monitoring_notification_channel" "email" {
+  display_name = "Trading Alerts"
+  type         = "email"
+  labels = {
+    email_address = "your-email@example.com"
+  }
 }
 
-# terraform/main.tf - Opportunity Cost Extension
-
-resource "google_bigquery_table" "performance_logs" {
-  dataset_id = google_bigquery_dataset.trading_data.dataset_id
-  table_id   = "performance_logs"
-  
-  # Ensure this is set to true to prevent accidental data loss
-  deletion_protection = true 
-
-  schema = <<EOF
-[
-  {"name": "timestamp", "type": "TIMESTAMP", "mode": "REQUIRED"},
-  {"name": "paper_equity", "type": "FLOAT", "mode": "REQUIRED"},
-  {"name": "index_price", "type": "FLOAT", "mode": "REQUIRED"},
-  {"name": "fx_rate_aud", "type": "FLOAT", "mode": "REQUIRED"},
-  {"name": "brokerage_fees_usd", "type": "FLOAT", "mode": "NULLABLE"},
-  
-  # --- NEW HURDLE SENSOR ---
-  {
-    "name": "opportunity_cost_aud", 
-    "type": "FLOAT", 
-    "mode": "NULLABLE", 
-    "description": "Daily mortgage interest saved if capital stayed in offset (5.2%)"
-  },
-  
-  {"name": "node_id", "type": "STRING", "mode": "NULLABLE"}
-]
-EOF
+resource "google_monitoring_alert_policy" "logic_failure_alert" {
+  display_name = "Logic Failure Alert"
+  combiner     = "OR"
+  conditions {
+    display_name = "Error log detected"
+    condition_matched_log {
+      filter = "resource.type=\"cloud_run_revision\" textPayload:\"ERROR\""
+    }
+  }
+  notification_channels = [google_monitoring_notification_channel.email.name]
 }
-
