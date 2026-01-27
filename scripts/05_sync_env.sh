@@ -1,22 +1,47 @@
 #!/bin/bash
-# Video: [Automating Env Var Sync](https://www.youtube.com/watch?v=5aOF-RIZS5c)
+# scripts/05_sync_env.sh
+# Directive: Synchronize High-Resolution environmental parameters.
+# Reference: [GCP Environment Variable Best Practices](https://cloud.google.com/functions/docs/configuring/env-var)
 
-echo "--- SYNCING LOCAL ENVIRONMENT ---"
+set -e # Exit on error
 
-# 1. Read from env.yaml and export to .env
-if [ -f "env.yaml" ]; then
-    # Simple YAML-to-ENV parser
-    sed 's/: /=/g' env.yaml > .env
-    echo "✅ Local .env generated from env.yaml"
+echo "--- 📋 ABERFELDIE NODE: ENVIRONMENT SYNCHRONIZATION ---"
+
+# 1. Path Resolution
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ENV_YAML="$SCRIPT_DIR/../env.yaml"
+DOT_ENV="$SCRIPT_DIR/../.env"
+
+# 2. Define Mandatory Parameters (The "Surgical Baseline")
+# These are the variables required for the VIX, Tax, and Hurdle logic.
+PROJECT_ID=$(gcloud config get-value project)
+BASE_TICKERS="NVDA,AAPL,TSLA,MSFT,AMD"
+VIX_THRESHOLD_HIGH="30.0"
+VOLATILITY_SENSITIVITY="1.0"
+MORTGAGE_HURDLE_RATE="0.052" # 5.2%
+CAPITAL_USD="50000.0"        # Your potential offset withdrawal
+
+# 3. Construct/Update env.yaml
+# We use a heredoc to ensure clean YAML formatting for GCP.
+echo "📝 Updating env.yaml with financial parameters..."
+cat <<EOF > "$ENV_YAML"
+PROJECT_ID: "$PROJECT_ID"
+BASE_TICKERS: "$BASE_TICKERS"
+VIX_THRESHOLD_HIGH: "$VIX_THRESHOLD_HIGH"
+VOLATILITY_SENSITIVITY: "$VOLATILITY_SENSITIVITY"
+MORTGAGE_HURDLE_RATE: "$MORTGAGE_HURDLE_RATE"
+CAPITAL_USD: "$CAPITAL_USD"
+EOF
+
+# 4. Generate Local .env for Development
+# Uses a surgical sed command to convert YAML to ENV format for local testing.
+if [ -f "$ENV_YAML" ]; then
+    sed 's/: /=/g' "$ENV_YAML" | tr -d '"' > "$DOT_ENV"
+    echo "✅ Local .env generated for workstation testing."
 else
-    echo "❌ env.yaml not found."
+    echo "❌ ERROR: env.yaml could not be generated."
+    exit 1
 fi
 
-# 2. Verify mandatory GCP Vars
-if [ -z "$PROJECT_ID" ]; then
-    export PROJECT_ID=$(gcloud config get-value project)
-    echo "export PROJECT_ID=$PROJECT_ID" >> .env
-fi
-
-echo "--- SYNC COMPLETE ---"
+echo "--- ✨ ENVIRONMENT READY: Node is configured for tax and hurdle audits ---"
 
