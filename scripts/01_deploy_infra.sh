@@ -5,6 +5,12 @@
 
 set -e # Exit immediately if a command exits with a non-zero status.
 
+# Ensure tfenv is in the PATH for this subshell
+export PATH="$HOME/.tfenv/bin:$PATH"
+if command -v tfenv &> /dev/null; then
+    eval "$(tfenv init -)"
+fi
+
 echo "--- 🏗️  ABERFELDIE NODE: INFRASTRUCTURE DEPLOYMENT ---"
 
 # 1. Navigate to the Hardware Tier

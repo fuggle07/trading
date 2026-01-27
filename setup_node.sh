@@ -3,7 +3,8 @@
 # Directive: Full system initialization of the Aberfeldie Node.
 
 set -e # Terminate immediately if any step fails.
-
+# EXPORT PATH TO SUBSHELLS
+export PATH="$HOME/.tfenv/bin:$PATH"
 echo "--- 🛠️  ABERFELDIE NODE: STARTING FULL INITIALIZATION ---"
 
 # --- STEP -2: SECURITY MASKING ---
