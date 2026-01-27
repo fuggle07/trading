@@ -45,3 +45,28 @@ resource "google_monitoring_alert_policy" "logic_failure_alert" {
   notification_channels = [google_monitoring_notification_channel.email.name]
 }
 
+# terraform/main.tf - Analytics Extension
+
+resource "google_bigquery_dataset" "trading_data" {
+  dataset_id                  = "trading_data"
+  friendly_name               = "Trading Analytics"
+  description                 = "Performance logs for the Aberfeldie Node"
+  location                    = "us-central1"
+  delete_contents_on_destroy = false
+}
+
+resource "google_bigquery_table" "performance_logs" {
+  dataset_id = google_bigquery_dataset.trading_data.dataset_id
+  table_id   = "performance_logs"
+  deletion_protection = false
+
+  schema = <<EOF
+[
+  {"name": "timestamp", "type": "TIMESTAMP", "mode": "REQUIRED"},
+  {"name": "paper_equity", "type": "FLOAT", "mode": "REQUIRED"},
+  {"name": "index_price", "type": "FLOAT", "mode": "REQUIRED"},
+  {"name": "node_id", "type": "STRING", "mode": "NULLABLE"}
+]
+EOF
+}
+

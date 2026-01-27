@@ -1,10 +1,12 @@
 # bot/main.py - Concurrent Nasdaq Orchestrator
+# bot/main.py (Top of file)
 import os
 import asyncio
 import vertexai
 from vertexai.generative_models import GenerativeModel
-from .verification import get_hard_proof  # Relative import
-from .liquidate import emergency_liquidate_all  # Relative import
+from .verification import get_hard_proof
+from .liquidate import emergency_liquidate_all
+from .telemetry import log_performance
 
 # --- 1. GLOBAL CONFIG & RATE LIMITS ---
 TIER = os.getenv("FINNHUB_TIER", "FREE")
@@ -40,13 +42,22 @@ async def run_audit(ticker):
             # execute_trade_router(ticker) call here
         else:
             print(f"❌ {ticker} REJECTED.")
-
 async def main_handler(request=None):
     """Main Entry Point for Cloud Functions."""
     print(f"🚀 Initializing Audit Loop for: {TICKERS}")
-    # Run all audits concurrently
+    
+    # 1. Run all audits concurrently across your watchlist
     await asyncio.gather(*(run_audit(t) for t in TICKERS))
-    return "Audit Complete", 200
+    
+    # 2. Performance Telemetry (The Looker Studio Feed)
+    # Note: In Stage 2, we will replace these placeholders with live API calls.
+    simulated_equity = 100000.00 
+    simulated_index = 505.20      
+    
+    print("📊 Finalizing Audit Cycle & Syncing Telemetry...")
+    log_performance(simulated_equity, simulated_index)
+    
+    return "Audit & Telemetry Complete", 200
 
 if __name__ == "__main__":
     asyncio.run(main_handler())

@@ -1,4 +1,5 @@
 # GCP & AI
+google-cloud-bigquery==3.27.0
 google-cloud-secret-manager==2.26.0
 google-cloud-aiplatform==1.77.0
 functions-framework==3.8.0
