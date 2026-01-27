@@ -1,0 +1,40 @@
+# --- ABERFELDIE NODE: SECURITY MASK ---
+
+# 1. THE "NUCLEAR CODES" (NEVER COMMIT THESE)
+.env
+env.yaml
+secrets.json
+*.pem
+*.key
+*.p12
+
+# 2. TERRAFORM TIER
+**/terraform/.terraform/
+*.tfstate
+*.tfstate.*
+.terraform.tfstate.lock.info
+*.tfvars
+*.tfvars.json
+*.tfplan
+
+# 3. PYTHON TIER
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+.pytest_cache/
+.mypy_cache/
+
+# 4. OS & IDE CLUTTER
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.log
+crash.log
+
+# 5. GCP SPECIFIC
+.gcloudignore
+

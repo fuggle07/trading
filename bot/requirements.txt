@@ -1,0 +1,14 @@
+# GCP & AI
+google-cloud-secret-manager==2.26.0
+google-cloud-aiplatform==1.77.0
+functions-framework==3.8.0
+
+# Market & Trading
+ib_async==2.1.0
+finnhub-python==2.4.19
+aiohttp==3.9.3
+
+# Utilities
+pandas==2.2.0
+python-dotenv==1.0.1
+

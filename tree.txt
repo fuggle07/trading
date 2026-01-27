@@ -1,0 +1,12 @@
+trading_node/
+├── setup_node.sh         # MASTER ACTUATOR: Run this to deploy everything.
+├── env.yaml              # FLIGHT LOGISTICS: Watchlist, Risk, and Tiers.
+├── main.tf               # HARDWARE: GCP Infrastructure (Terraform).
+├── .env                  # LOCAL MIRROR: Git-ignored local secrets.
+├── .gitignore            # SECURITY: Ensures secrets never hit the cloud.
+└── bot/                  # SURGICAL LOGIC: The core agentic code.
+    ├── main.py           # ENTRY POINT: Concurrent audit & trading loop.
+    ├── verification.py   # MSV SENSOR: Hard-proof (SEC/Insider) verification.
+    ├── health_check.py   # SENTINEL: Pre-flight diagnostic script.
+    └── requirements.txt  # DEPENDENCIES: Manifest of all required libraries.
+
