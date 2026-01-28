@@ -1,46 +1,49 @@
-## Repository: Agentic Trading Node References
-Project: Aberfeldie Post-Pivot Build
+# ## Secrets Manifest: Aberfeldie Node
 
-Revision: 1.0 (2026-01-27)
+**Project:** Nasdaq Agentic Auditor
+**Status:** Production Tier (IBKR Live)
+**Last Updated:** 2026-01-28 13:00 AEDT
 
-Status: High-Fidelity Infrastructure
+---
 
-### 1. Infrastructure & Deployment (GCP/Terraform)
-These resources cover the "Hardened Shell" of your system. They ensure your environment is reproducible, secure, and cost-optimized.
+## ### 1. Production Actuators (Current Build)
 
-GCP Terraform Basics * Context: Essential for understanding the logic behind the main.tf file we generated.
+These secrets are surgically mapped to your Cloud Run environment variables for live Nasdaq audits.
 
-Secret Manager Product Guide * Context: Critical for securing your IBKR and Binance API keys away from your source code.
+| Secret Name | Provider | Purpose | Format |
+| --- | --- | --- | --- |
+| `FINNHUB_KEY` | Finnhub.io | SEC Filing & Insider Sensors | `string` |
+| `IBKR_KEY` | IBKR | Live Trade Actuator | `username:password` |
+| `APIFY_TOKEN` | Apify.com | Alternative Sentiment Scraper | `string` |
 
-Cloud Functions 2nd Gen Deployment * Context: How to deploy the "Event-Driven" agent that wakes up every 5 minutes.
+---
 
-Cloud Function Debug & Deploy with VS Code * Context: Managing your Python lifecycle from your local development environment.
+## ### 2. The "Aberfeldie" Constraint (Telemetry)
 
-### 2. The Reasoning Engine (Vertex AI)
-These links focus on the "Brain" of the operation—how to use Gemini 1.5 Pro to perform surgical audits of market data.
+While not stored as secrets, these constants drive the audit engine's logic in `main.py`.
 
-Vertex AI Setup Guide * Context: Configuring the permissions needed for your agent to access LLMs.
+* **Home Loan Hurdle:** 5.2% (Calculated daily against $50k USD capital).
+* **Tax Buffer:** 30% CGT reserve for Australian taxable events.
+* **FX Sensor:** Frankfurter API (Concurrent AUD/USD polling).
 
-Build a Financial Analyst Assistant with Vertex AI * Context: The core blueprint for an agent that performs sentiment and technical analysis.
+---
 
-### 3. Exchange Connectivity (The "Actuators")
-Specific technical deep-dives into connecting your Python code to real-world markets.
+## ### 3. Security & Sync Protocol
 
-Interactive Brokers API with ib_async * Context: Using modern, asynchronous Python to talk to IBKR without latency.
+To prevent leaks of your $50,000 USD capital environment, follow the **Zero-File-Persistence** rule:
 
-Interactive Brokers API Tutorial (General) * Context: Foundational knowledge on how the IBKR TWS gateway operates.
+1. **Initial Provisioning:** Terraform creates the secret containers with `PLACEHOLDER_INIT` values to allow Cloud Run to deploy without crashing.
+2. **Live Injection:** Run `scripts/03_sync_secrets.sh` to securely push your real keys from your local workstation into GCP Secret Manager.
+3. **Mounting:** Cloud Run mounts these as environment variables at runtime. They are never written to disk or logged.
 
-Binance Python Trading Bot Guide * Context: Direct implementation of crypto exchange hooks.
+---
 
-Simplest Binance Bot Tutorial (CCXT) * Context: Using the CCXT library for a "Universal" exchange interface.
+## ### 4. Operating Costs (Monthly Estimate)
 
-Binance Testnet Tutorial * Context: Essential for the "Paper Trading" phase before committing capital.
+| Tier | Estimated Cost | Components |
+| --- | --- | --- |
+| **GCP Compute** | **$0 - $10** | Cloud Run (Tier 1) + Secret Manager |
+| **Market Data** | **$10 - $20** | IBKR US Equity Snapshots (~$0.01/snapshot) |
+| **Total Hurdle** | **$220+** | Monthly interest cost of $50k loan @ 5.2% |
 
-### 4. Data Visualization (The Post-Mortem)
-Tools to audit your agent's performance and ensure your "Logic" is actually outperforming the index.
-
-Connecting BigQuery to Looker Studio * Context: How to turn your BigQuery logs into the "Surgical Dashboard" we designed.
-
-### 5. General Context & Strategy
-Getting started with Algorithmic Trading * Context: A high-level overview of market structures for quants.
-
+> **Surgical Note:** The bot must generate >$220 USD/month in profit just to break even against your offset account interest.

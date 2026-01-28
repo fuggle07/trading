@@ -1,76 +1,50 @@
----
-
 # ## Secrets Manifest: Aberfeldie Node
 
 **Project:** Nasdaq Agentic Auditor
-
-**Status:** Multi-Tier Procurement Active
-
-**Last Updated:** 2026-01-27 21:15 AEDT
+**Status:** Production Tier (IBKR Live)
+**Last Updated:** 2026-01-28 13:00 AEDT
 
 ---
 
-## ### 1. Primary Actuators (Current Build)
+## ### 1. Production Actuators (Current Build)
 
-These secrets are required for your 7-step deployment sequence.
+These secrets are surgically mapped to your Cloud Run environment variables for live Nasdaq audits.
 
-| Secret Name | Provider | Purpose | Cost (2026) | Obtain From |
-| --- | --- | --- | --- | --- |
-| `FINNHUB_KEY` | Finnhub.io | SEC Filings & Insider MSV | **Free** (60 calls/min) | [Finnhub Dashboard](https://finnhub.io/dashboard) |
-| `ALPACA_KEY` | Alpaca.markets | Dry-Run Execution | **Free** (Unlimited Paper) | [Alpaca Developer Portal](https://alpaca.markets/) |
-| `ALPACA_SECRET` | Alpaca.markets | Dry-Run Auth | **Free** | *As above* |
-| `IBKR_KEY` | Interactive Brokers | Live Production Actuator | **Free*** (Requires Account) | [IBKR Client Portal](https://www.interactivebrokers.com/) |
-
-> **Surgical Note on IBKR:** While the API is free, IBKR requires a **$500 USD** minimum account balance to maintain active API connectivity.
+| Secret Name | Provider | Purpose | Format |
+| --- | --- | --- | --- |
+| `FINNHUB_KEY` | Finnhub.io | SEC Filing & Insider Sensors | `string` |
+| `IBKR_KEY` | IBKR | Live Trade Actuator | `username:password` |
+| `APIFY_TOKEN` | Apify.com | Alternative Sentiment Scraper | `string` |
 
 ---
 
-## ### 2. Future Sensors (Scaling Tiers)
+## ### 2. The "Aberfeldie" Constraint (Telemetry)
 
-As you increase the resolution of your audits, you may want to upgrade to these institutional-grade feeds.
+While not stored as secrets, these constants drive the audit engine's logic in `main.py`.
 
-### #### Tier 2: Real-Time & Alternative Data
-
-* **Finnhub Standard ($50 - $130/mo):**
-* *Why:* Removes the 60 calls/min bottleneck. Essential if your `BASE_TICKERS` exceeds 50 assets.
-
-
-* **Apify API Token ($29/mo Starter):**
-* *Why:* For "Stealth Scraping" of non-standard sentiment sources (e.g., specific niche forums or X-alternative platforms).
-
-
-* **Polygon.io ($29 - $200/mo):**
-* *Why:* The "Gold Standard" for low-latency Nasdaq tick data. Use this if you move from 5-minute audits to 1-second surgical entries.
-
-
-
-### #### Tier 3: The "Black Box" Sensors
-
-* **SEC EDGAR Pro ($45 - $150/mo):**
-* *Why:* While our current `verification.py` uses Finnhub, a direct EDGAR Pro subscription provides sub-second alerts on 8-K filings before they hit the aggregators.
-
-
+* **Home Loan Hurdle:** 5.2% (Calculated daily against $50k USD capital).
+* **Tax Buffer:** 30% CGT reserve for Australian taxable events.
+* **FX Sensor:** Frankfurter API (Concurrent AUD/USD polling).
 
 ---
 
-## ### 3. Estimated Operating Budget (Monthly)
+## ### 3. Security & Sync Protocol
 
-| Phase | Estimated Cost | Components |
+To prevent leaks of your $50,000 USD capital environment, follow the **Zero-File-Persistence** rule:
+
+1. **Initial Provisioning:** Terraform creates the secret containers with `PLACEHOLDER_INIT` values to allow Cloud Run to deploy without crashing.
+2. **Live Injection:** Run `scripts/03_sync_secrets.sh` to securely push your real keys from your local workstation into GCP Secret Manager.
+3. **Mounting:** Cloud Run mounts these as environment variables at runtime. They are never written to disk or logged.
+
+---
+
+## ### 4. Operating Costs (Monthly Estimate)
+
+| Tier | Estimated Cost | Components |
 | --- | --- | --- |
-| **Stage 1 (Dry Run)** | **$0.00** | Free Finnhub + Alpaca Paper + GCP Free Tier* |
-| **Stage 2 (Production)** | **$10 - $30** | GCP Compute + IBKR Market Data Fees (Live Snapshots) |
-| **Stage 3 (Advanced)** | **$150+** | Finnhub Pro + Apify + Paid SEC Feeds |
+| **GCP Compute** | **$0 - $10** | Cloud Run (Tier 1) + Secret Manager |
+| **Market Data** | **$10 - $20** | IBKR US Equity Snapshots (~$0.01/snapshot) |
+| **Total Hurdle** | **$220+** | Monthly interest cost of $50k loan @ 5.2% |
 
-**GCP Free Tier covers the first 2 million Cloud Function invocations per month.*
+> **Surgical Note:** The bot must generate >$220 USD/month in profit just to break even against your offset account interest.
 
----
-
-## ### 4. 21:15 PM: Security Protocol
-
-* **The Mask:** All secrets listed here must be stored in **GCP Secret Manager** via Step 3 of your `setup_node.sh`.
-* **The Leak:** Never place these values in `env.yaml` or `main.py`. If a key is leaked, revoke it immediately at the source (e.g., Finnhub Dashboard) and run `03_sync_secrets.sh` to rotate the value in the cloud.
-
----
-
-[Interactive Brokers Market Data Fees](https://www.google.com/search?q=https://www.interactivebrokers.com/en/pricing/market-data-fees.php)
-This reference is critical for your transition to Stage 2, as it outlines the specific costs for US Equity snapshot data (typically ~$0.01 per request), allowing you to budget for your live Nasdaq actuator.
