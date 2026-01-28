@@ -16,6 +16,25 @@ INITIAL_CAPITAL_USD = 50000.0
 # Initialize BigQuery Client
 client = bigquery.Client()
 
+def log_watchlist_data(ticker, price, sentiment=None):
+    client = bigquery.Client()
+    table_id = "utopian-calling-429014-r9.trading_data.watchlist_logs"
+    
+    # The keys here MUST match the BigQuery column names exactly
+    rows_to_insert = [{
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "ticker": ticker,
+        "price": float(price),
+        "sentiment_score": float(sentiment) if sentiment else None
+    }]
+    
+    errors = client.insert_rows_json(table_id, rows_to_insert)
+    
+    if errors:
+        print(f"❌ BigQuery Watchlist Insert Error for {ticker}: {errors}")
+    else:
+        print(f"✅ Logged {ticker} to watchlist.")
+
 def log_performance(paper_equity, fx_rate_aud):
     """
     Surgically calculates tax and hurdle metrics before logging to BigQuery.
