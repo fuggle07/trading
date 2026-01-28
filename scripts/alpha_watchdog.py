@@ -7,7 +7,7 @@ from google.cloud import bigquery
 # CONFIGURATION
 PROJECT_ID = "utopian-calling-429014-r9"
 ALPHA_THRESHOLD = -5.00
-NTFY_TOPIC = "aberfeldie_trading_alerts"
+NTFY_TOPIC = "aberfeldie_trading_alerts_987"
 
 def is_market_open():
     """Checks if the Nasdaq is currently in regular trading hours."""

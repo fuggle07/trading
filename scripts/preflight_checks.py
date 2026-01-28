@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 # CONFIGURATION
-NTFY_TOPIC = "aberfeldie_trading_alerts"
+NTFY_TOPIC = "aberfeldie_trading_alerts_987"
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 TF_DIR = SCRIPT_DIR.parent / "terraform"
