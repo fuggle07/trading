@@ -72,6 +72,10 @@ resource "google_cloud_run_v2_service" "trading_bot" {
       image = "us-central1-docker.pkg.dev/${var.project_id}/trading-node-repo/trading-bot:latest"
       
       env {
+        name  = "PROJECT_ID"
+        value = var.project_id
+      }
+      env {
         name = "FINNHUB_KEY"
         value_source {
           secret_key_ref {
