@@ -31,17 +31,18 @@ resource "google_bigquery_dataset" "trading_data" {
 resource "google_bigquery_table" "performance_logs" {
   dataset_id          = google_bigquery_dataset.trading_data.dataset_id
   table_id            = "performance_logs"
-  deletion_protection = false 
+  deletion_protection = false # Keeping this false while we iterate on the schema
 
   schema = <<EOF
 [
   {"name": "timestamp", "type": "TIMESTAMP", "mode": "REQUIRED"},
   {"name": "paper_equity", "type": "FLOAT", "mode": "REQUIRED"},
-  {"name": "index_price", "type": "FLOAT", "mode": "REQUIRED"},
+  {"name": "tax_buffer_usd", "type": "FLOAT", "mode": "REQUIRED"},
   {"name": "fx_rate_aud", "type": "FLOAT", "mode": "REQUIRED"},
-  {"name": "brokerage_fees_usd", "type": "FLOAT", "mode": "NULLABLE"},
-  {"name": "opportunity_cost_aud", "type": "FLOAT", "mode": "NULLABLE"},
-  {"name": "node_id", "type": "STRING", "mode": "NULLABLE"}
+  {"name": "daily_hurdle_aud", "type": "FLOAT", "mode": "REQUIRED"},
+  {"name": "net_alpha_usd", "type": "FLOAT", "mode": "REQUIRED"},
+  {"name": "node_id", "type": "STRING", "mode": "NULLABLE"},
+  {"name": "recommendation", "type": "STRING", "mode": "NULLABLE"}
 ]
 EOF
 }

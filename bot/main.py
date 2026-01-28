@@ -1,66 +1,72 @@
-# bot/main.py - Refactored for IBKR Auth & Hurdle Logic
-import asyncio
 import os
-import aiohttp
 import logging
-from datetime import datetime, timezone
+import asyncio
+import httpx
+from datetime import datetime
+from flask import Flask, jsonify
+from google.cloud import bigquery
 
-# Surgical Tier Imports
-from .telemetry import log_performance
-from .verification import get_hard_proof
-
+# 1. SETUP
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("AberfeldieNode")
+logger = logging.getLogger(__name__)
+app = Flask(__name__)
+bq_client = bigquery.Client()
 
-TICKERS = os.getenv("BASE_TICKERS", "NVDA,AAPL,TSLA,MSFT,AMD").split(",")
+# 2. AUDIT CONSTANTS
+HOME_LOAN_RATE = 0.052  # 5.2% Hurdle
+TAX_RESERVE_RATE = 0.30 # 30% CGT Estimate for Australia
+INITIAL_CAPITAL_USD = 50000.0
 
-def parse_ibkr_creds():
-    """Surgically parses the colon-separated IBKR secret."""
-    raw_key = os.getenv("IBKR_KEY", "")
-    if ":" in raw_key:
-        user, pwd = raw_key.split(":", 1)
-        return user, pwd
-    logger.warning({"event": "ibkr_auth_invalid", "msg": "Using default or empty creds"})
-    return None, None
-
-async def get_usd_aud_rate():
-    """Fetches the USD to AUD exchange rate."""
-    url = "https://api.frankfurter.dev/v1/latest?base=USD&symbols=AUD"
+@app.route("/run-audit", methods=["POST"])
+def run_audit():
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url, timeout=5) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    return float(data['rates']['AUD'])
-                return 1.52
-    except Exception:
-        return 1.52
+        # A. Async Data Fetch: FX Rate & Market Context
+        # We need the current AUD/USD to calculate the offset value accurately
+        fx_rate = asyncio.run(get_fx_rate()) 
+        
+        # B. Mock: Get Current Portfolio Value from IBKR (Placeholder for actual API call)
+        # In a real run, you'd use your parsed IBKR_KEY here
+        current_equity_usd = 51250.0 # Example: $1,250 profit
+        
+        # C. TAX TELEMETRY
+        total_profit_usd = current_equity_usd - INITIAL_CAPITAL_USD
+        tax_buffer_usd = max(0, total_profit_usd * TAX_RESERVE_RATE)
+        post_tax_equity_usd = current_equity_usd - tax_buffer_usd
+        
+        # D. HURDLE TELEMETRY (The "Aberfeldie Constraint")
+        # How much interest would that money have saved you in the offset account?
+        # daily_hurdle = (Principal * Rate) / 365
+        daily_hurdle_aud = (INITIAL_CAPITAL_USD * fx_rate * HOME_LOAN_RATE) / 365
+        
+        # E. LOG TO BIGQUERY
+        table_id = f"{os.environ.get('PROJECT_ID')}.trading_data.performance_logs"
+        audit_row = {
+            "timestamp": datetime.utcnow().isoformat(),
+            "paper_equity": current_equity_usd,
+            "tax_buffer_usd": tax_buffer_usd,
+            "fx_rate_aud": fx_rate,
+            "daily_hurdle_aud": daily_hurdle_aud,
+            "net_alpha_usd": total_profit_usd - (tax_buffer_usd / fx_rate) # Simplified
+        }
+        
+        # bq_client.insert_rows_json(table_id, [audit_row])
+        
+        return jsonify({
+            "status": "audited",
+            "metrics": audit_row,
+            "recommendation": "HOLD" if audit_row['net_alpha_usd'] > 0 else "LIQUIDATE_TO_OFFSET"
+        }), 200
 
-async def main_handler(request=None):
-    """Main Entry Point: Hurdle & Secret Aware."""
-    
-    # 1. Parse Secrets & Sensors
-    ibkr_user, _ = parse_ibkr_creds() # Password kept in memory only
-    fx_rate = await get_usd_aud_rate()
-    
-    # 2. Execute Ticker Audits (TaskGroup for 2026 concurrency standards)
-    async with asyncio.TaskGroup() as tg:
-        for ticker in TICKERS:
-            logger.info({"event": "audit_queued", "ticker": ticker})
-            # Audit logic here...
+    except Exception as e:
+        logger.error(f"Audit engine failure: {e}")
+        return jsonify({"error": str(e)}), 500
 
-    # 3. Tax & Hurdle Telemetry
-    # These will be replaced by live broker calls in the next iteration
-    sim_equity = 100000.00
-    sim_index = 505.20 
-    
-    log_performance(
-        paper_equity=sim_equity, 
-        index_price=sim_index, 
-        fx_rate_aud=fx_rate,
-        capital_usd=float(os.getenv("CAPITAL_USD", 50000.0)),
-        hurdle_rate=float(os.getenv("MORTGAGE_HURDLE_RATE", 0.052))
-    )
-    
-    return f"Audit Complete. Node: {ibkr_user}", 200
+async def get_fx_rate():
+    async with httpx.AsyncClient() as client:
+        r = await client.get("https://api.frankfurter.app/latest?from=USD&to=AUD")
+        return r.json().get("rates", {}).get("AUD", 1.55)
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
 
