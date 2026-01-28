@@ -4,3 +4,7 @@ secrets.json
 *.tfstate
 __pycache__/
 .venv/
+terraform/.terraform/
+*.tfstate.backup
+.terraform.lock.hcl
+secrets.sh

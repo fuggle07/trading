@@ -81,4 +81,25 @@ resource "google_cloud_run_v2_service" "trading_bot" {
     }
   }
 }
+# 1. ALLOW BOT TO RUN BIGQUERY JOBS (Project Level)
+resource "google_project_iam_member" "bq_job_user" {
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.bot_sa.email}"
+}
+
+# 2. ALLOW BOT TO EDIT DATA IN THE DATASET (Dataset Level)
+resource "google_bigquery_dataset_iam_member" "bq_data_editor" {
+  dataset_id = google_bigquery_dataset.trading_data.dataset_id
+  role       = "roles/bigquery.dataEditor"
+  member     = "serviceAccount:${google_service_account.bot_sa.email}"
+}
+
+# 3. SECRET ACCESS (Re-confirming for completeness)
+resource "google_secret_manager_secret_iam_member" "secret_access" {
+  for_each  = toset(["FINNHUB_KEY", "IBKR_KEY", "APIFY_TOKEN"])
+  secret_id = each.key
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.bot_sa.email}"
+}
 
