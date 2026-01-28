@@ -1,0 +1,565 @@
+{
+  "version": 4,
+  "terraform_version": "1.10.5",
+  "serial": 73,
+  "lineage": "2f826e4f-664b-ae4d-6bd5-b778bd3e68a6",
+  "outputs": {},
+  "resources": [
+    {
+      "mode": "managed",
+      "type": "google_artifact_registry_repository",
+      "name": "repo",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "cleanup_policies": [],
+            "cleanup_policy_dry_run": false,
+            "create_time": "2026-01-28T00:38:59.951255Z",
+            "description": "",
+            "docker_config": [],
+            "effective_labels": {
+              "goog-terraform-provisioned": "true"
+            },
+            "format": "DOCKER",
+            "id": "projects/utopian-calling-429014-r9/locations/us-central1/repositories/trading-node-repo",
+            "kms_key_name": "",
+            "labels": null,
+            "location": "us-central1",
+            "maven_config": [],
+            "mode": "STANDARD_REPOSITORY",
+            "name": "trading-node-repo",
+            "project": "utopian-calling-429014-r9",
+            "registry_uri": "us-central1-docker.pkg.dev/utopian-calling-429014-r9/trading-node-repo",
+            "remote_repository_config": [],
+            "repository_id": "trading-node-repo",
+            "terraform_labels": {
+              "goog-terraform-provisioned": "true"
+            },
+            "timeouts": null,
+            "update_time": "2026-01-28T00:38:59.951255Z",
+            "virtual_repository_config": [],
+            "vulnerability_scanning_config": [
+              {
+                "enablement_config": "",
+                "enablement_state": "SCANNING_DISABLED",
+                "enablement_state_reason": "API containerscanning.googleapis.com is not enabled."
+              }
+            ]
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19"
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "google_bigquery_dataset",
+      "name": "trading_data",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "access": [
+              {
+                "condition": [],
+                "dataset": [],
+                "domain": "",
+                "group_by_email": "",
+                "iam_member": "",
+                "role": "OWNER",
+                "routine": [],
+                "special_group": "",
+                "user_by_email": "pfuggle@gmail.com",
+                "view": []
+              },
+              {
+                "condition": [],
+                "dataset": [],
+                "domain": "",
+                "group_by_email": "",
+                "iam_member": "",
+                "role": "OWNER",
+                "routine": [],
+                "special_group": "projectOwners",
+                "user_by_email": "",
+                "view": []
+              },
+              {
+                "condition": [],
+                "dataset": [],
+                "domain": "",
+                "group_by_email": "",
+                "iam_member": "",
+                "role": "READER",
+                "routine": [],
+                "special_group": "projectReaders",
+                "user_by_email": "",
+                "view": []
+              },
+              {
+                "condition": [],
+                "dataset": [],
+                "domain": "",
+                "group_by_email": "",
+                "iam_member": "",
+                "role": "WRITER",
+                "routine": [],
+                "special_group": "projectWriters",
+                "user_by_email": "",
+                "view": []
+              }
+            ],
+            "creation_time": 1769560738724,
+            "dataset_id": "trading_data",
+            "default_collation": "",
+            "default_encryption_configuration": [],
+            "default_partition_expiration_ms": 0,
+            "default_table_expiration_ms": 0,
+            "delete_contents_on_destroy": false,
+            "description": "",
+            "effective_labels": {
+              "goog-terraform-provisioned": "true"
+            },
+            "etag": "4Q1ZwIRMuusAlnrx7ujS2Q==",
+            "external_catalog_dataset_options": [],
+            "external_dataset_reference": [],
+            "friendly_name": "Aberfeldie Trading Analytics",
+            "id": "projects/utopian-calling-429014-r9/datasets/trading_data",
+            "is_case_insensitive": false,
+            "labels": null,
+            "last_modified_time": 1769560738724,
+            "location": "us-central1",
+            "max_time_travel_hours": "168",
+            "project": "utopian-calling-429014-r9",
+            "resource_tags": null,
+            "self_link": "https://bigquery.googleapis.com/bigquery/v2/projects/utopian-calling-429014-r9/datasets/trading_data",
+            "storage_billing_model": "",
+            "terraform_labels": {
+              "goog-terraform-provisioned": "true"
+            },
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19"
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "google_bigquery_table",
+      "name": "performance_logs",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "biglake_configuration": [],
+            "clustering": null,
+            "creation_time": 1769560739496,
+            "dataset_id": "trading_data",
+            "deletion_protection": false,
+            "description": "",
+            "effective_labels": {
+              "goog-terraform-provisioned": "true"
+            },
+            "encryption_configuration": [],
+            "etag": "7phsV5CIpNfwDOPJZUIbdg==",
+            "expiration_time": 0,
+            "external_catalog_table_options": [],
+            "external_data_configuration": [],
+            "friendly_name": "",
+            "generated_schema_columns": "",
+            "id": "projects/utopian-calling-429014-r9/datasets/trading_data/tables/performance_logs",
+            "ignore_auto_generated_schema": false,
+            "ignore_schema_changes": null,
+            "labels": null,
+            "last_modified_time": 1769560739627,
+            "location": "us-central1",
+            "materialized_view": [],
+            "max_staleness": "",
+            "num_bytes": 0,
+            "num_long_term_bytes": 0,
+            "num_rows": 0,
+            "project": "utopian-calling-429014-r9",
+            "range_partitioning": [],
+            "require_partition_filter": false,
+            "resource_tags": null,
+            "schema": "[{\"mode\":\"REQUIRED\",\"name\":\"timestamp\",\"type\":\"TIMESTAMP\"},{\"mode\":\"REQUIRED\",\"name\":\"paper_equity\",\"type\":\"FLOAT\"},{\"mode\":\"REQUIRED\",\"name\":\"index_price\",\"type\":\"FLOAT\"},{\"mode\":\"REQUIRED\",\"name\":\"fx_rate_aud\",\"type\":\"FLOAT\"},{\"mode\":\"NULLABLE\",\"name\":\"brokerage_fees_usd\",\"type\":\"FLOAT\"},{\"mode\":\"NULLABLE\",\"name\":\"opportunity_cost_aud\",\"type\":\"FLOAT\"},{\"mode\":\"NULLABLE\",\"name\":\"node_id\",\"type\":\"STRING\"}]",
+            "schema_foreign_type_info": [],
+            "self_link": "https://bigquery.googleapis.com/bigquery/v2/projects/utopian-calling-429014-r9/datasets/trading_data/tables/performance_logs",
+            "table_constraints": [],
+            "table_id": "performance_logs",
+            "table_metadata_view": null,
+            "table_replication_info": [],
+            "terraform_labels": {
+              "goog-terraform-provisioned": "true"
+            },
+            "time_partitioning": [],
+            "type": "TABLE",
+            "view": []
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA==",
+          "dependencies": [
+            "google_bigquery_dataset.trading_data"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "google_cloud_run_v2_service",
+      "name": "trading_bot",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": [
+        {
+          "status": "tainted",
+          "schema_version": 0,
+          "attributes": {
+            "annotations": {},
+            "binary_authorization": [],
+            "build_config": [],
+            "client": "",
+            "client_version": "",
+            "conditions": [
+              {
+                "execution_reason": "",
+                "last_transition_time": "2026-01-28T00:02:40.881775Z",
+                "message": "Image 'us-central1-docker.pkg.dev/utopian-calling-429014-r9/trading-node-repo/trading-bot:latest' not found.",
+                "reason": "REVISION_FAILED",
+                "revision_reason": "",
+                "severity": "",
+                "state": "CONDITION_FAILED",
+                "type": "RoutesReady"
+              },
+              {
+                "execution_reason": "",
+                "last_transition_time": "2026-01-28T00:02:40.150094Z",
+                "message": "Image 'us-central1-docker.pkg.dev/utopian-calling-429014-r9/trading-node-repo/trading-bot:latest' not found.",
+                "reason": "",
+                "revision_reason": "",
+                "severity": "",
+                "state": "CONDITION_FAILED",
+                "type": "ConfigurationsReady"
+              }
+            ],
+            "create_time": "2026-01-28T00:02:39.715164Z",
+            "creator": "pfuggle@gmail.com",
+            "custom_audiences": [],
+            "default_uri_disabled": false,
+            "delete_time": "",
+            "deletion_protection": true,
+            "description": "",
+            "effective_annotations": {},
+            "effective_labels": {
+              "goog-terraform-provisioned": "true"
+            },
+            "etag": "\"CJ-k5csGEOCSgtUC/cHJvamVjdHMvdXRvcGlhbi1jYWxsaW5nLTQyOTAxNC1yOS9sb2NhdGlvbnMvdXMtY2VudHJhbDEvc2VydmljZXMvdHJhZGluZy1hdWRpdC1hZ2VudA\"",
+            "expire_time": "",
+            "generation": "1",
+            "id": "projects/utopian-calling-429014-r9/locations/us-central1/services/trading-audit-agent",
+            "ingress": "INGRESS_TRAFFIC_ALL",
+            "invoker_iam_disabled": false,
+            "labels": {},
+            "last_modifier": "pfuggle@gmail.com",
+            "latest_created_revision": "projects/utopian-calling-429014-r9/locations/us-central1/services/trading-audit-agent/revisions/trading-audit-agent-00001-kxb",
+            "latest_ready_revision": "",
+            "launch_stage": "GA",
+            "location": "us-central1",
+            "multi_region_settings": [],
+            "name": "trading-audit-agent",
+            "observed_generation": "1",
+            "project": "utopian-calling-429014-r9",
+            "reconciling": false,
+            "scaling": [
+              {
+                "manual_instance_count": 0,
+                "max_instance_count": 20,
+                "min_instance_count": 0,
+                "scaling_mode": ""
+              }
+            ],
+            "template": [
+              {
+                "annotations": {},
+                "containers": [
+                  {
+                    "args": [],
+                    "base_image_uri": "",
+                    "build_info": [],
+                    "command": [],
+                    "depends_on": [],
+                    "env": [
+                      {
+                        "name": "FINNHUB_KEY",
+                        "value": "",
+                        "value_source": [
+                          {
+                            "secret_key_ref": [
+                              {
+                                "secret": "FINNHUB_KEY",
+                                "version": "latest"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ],
+                    "image": "us-central1-docker.pkg.dev/utopian-calling-429014-r9/trading-node-repo/trading-bot:latest",
+                    "liveness_probe": [],
+                    "name": "",
+                    "ports": [
+                      {
+                        "container_port": 8080,
+                        "name": "http1"
+                      }
+                    ],
+                    "resources": [
+                      {
+                        "cpu_idle": true,
+                        "limits": {
+                          "cpu": "1000m",
+                          "memory": "512Mi"
+                        },
+                        "startup_cpu_boost": false
+                      }
+                    ],
+                    "startup_probe": [
+                      {
+                        "failure_threshold": 1,
+                        "grpc": [],
+                        "http_get": [],
+                        "initial_delay_seconds": 0,
+                        "period_seconds": 240,
+                        "tcp_socket": [
+                          {
+                            "port": 8080
+                          }
+                        ],
+                        "timeout_seconds": 240
+                      }
+                    ],
+                    "volume_mounts": [],
+                    "working_dir": ""
+                  }
+                ],
+                "encryption_key": "",
+                "execution_environment": "",
+                "gpu_zonal_redundancy_disabled": false,
+                "health_check_disabled": false,
+                "labels": {},
+                "max_instance_request_concurrency": 80,
+                "node_selector": [],
+                "revision": "",
+                "scaling": [],
+                "service_account": "trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
+                "session_affinity": false,
+                "timeout": "300s",
+                "volumes": [],
+                "vpc_access": []
+              }
+            ],
+            "terminal_condition": [
+              {
+                "execution_reason": "",
+                "last_transition_time": "2026-01-28T00:02:40.881775Z",
+                "message": "Image 'us-central1-docker.pkg.dev/utopian-calling-429014-r9/trading-node-repo/trading-bot:latest' not found.",
+                "reason": "REVISION_FAILED",
+                "revision_reason": "",
+                "severity": "",
+                "state": "CONDITION_FAILED",
+                "type": "Ready"
+              }
+            ],
+            "terraform_labels": {
+              "goog-terraform-provisioned": "true"
+            },
+            "timeouts": null,
+            "traffic": [
+              {
+                "percent": 100,
+                "revision": "",
+                "tag": "",
+                "type": "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
+              }
+            ],
+            "traffic_statuses": [],
+            "uid": "d05aff01-4982-4d08-b407-2be7bf1e93de",
+            "update_time": "2026-01-28T00:02:39.715164Z",
+            "uri": "",
+            "urls": [
+              "https://trading-audit-agent-848550797370.us-central1.run.app"
+            ]
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19",
+          "dependencies": [
+            "google_service_account.bot_sa"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "google_secret_manager_secret",
+      "name": "secrets",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": [
+        {
+          "index_key": "APIFY_TOKEN",
+          "schema_version": 0,
+          "attributes": {
+            "annotations": null,
+            "create_time": "2026-01-28T00:38:58.428111Z",
+            "deletion_protection": false,
+            "effective_annotations": {},
+            "effective_labels": {
+              "goog-terraform-provisioned": "true"
+            },
+            "expire_time": "",
+            "id": "projects/utopian-calling-429014-r9/secrets/APIFY_TOKEN",
+            "labels": null,
+            "name": "projects/848550797370/secrets/APIFY_TOKEN",
+            "project": "utopian-calling-429014-r9",
+            "replication": [
+              {
+                "auto": [
+                  {
+                    "customer_managed_encryption": []
+                  }
+                ],
+                "user_managed": []
+              }
+            ],
+            "rotation": [],
+            "secret_id": "APIFY_TOKEN",
+            "tags": null,
+            "terraform_labels": {
+              "goog-terraform-provisioned": "true"
+            },
+            "timeouts": null,
+            "topics": [],
+            "ttl": null,
+            "version_aliases": null,
+            "version_destroy_ttl": ""
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19"
+        },
+        {
+          "index_key": "FINNHUB_KEY",
+          "schema_version": 0,
+          "attributes": {
+            "annotations": null,
+            "create_time": "2026-01-28T00:38:58.426217Z",
+            "deletion_protection": false,
+            "effective_annotations": {},
+            "effective_labels": {
+              "goog-terraform-provisioned": "true"
+            },
+            "expire_time": "",
+            "id": "projects/utopian-calling-429014-r9/secrets/FINNHUB_KEY",
+            "labels": null,
+            "name": "projects/848550797370/secrets/FINNHUB_KEY",
+            "project": "utopian-calling-429014-r9",
+            "replication": [
+              {
+                "auto": [
+                  {
+                    "customer_managed_encryption": []
+                  }
+                ],
+                "user_managed": []
+              }
+            ],
+            "rotation": [],
+            "secret_id": "FINNHUB_KEY",
+            "tags": null,
+            "terraform_labels": {
+              "goog-terraform-provisioned": "true"
+            },
+            "timeouts": null,
+            "topics": [],
+            "ttl": null,
+            "version_aliases": null,
+            "version_destroy_ttl": ""
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19"
+        },
+        {
+          "index_key": "IBKR_KEY",
+          "schema_version": 0,
+          "attributes": {
+            "annotations": null,
+            "create_time": "2026-01-28T00:38:58.423167Z",
+            "deletion_protection": false,
+            "effective_annotations": {},
+            "effective_labels": {
+              "goog-terraform-provisioned": "true"
+            },
+            "expire_time": "",
+            "id": "projects/utopian-calling-429014-r9/secrets/IBKR_KEY",
+            "labels": null,
+            "name": "projects/848550797370/secrets/IBKR_KEY",
+            "project": "utopian-calling-429014-r9",
+            "replication": [
+              {
+                "auto": [
+                  {
+                    "customer_managed_encryption": []
+                  }
+                ],
+                "user_managed": []
+              }
+            ],
+            "rotation": [],
+            "secret_id": "IBKR_KEY",
+            "tags": null,
+            "terraform_labels": {
+              "goog-terraform-provisioned": "true"
+            },
+            "timeouts": null,
+            "topics": [],
+            "ttl": null,
+            "version_aliases": null,
+            "version_destroy_ttl": ""
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19"
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "google_service_account",
+      "name": "bot_sa",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "account_id": "trading-bot-executor",
+            "create_ignore_already_exists": null,
+            "description": "",
+            "disabled": false,
+            "display_name": "Trading Bot Service Account",
+            "email": "trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
+            "id": "projects/utopian-calling-429014-r9/serviceAccounts/trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
+            "member": "serviceAccount:trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
+            "name": "projects/utopian-calling-429014-r9/serviceAccounts/trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
+            "project": "utopian-calling-429014-r9",
+            "timeouts": null,
+            "unique_id": "102418633277808809739"
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjozMDAwMDAwMDAwMDB9fQ=="
+        }
+      ]
+    }
+  ],
+  "check_results": null
+}

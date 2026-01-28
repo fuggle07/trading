@@ -1,72 +1,60 @@
 #!/bin/bash
-# setup_node.sh - Version 3.0 (Tax & Hurdle Aware)
-# Directive: Full system initialization of the Aberfeldie Node.
+# setup_node.sh - Master Orchestrator v4.1 (Aberfeldie Secure Edition)
+set -e
 
-set -e # Terminate immediately if any step fails.
-# EXPORT PATH TO SUBSHELLS
+# 0. SECURITY MASKING (Enforce .gitignore)
+echo "--- 🛡️  STEP 0: ENFORCING SECURITY MASKING ---"
+GITIGNORE_PATH=".gitignore"
+declare -a PROTECTED_FILES=(
+  "terraform/.terraform/"
+  "*.tfstate"
+  "*.tfstate.backup"
+  ".terraform.lock.hcl"
+  "env.yaml"
+  ".env"
+  "secrets.sh"
+)
+
+for file in "${PROTECTED_FILES[@]}"; do
+  if ! grep -qxF "$file" "$GITIGNORE_PATH" 2>/dev/null; then
+    echo "Masking $file..."
+    echo "$file" >> "$GITIGNORE_PATH"
+  fi
+done
+
+# 1. BOOTSTRAP ENVIRONMENT
 export PATH="$HOME/.tfenv/bin:$PATH"
-echo "--- 🛠️  ABERFELDIE NODE: STARTING FULL INITIALIZATION ---"
+PROJECT_ID=$(gcloud config get-value project)
+REGION="us-central1"
+REPO_NAME="trading-node-repo"
+IMAGE_NAME="trading-bot"
+FULL_IMAGE_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/$IMAGE_NAME:latest"
 
-# --- STEP -2: SECURITY MASKING ---
-# Ensures your "Nuclear Codes" (env.yaml, .env) are never uploaded to GCP.
-echo "[Step -2] Regenerating Security Masks..."
-cat <<EOF > .gitignore
-.env
-env.yaml
-secrets.json
-*.tfstate
-__pycache__/
-.venv/
-EOF
+echo "--- 🚀 STARTING SECURE DEPLOYMENT ---"
 
-cat <<EOF > .gcloudignore
-#!include:.gitignore
-.git/
-terraform/
-scripts/
-EOF
-echo "✅ Security masks verified."
+# 2. DEPENDENCY & AUTH CHECK
+gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
 
-# --- STEP -1: DEPENDENCY AUDIT ---
-# Checks for gcloud and terraform, triggering the installer if missing.
-echo "[Step -1] Auditing Local Environment..."
-if ! command -v gcloud &> /dev/null || ! command -v terraform &> /dev/null; then
-    echo "⚠️  Missing core tools. Executing dependency actuator..."
-    chmod +x ./scripts/install_dependencies.sh
-    ./scripts/install_dependencies.sh
-else
-    echo "✅ System tools verified."
-fi
+# 3. INFRASTRUCTURE PHASE A (Registry & Storage)
+echo "Deploying Base Infrastructure..."
+cd terraform
+terraform init
+terraform apply -target=google_artifact_registry_repository.repo -target=google_bigquery_dataset.trading_data -auto-approve
+cd ..
 
-# --- STEP 0: SYNC LOGISTICS ---
-# Populates env.yaml with your 5.2% mortgage hurdle and capital targets.
-echo "[Step 0] Syncing Financial Parameters..."
-chmod +x ./scripts/05_sync_env.sh
+# 4. SOFTWARE PHASE (Build & Push)
+echo "Building and Pushing Docker Image..."
+docker buildx build -t "$FULL_IMAGE_PATH" ./bot --load
+docker push "$FULL_IMAGE_PATH"
+
+# 5. INFRASTRUCTURE PHASE B (Compute & Secrets)
+echo "Finalizing Infrastructure Deployment..."
+cd terraform
+terraform apply -auto-approve
+cd ..
+
+# 6. SECRET & ENV SYNC
+./scripts/03_sync_secrets.sh
 ./scripts/05_sync_env.sh
 
-# --- STEP 1: DEPLOY HARDWARE ---
-# Provisions the unified BigQuery table with tax and FX fields.
-echo "[Step 1] Initializing Unified Infrastructure Tier..."
-chmod +x ./scripts/01_deploy_infra.sh
-./scripts/01_deploy_infra.sh
-
-# --- STEP 2: HARDEN IDENTITY ---
-# Grants the DataEditor role so the bot can write to your new table.
-echo "[Step 2] Hardening IAM & Permissions..."
-chmod +x ./scripts/02_harden_iam.sh
-./scripts/02_harden_iam.sh
-
-# --- STEP 3: PAYLOAD INJECTION ---
-# Securely injects Finnhub, IBKR, and Apify keys.
-echo "[Step 3] Synchronizing Secrets..."
-chmod +x ./scripts/03_sync_secrets.sh
-./scripts/03_sync_secrets.sh
-
-# --- STEP 4: DEPLOY LOGIC ---
-# Compiles and deploys the Python 3.13 bot to Cloud Run.
-echo "[Step 4] Deploying Logic Tier..."
-chmod +x ./scripts/04_deploy_bot.sh
-./scripts/04_deploy_bot.sh
-
-echo "--- ✨ SYSTEM INITIALIZATION SUCCESSFUL ---"
-
+echo "--- ✅ DEPLOYMENT COMPLETE: ABERFELDIE NODE IS SECURE & LIVE ---"
