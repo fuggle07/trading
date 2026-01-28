@@ -55,11 +55,18 @@ async def run_audit():
         current_price = float(price_data.get('c', 0))
         aud_usd_rate = float(fx_data.get('c', 0.65))
         
-        # Parse Sentiment
-        reddit = sentiment_data.get('reddit', [{}])[-1]
-        twitter = sentiment_data.get('twitter', [{}])[-1]
-        avg_sentiment = (reddit.get('sentiment', 0.5) + twitter.get('sentiment', 0.5)) / 2
-        mention_vol = reddit.get('mention', 0) + twitter.get('mention', 0)
+        # Parse Sentiment safely
+        reddit_list = sentiment_data.get('reddit', [])
+        twitter_list = sentiment_data.get('twitter', [])
+        
+        # Use last entry if exists, else default to neutral (0.5)
+        reddit_sent = reddit_list[-1].get('sentiment', 0.5) if reddit_list else 0.5
+        twitter_sent = twitter_list[-1].get('sentiment', 0.5) if twitter_list else 0.5
+        reddit_vol = reddit_list[-1].get('mention', 0) if reddit_list else 0
+        twitter_vol = twitter_list[-1].get('mention', 0) if twitter_list else 0
+        
+        avg_sentiment = (reddit_sent + twitter_sent) / 2
+        mention_vol = reddit_vol + twitter_vol
 
         # 3. Log Performance (The "Aberfeldie Alpha")
         shadow_equity = current_price * SIMULATED_SHARES
