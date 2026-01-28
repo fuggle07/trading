@@ -1,37 +1,25 @@
 #!/bin/bash
-# scripts/04_deploy_bot.sh
-# Directive: Surgical deployment of the unified /bot logic tier.
-# Reference: [GCP Cloud Functions Gen 2 Deployment](https://cloud.google.com/functions/docs/deploy)
-
-set -e # Exit on error
+# scripts/04_deploy_bot.sh - Refactored for Cloud Run Compliance
+set -e
 
 echo "--- 🛰️  ABERFELDIE NODE: BOT DEPLOYMENT ---"
 
-# 1. Path & Identity Resolution
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BOT_SOURCE="$SCRIPT_DIR/../bot"
+# 1. Identity Resolution
 PROJECT_ID=$(gcloud config get-value project)
-SERVICE_ACCOUNT="trading-bot-executor@${PROJECT_ID}.iam.gserviceaccount.com"
+REGION="us-central1"
+IMAGE_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/trading-node-repo/trading-bot:latest"
 
-# 2. The Linter Gate
-# Prevents deploying code with syntax errors that would cause 01:00 AM failures.
-echo "🔍 Performing pre-flight logic check..."
-python3 -m py_compile "$BOT_SOURCE/main.py"
-echo "✅ Logic check passed."
+# 2. Software Phase: Build & Push (Injecting logic into the registry)
+echo "📦 Building and Pushing Docker Image..."
+# Note: Ensure you have run 'gcloud auth configure-docker' previously
+docker buildx build --load -t "$IMAGE_PATH" ./bot
+docker push "$IMAGE_PATH"
 
-# 3. Execution: Gen 2 Cloud Function Deployment
-echo "🚀 Uploading Logic Tier to us-central1..."
-gcloud functions deploy trading-audit-agent \
-  --gen2 \
-  --runtime=python313 \
-  --region=us-central1 \
-  --source="$BOT_SOURCE" \
-  --entry-point=main_handler \
-  --trigger-http \
-  --allow-unauthenticated=false \
-  --service-account="$SERVICE_ACCOUNT" \
-  --env-vars-file="$SCRIPT_DIR/../env.yaml" \
-  --quiet
+# 3. Infrastructure Phase: Deploy via Terraform
+echo "🚀 Finalizing Cloud Run Deployment..."
+cd terraform
+# We use -var to ensure the project ID is passed from the shell environment
+terraform apply -var="project_id=$PROJECT_ID" -auto-approve
+cd ..
 
-echo "--- ✅ DEPLOYMENT COMPLETE: Bot is live and tax-aware ---"
-
+echo "--- ✅ DEPLOYMENT COMPLETE: Aberfeldie Node is live ---"

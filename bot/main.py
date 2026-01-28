@@ -1,3 +1,4 @@
+# bot/main.py
 import os
 import logging
 import asyncio
@@ -6,39 +7,37 @@ from datetime import datetime
 from flask import Flask, jsonify
 from google.cloud import bigquery
 
-# 1. SETUP
+# SETUP
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-app = Flask(__name__)
+app = Flask(__name__) # This 'app' object is the entry point for Gunicorn
 bq_client = bigquery.Client()
 
-# 2. AUDIT CONSTANTS
-HOME_LOAN_RATE = 0.052  # 5.2% Hurdle
-TAX_RESERVE_RATE = 0.30 # 30% CGT Estimate for Australia
+# AUDIT CONSTANTS (Hurdle: 5.2% Offset Account)
+HOME_LOAN_RATE = 0.052  
+TAX_RESERVE_RATE = 0.30 
 INITIAL_CAPITAL_USD = 50000.0
+
+@app.route("/")
+def health_check():
+    """Health check for Cloud Run lifecycle management."""
+    return "Aberfeldie Trading Node: Operational", 200
 
 @app.route("/run-audit", methods=["POST"])
 def run_audit():
     try:
-        # A. Async Data Fetch: FX Rate & Market Context
-        # We need the current AUD/USD to calculate the offset value accurately
+        # A. Async Context Fetching
         fx_rate = asyncio.run(get_fx_rate()) 
         
-        # B. Mock: Get Current Portfolio Value from IBKR (Placeholder for actual API call)
-        # In a real run, you'd use your parsed IBKR_KEY here
-        current_equity_usd = 51250.0 # Example: $1,250 profit
+        # B. Trading Logic Placeholder
+        current_equity_usd = 51250.0 
         
-        # C. TAX TELEMETRY
+        # C. Hurdle & Tax Telemetry
         total_profit_usd = current_equity_usd - INITIAL_CAPITAL_USD
         tax_buffer_usd = max(0, total_profit_usd * TAX_RESERVE_RATE)
-        post_tax_equity_usd = current_equity_usd - tax_buffer_usd
-        
-        # D. HURDLE TELEMETRY (The "Aberfeldie Constraint")
-        # How much interest would that money have saved you in the offset account?
-        # daily_hurdle = (Principal * Rate) / 365
         daily_hurdle_aud = (INITIAL_CAPITAL_USD * fx_rate * HOME_LOAN_RATE) / 365
         
-        # E. LOG TO BIGQUERY
+        # D. Data Silo Injection
         table_id = f"{os.environ.get('PROJECT_ID')}.trading_data.performance_logs"
         audit_row = {
             "timestamp": datetime.utcnow().isoformat(),
@@ -46,16 +45,12 @@ def run_audit():
             "tax_buffer_usd": tax_buffer_usd,
             "fx_rate_aud": fx_rate,
             "daily_hurdle_aud": daily_hurdle_aud,
-            "net_alpha_usd": total_profit_usd - (tax_buffer_usd / fx_rate) # Simplified
+            "net_alpha_usd": total_profit_usd - (tax_buffer_usd / fx_rate)
         }
         
         # bq_client.insert_rows_json(table_id, [audit_row])
         
-        return jsonify({
-            "status": "audited",
-            "metrics": audit_row,
-            "recommendation": "HOLD" if audit_row['net_alpha_usd'] > 0 else "LIQUIDATE_TO_OFFSET"
-        }), 200
+        return jsonify({"status": "success", "metrics": audit_row}), 200
 
     except Exception as e:
         logger.error(f"Audit engine failure: {e}")
@@ -67,6 +62,7 @@ async def get_fx_rate():
         return r.json().get("rates", {}).get("AUD", 1.55)
 
 if __name__ == "__main__":
+    # Binding to 0.0.0.0 is mandatory for Cloud Run
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
 
