@@ -87,18 +87,19 @@ resource "google_cloud_run_v2_service" "trading_bot" {
     }
   }
 }
-# 1. ALLOW BOT TO RUN BIGQUERY JOBS (Project Level)
+
+# BigQuery Data Editor: Permission to insert rows
+resource "google_project_iam_member" "bq_data_editor" {
+  project = var.project_id
+  role    = "roles/bigquery.dataEditor"
+  member  = "serviceAccount:trading-bot-executor@${var.project_id}.iam.gserviceaccount.com"
+}
+
+# BigQuery Job User: Permission to run insertion jobs
 resource "google_project_iam_member" "bq_job_user" {
   project = var.project_id
   role    = "roles/bigquery.jobUser"
-  member  = "serviceAccount:${google_service_account.bot_sa.email}"
-}
-
-# 2. ALLOW BOT TO EDIT DATA IN THE DATASET (Dataset Level)
-resource "google_bigquery_dataset_iam_member" "bq_data_editor" {
-  dataset_id = google_bigquery_dataset.trading_data.dataset_id
-  role       = "roles/bigquery.dataEditor"
-  member     = "serviceAccount:${google_service_account.bot_sa.email}"
+  member  = "serviceAccount:trading-bot-executor@${var.project_id}.iam.gserviceaccount.com"
 }
 
 # 3. SECRET ACCESS (Re-confirming for completeness)
