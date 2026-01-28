@@ -15,6 +15,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy local code to the container image.
 COPY requirements.txt .
 
+# Upgrade pip
+RUN pip install --no-cache-dir --upgrade pip
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 # Install uvicorn/gunicorn for async production handling
