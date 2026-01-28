@@ -115,4 +115,9 @@ resource "google_secret_manager_secret_version" "initial_versions" {
   # Ensure permissions are granted before Cloud Run tries to read them
   depends_on = [google_secret_manager_secret_iam_member.secret_access]
 }
+# EXPOSE THE SERVICE URL FOR SCRIPTS
+output "service_url" {
+  value       = google_cloud_run_v2_service.trading_bot.uri
+  description = "The public URL of the Aberfeldie Trading Node"
+}
 
