@@ -31,7 +31,7 @@ resource "google_bigquery_dataset" "trading_data" {
 resource "google_bigquery_table" "performance_logs" {
   dataset_id          = google_bigquery_dataset.trading_data.dataset_id
   table_id            = "performance_logs"
-  deletion_protection = true 
+  deletion_protection = false 
 
   schema = <<EOF
 [
