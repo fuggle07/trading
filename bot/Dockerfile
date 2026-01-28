@@ -1,21 +1,29 @@
-# Use a high-performance, slim Python base
-FROM python:3.11-slim
+# Use the official lightweight Python image.
+FROM python:3.12-slim
 
-# Set working directory
+# Allow statements and log messages to immediately appear in the logs
+ENV PYTHONUNBUFFERED True
+
+# Set the working directory
 WORKDIR /app
 
-# Install system dependencies for ib_async
-RUN apt-get update && apt-get install -y \
+# Install system dependencies (needed for some bigquery/pandas operations)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python requirements
+# Copy local code to the container image.
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source code
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+# Install uvicorn/gunicorn for async production handling
+RUN pip install --no-cache-dir gunicorn uvicorn
+
+# Copy the rest of the application code
 COPY . .
 
-# Set entry point for GCP Cloud Functions
-CMD ["python", "main.py"]
+# Run the web service on container startup.
+# We use 1 worker with the uvicorn worker class for async compatibility
+CMD exec gunicorn --bind :$PORT --workers 1 --worker-class uvicorn.workers.UvicornWorker --threads 8 main:app
 
