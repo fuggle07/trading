@@ -3,7 +3,7 @@ FROM python:3.12-slim
 
 # Allow statements and log messages to immediately appear in the logs
 ENV PYTHONUNBUFFERED True
-
+ENV PIP_ROOT_USER_ACTION=ignore
 # Set the working directory
 WORKDIR /app
 
@@ -16,11 +16,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 
 # Upgrade pip
-RUN pip install --root-user-action --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir --upgrade pip
 # Install dependencies
-RUN pip install --root-user-action --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 # Install uvicorn/gunicorn for async production handling
-RUN pip install --root-user-action --no-cache-dir gunicorn uvicorn
+RUN pip install --no-cache-dir gunicorn uvicorn
 
 # Copy the rest of the application code
 COPY . .
