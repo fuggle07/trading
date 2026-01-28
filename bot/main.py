@@ -5,9 +5,9 @@ import httpx
 from datetime import datetime, timezone
 from flask import Flask, jsonify
 from google.cloud import bigquery
-from ib_async import IB, util
+from ib_async import IB
 
-# 1. SURGICAL FIX: Use absolute import for Cloud Run entry point
+# SURGICAL FIX: Absolute import for container entry point
 from telemetry import log_performance
 
 # SETUP & LOGGING
@@ -18,33 +18,11 @@ app = Flask(__name__)
 # Initialize BigQuery Client
 bq_client = bigquery.Client()
 
-# CONFIGURATION (Hurdle: 5.2% Offset Account)
+# CONFIGURATION (The Aberfeldie Constraint)
 PROJECT_ID = os.environ.get("PROJECT_ID", "utopian-calling-429014-r9")
-HOME_LOAN_RATE = 0.052  
-TAX_RESERVE_RATE = 0.30 
+HOME_LOAN_RATE = 0.052  # 5.2% Mortgage Hurdle
+TAX_RESERVE_RATE = 0.30 # 30% Australian CGT
 INITIAL_CAPITAL_USD = 50000.0
-
-async def fetch_ibkr_equity():
-    """
-    Actuator: Connects to IBKR TWS/Gateway to fetch Net Liquidation Value.
-    """
-    ib = IB()
-    try:
-        # Connect to your local gateway or the specified host
-        # Default port for TWS Paper is 7497, Gateway Paper is 4002
-        await ib.connectAsync('127.0.0.1', 4002, clientId=1)
-        
-        # Fetch account summary
-        summary = await ib.accountSummaryAsync()
-        
-        # Surgical extraction of Net Liquidation Value (Total Equity)
-        net_liq = next((item.value for item in summary if item.tag == 'NetLiquidation'), 50000.0)
-        
-        await ib.disconnectAsync()
-        return float(net_liq)
-    except Exception as e:
-        logger.error(f"IBKR Actuator Failure: {e}")
-        return 50000.0  # Safe fallback to prevent audit crash
 
 @app.route("/")
 def health_check():
@@ -54,22 +32,22 @@ def health_check():
 @app.route("/run-audit", methods=["POST"])
 def run_audit():
     try:
-        # A. Context Fetching (Concurrent FX Poll for AUD/USD)
-        fx_rate = asyncio.run(get_fx_rate())
+        # 1. Concurrent Context Gathering (FX and IBKR Equity)
+        # Managed via internal event loop for Flask compatibility
+        fx_rate, current_equity_usd = asyncio.run(gather_audit_context())
         
-        # B. Trading Logic Placeholder (Mock Equity for Audit)
-        current_equity_usd = 51250.0 
-        
-        # C. Hurdle & Tax Telemetry Calculations
+        # 2. Hurdle & Tax Telemetry Calculations
         total_profit_usd = current_equity_usd - INITIAL_CAPITAL_USD
         tax_buffer_usd = max(0, total_profit_usd * TAX_RESERVE_RATE)
+        
+        # Calculate daily mortgage cost in AUD
         daily_hurdle_aud = (INITIAL_CAPITAL_USD * fx_rate * HOME_LOAN_RATE) / 365
         
         # Calculation for Net Alpha (USD comparison)
-        # (Post-Tax Profit) - (Daily Hurdle converted back to USD)
+        # (Post-Tax Profit) - (Daily Hurdle converted to USD)
         net_alpha_usd = (total_profit_usd - tax_buffer_usd) - (daily_hurdle_aud / fx_rate)
         
-        # D. Data Silo Injection
+        # 3. Data Silo Injection Payload
         table_id = f"{PROJECT_ID}.trading_data.performance_logs"
         audit_row = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -82,7 +60,7 @@ def run_audit():
             "recommendation": "HOLD" if net_alpha_usd > 0 else "LIQUIDATE_TO_OFFSET"
         }
         
-        # SURGICAL FIX: Re-enabled BigQuery actuation
+        # 4. BIGQUERY ACTUATION: Write heartbeat to cloud storage
         errors = bq_client.insert_rows_json(table_id, [audit_row])
         
         if errors:
@@ -96,6 +74,10 @@ def run_audit():
         logger.error(f"Audit engine failure: {e}")
         return jsonify({"error": str(e)}), 500
 
+async def gather_audit_context():
+    """Polls external sensors concurrently."""
+    return await asyncio.gather(get_fx_rate(), fetch_ibkr_equity())
+
 async def get_fx_rate():
     """Fetch current spot FX for accurate offset hurdle math."""
     async with httpx.AsyncClient() as client:
@@ -105,6 +87,20 @@ async def get_fx_rate():
         except Exception as e:
             logger.warning(f"FX Fetch failed, using fallback: {e}")
             return 1.55 # Safe Australian Fallback
+
+async def fetch_ibkr_equity():
+    """Actuator: Probes IBKR Net Liquidation Value."""
+    ib = IB()
+    try:
+        # Assumes IBKR Gateway is reachable at this address
+        await ib.connectAsync('127.0.0.1', 4002, clientId=1)
+        summary = await ib.accountSummaryAsync()
+        net_liq = next((item.value for item in summary if item.tag == 'NetLiquidation'), 50000.0)
+        await ib.disconnectAsync()
+        return float(net_liq)
+    except Exception as e:
+        logger.warning(f"IBKR sensor failed, using capital base: {e}")
+        return INITIAL_CAPITAL_USD
 
 if __name__ == "__main__":
     # Required binding for Cloud Run environment
