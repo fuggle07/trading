@@ -1,109 +1,78 @@
 import os
-import logging
 import asyncio
 import httpx
-from datetime import datetime, timezone
-from flask import Flask, jsonify
-from google.cloud import bigquery
-from ib_async import IB
-
-# SURGICAL FIX: Absolute import for container entry point
+from flask import Flask, request, jsonify
+# Absolute import for Cloud Run environment
 from telemetry import log_performance
 
-# SETUP & LOGGING
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 app = Flask(__name__)
 
-# Initialize BigQuery Client
-bq_client = bigquery.Client()
+# PILOT PHASE CONFIGURATION
+# We are simulating owning 100 shares of QQQ to track alpha against the $50k hurdle
+INITIAL_CASH = 50000.0
+SIMULATED_TICKER = "QQQ"
+SIMULATED_SHARES = 100 
 
-# CONFIGURATION (The Aberfeldie Constraint)
-PROJECT_ID = os.environ.get("PROJECT_ID", "utopian-calling-429014-r9")
-HOME_LOAN_RATE = 0.052  # 5.2% Mortgage Hurdle
-TAX_RESERVE_RATE = 0.30 # 30% Australian CGT
-INITIAL_CAPITAL_USD = 50000.0
-
-@app.route("/")
-def health_check():
-    """Cloud Run lifecycle management signal."""
-    return "Aberfeldie Trading Node: Operational", 200
-
-@app.route("/run-audit", methods=["POST"])
-def run_audit():
-    try:
-        # 1. Concurrent Context Gathering (FX and IBKR Equity)
-        # Managed via internal event loop for Flask compatibility
-        fx_rate, current_equity_usd = asyncio.run(gather_audit_context())
+async def get_live_price(ticker):
+    """Fetches the current price from Finnhub API."""
+    api_key = os.environ.get("FINNHUB_KEY")
+    if not api_key:
+        print("Error: FINNHUB_KEY not found in environment.")
+        return 0.0
         
-        # 2. Hurdle & Tax Telemetry Calculations
-        total_profit_usd = current_equity_usd - INITIAL_CAPITAL_USD
-        tax_buffer_usd = max(0, total_profit_usd * TAX_RESERVE_RATE)
-        
-        # Calculate daily mortgage cost in AUD
-        daily_hurdle_aud = (INITIAL_CAPITAL_USD * fx_rate * HOME_LOAN_RATE) / 365
-        
-        # Calculation for Net Alpha (USD comparison)
-        # (Post-Tax Profit) - (Daily Hurdle converted to USD)
-        net_alpha_usd = (total_profit_usd - tax_buffer_usd) - (daily_hurdle_aud / fx_rate)
-        
-        # 3. Data Silo Injection Payload
-        table_id = f"{PROJECT_ID}.trading_data.performance_logs"
-        audit_row = {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "paper_equity": float(current_equity_usd),
-            "tax_buffer_usd": float(tax_buffer_usd),
-            "fx_rate_aud": float(fx_rate),
-            "daily_hurdle_aud": float(daily_hurdle_aud),
-            "net_alpha_usd": float(net_alpha_usd),
-            "node_id": "aberfeldie-01",
-            "recommendation": "HOLD" if net_alpha_usd > 0 else "LIQUIDATE_TO_OFFSET"
-        }
-        
-        # 4. BIGQUERY ACTUATION: Write heartbeat to cloud storage
-        errors = bq_client.insert_rows_json(table_id, [audit_row])
-        
-        if errors:
-            logger.error(f"BigQuery Insert Error: {errors}")
-            return jsonify({"status": "error", "message": "BigQuery insertion failed"}), 500
-
-        logger.info(f"Audit Successful: Net Alpha ${net_alpha_usd:.2f} USD")
-        return jsonify({"status": "success", "metrics": audit_row}), 200
-
-    except Exception as e:
-        logger.error(f"Audit engine failure: {e}")
-        return jsonify({"error": str(e)}), 500
-
-async def gather_audit_context():
-    """Polls external sensors concurrently."""
-    return await asyncio.gather(get_fx_rate(), fetch_ibkr_equity())
-
-async def get_fx_rate():
-    """Fetch current spot FX for accurate offset hurdle math."""
+    url = f"https://finnhub.io/api/v1/quote?symbol={ticker}&token={api_key}"
+    
     async with httpx.AsyncClient() as client:
         try:
-            r = await client.get("https://api.frankfurter.app/latest?from=USD&to=AUD", timeout=5.0)
-            return r.json().get("rates", {}).get("AUD", 1.55)
+            response = await client.get(url, timeout=10.0)
+            response.raise_for_status()
+            data = response.json()
+            # 'c' is the current price in the Finnhub quote schema
+            return float(data.get('c', 0))
         except Exception as e:
-            logger.warning(f"FX Fetch failed, using fallback: {e}")
-            return 1.55 # Safe Australian Fallback
+            print(f"Failed to fetch market data: {e}")
+            return 0.0
 
-async def fetch_ibkr_equity():
-    """Actuator: Probes IBKR Net Liquidation Value."""
-    ib = IB()
+@app.route('/run-audit', methods=['POST'])
+async def run_audit():
+    """
+    Main execution endpoint triggered by Cloud Scheduler or Manual Curl.
+    Calculates synthetic equity and logs it to BigQuery.
+    """
     try:
-        # Assumes IBKR Gateway is reachable at this address
-        await ib.connectAsync('127.0.0.1', 4002, clientId=1)
-        summary = await ib.accountSummaryAsync()
-        net_liq = next((item.value for item in summary if item.tag == 'NetLiquidation'), 50000.0)
-        await ib.disconnectAsync()
-        return float(net_liq)
+        # 1. Fetch live market price for the pilot ticker
+        current_price = await get_live_price(SIMULATED_TICKER)
+        
+        if current_price == 0.0:
+            return jsonify({"status": "error", "message": "Market data fetch failed"}), 502
+
+        # 2. Calculate Shadow Equity (Pilot Phase Logic)
+        # We assume 100% of the $50k capital is currently in the simulated ticker
+        shadow_equity = current_price * SIMULATED_SHARES
+        
+        # 3. Log the performance to BigQuery via telemetry module
+        # This handles the 5.2% hurdle and 30% tax logic internally
+        log_performance(shadow_equity)
+        
+        print(f"Audit Successful: {SIMULATED_TICKER} @ {current_price} | Equity: {shadow_equity}")
+        
+        return jsonify({
+            "status": "success", 
+            "paper_equity": shadow_equity, 
+            "ticker": SIMULATED_TICKER,
+            "price": current_price
+        }), 200
+
     except Exception as e:
-        logger.warning(f"IBKR sensor failed, using capital base: {e}")
-        return INITIAL_CAPITAL_USD
+        print(f"CRITICAL ERROR in /run-audit: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/', methods=['GET'])
+def health_check():
+    return "Aberfeldie Trading Node: ONLINE", 200
 
 if __name__ == "__main__":
-    # Required binding for Cloud Run environment
+    # Local dev uses port 8080 to match Cloud Run
     port = int(os.environ.get("PORT", 8080))
-    app.run(host="0.0.0.0", port=port)
+    app.run(host='0.0.0.0', port=port)
 
