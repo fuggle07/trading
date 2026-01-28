@@ -42,7 +42,24 @@ resource "google_bigquery_table" "performance_logs" {
   {"name": "daily_hurdle_aud", "type": "FLOAT", "mode": "REQUIRED"},
   {"name": "net_alpha_usd", "type": "FLOAT", "mode": "REQUIRED"},
   {"name": "node_id", "type": "STRING", "mode": "NULLABLE"},
-  {"name": "recommendation", "type": "STRING", "mode": "NULLABLE"}
+  {"name": "recommendation", "type": "STRING", "mode": "NULLABLE"},
+  { "name": "sentiment_score", "type": "FLOAT", "mode": "NULLABLE" },
+  { "name": "social_volume", "type": "INTEGER", "mode": "NULLABLE" }
+]
+EOF
+}
+
+resource "google_bigquery_table" "watchlist_logs" {
+  dataset_id = google_bigquery_dataset.trading_data.dataset_id
+  table_id   = "watchlist_logs"
+  deletion_protection = false
+
+  schema = <<EOF
+[
+  { "name": "timestamp", "type": "TIMESTAMP", "mode": "REQUIRED" },
+  { "name": "ticker", "type": "STRING", "mode": "REQUIRED" },
+  { "name": "price", "type": "FLOAT", "mode": "REQUIRED" },
+  { "name": "sentiment_score", "type": "FLOAT", "mode": "NULLABLE" }
 ]
 EOF
 }
