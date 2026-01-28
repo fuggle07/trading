@@ -14,11 +14,11 @@ variable "project_id" {
 resource "google_secret_manager_secret" "secrets" {
   for_each  = toset(["FINNHUB_KEY", "IBKR_KEY", "APIFY_TOKEN"])
   secret_id = each.key
-          
+
   replication {
-    automatic = true
-  } 
-} 
+    auto {} # This replaces "automatic = true"
+  }
+}
 
 # 2. ANALYTICS TIER (BigQuery)
 resource "google_bigquery_dataset" "trading_data" {
@@ -62,6 +62,7 @@ resource "google_cloud_run_v2_service" "trading_bot" {
   name     = "trading-audit-agent"
   location = "us-central1"
   ingress  = "INGRESS_TRAFFIC_ALL"
+  deletion_protection = false
 
   template {
     service_account = google_service_account.bot_sa.email
