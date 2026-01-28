@@ -1,43 +1,48 @@
 import requests
 import subprocess
-import sys
+import os
+from pathlib import Path
 
 # CONFIGURATION
 NTFY_TOPIC = "aberfeldie_trading_alerts"
-# Fetch your service URL automatically from terraform
-try:
-    SERVICE_URL = subprocess.check_output(
-        ["terraform", "-chdir=/home/peterf/trading/terraform", "output", "-no-color", "-raw", "service_url"],
-        text=True
-    ).strip()
-except:
-    SERVICE_URL = "https://trading-audit-agent-848550797370.us-central1.run.app"
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+TF_DIR = SCRIPT_DIR.parent / "terraform"
+
+def get_service_url():
+    try:
+        # Runs terraform output from the discovered directory
+        return subprocess.check_output(
+            ["terraform", f"-chdir={TF_DIR}", "output", "-no-color", "-raw", "service_url"],
+            text=True
+        ).strip()
+    except Exception as e:
+        print(f"Warning: Terraform lookup failed: {e}")
+        # Fallback to your known service URL
+        return "https://trading-audit-agent-848550797370.us-central1.run.app"
 
 def run_preflight():
-    print(f"Executing Pre-Flight check for: {SERVICE_URL}")
+    url = get_service_url()
+    print(f"Checking Aberfeldie Node at: {url}")
     
     try:
-        # Generate a fresh identity token for the request
+        # Get gcloud token
         token = subprocess.check_output(["gcloud", "auth", "print-identity-token"], text=True).strip()
-        
         headers = {"Authorization": f"Bearer {token}"}
-        response = requests.post(f"{SERVICE_URL}/run-audit", headers=headers, timeout=30)
+        
+        response = requests.post(f"{url}/run-audit", headers=headers, timeout=30)
         
         if response.status_code == 200:
-            data = response.json()
-            equity = data.get('metrics', {}).get('paper_equity', 0)
-            msg = f"✅ PRE-FLIGHT SUCCESS: Node is live. IBKR Equity: ${equity:.2f}"
-            print(msg)
+            equity = response.json().get('metrics', {}).get('paper_equity')
+            requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", 
+                          data=f"✅ PRE-FLIGHT OK: Equity ${equity}".encode('utf-8'))
         else:
-            send_alert(f"🚨 PRE-FLIGHT FAIL: Service returned {response.status_code}")
+            raise Exception(f"Status {response.status_code}")
             
     except Exception as e:
-        send_alert(f"💥 PRE-FLIGHT CRITICAL: Could not reach Node. Error: {str(e)[:100]}")
-
-def send_alert(message):
-    requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", 
-                  data=message.encode('utf-8'),
-                  headers={"Priority": "high", "Tags": "warning,rotating_light"})
+        requests.post(f"https://ntfy.sh/{NTFY_TOPIC}", 
+                      data=f"🚨 PRE-FLIGHT FAILED: {str(e)}".encode('utf-8'),
+                      headers={"Priority": "high", "Tags": "warning"})
 
 if __name__ == "__main__":
     run_preflight()
