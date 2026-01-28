@@ -63,6 +63,7 @@ resource "google_cloud_run_v2_service" "trading_bot" {
   location = "us-central1"
   ingress  = "INGRESS_TRAFFIC_ALL"
   deletion_protection = false
+  depends_on = [google_secret_manager_secret_version.initial_versions]
 
   template {
     service_account = google_service_account.bot_sa.email
@@ -101,5 +102,16 @@ resource "google_secret_manager_secret_iam_member" "secret_access" {
   secret_id = each.key
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.bot_sa.email}"
+}
+
+# CREATE INITIAL SECRET VERSIONS
+# This ensures the 'latest' alias exists for Cloud Run
+resource "google_secret_manager_secret_version" "initial_versions" {
+  for_each    = google_secret_manager_secret.secrets
+  secret      = each.value.id
+  secret_data = "PLACEHOLDER_INIT" # To be overwritten by 03_sync_secrets.sh
+
+  # Ensure permissions are granted before Cloud Run tries to read them
+  depends_on = [google_secret_manager_secret_iam_member.secret_access]
 }
 
