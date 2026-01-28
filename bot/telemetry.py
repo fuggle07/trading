@@ -86,3 +86,22 @@ def log_performance(paper_equity, fx_rate_aud):
         logging.error(f"Telemetry Actuation Failed: {e}")
         return None
 
+def log_watchlist_data(ticker, price):
+    """Logs individual stock prices to the watchlist_logs table."""
+    client = bigquery.Client()
+    table_id = f"{PROJECT_ID}.trading_data.watchlist_logs"
+
+    rows_to_insert = [
+        {
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "ticker": ticker,
+            "price": float(price)
+        }
+    ]
+
+    errors = client.insert_rows_json(table_id, rows_to_insert)
+    if errors:
+        print(f"❌ Watchlist Insert Error for {ticker}: {errors}")
+    else:
+        print(f"✅ Watchlist Sync: {ticker} @ ${price}")
+
