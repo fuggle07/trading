@@ -5,6 +5,7 @@ import httpx
 from datetime import datetime, timezone
 from flask import Flask, jsonify
 from google.cloud import bigquery
+from ib_async import IB, util
 
 # 1. SURGICAL FIX: Use absolute import for Cloud Run entry point
 from telemetry import log_performance
@@ -22,6 +23,28 @@ PROJECT_ID = os.environ.get("PROJECT_ID", "utopian-calling-429014-r9")
 HOME_LOAN_RATE = 0.052  
 TAX_RESERVE_RATE = 0.30 
 INITIAL_CAPITAL_USD = 50000.0
+
+async def fetch_ibkr_equity():
+    """
+    Actuator: Connects to IBKR TWS/Gateway to fetch Net Liquidation Value.
+    """
+    ib = IB()
+    try:
+        # Connect to your local gateway or the specified host
+        # Default port for TWS Paper is 7497, Gateway Paper is 4002
+        await ib.connectAsync('127.0.0.1', 4002, clientId=1)
+        
+        # Fetch account summary
+        summary = await ib.accountSummaryAsync()
+        
+        # Surgical extraction of Net Liquidation Value (Total Equity)
+        net_liq = next((item.value for item in summary if item.tag == 'NetLiquidation'), 50000.0)
+        
+        await ib.disconnectAsync()
+        return float(net_liq)
+    except Exception as e:
+        logger.error(f"IBKR Actuator Failure: {e}")
+        return 50000.0  # Safe fallback to prevent audit crash
 
 @app.route("/")
 def health_check():
