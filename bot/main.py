@@ -1,75 +1,111 @@
 import os
 import asyncio
 import httpx
-from flask import Flask, request, jsonify
+import logging
+from flask import Flask, jsonify
+from google.cloud import bigquery
+from portfolio_manager import PortfolioManager
 from telemetry import log_performance, log_watchlist_data
 
 app = Flask(__name__)
 
-# PILOT PHASE CONFIGURATION
-INITIAL_CASH = 50000.0
+# Configure Logging for high-resolution visibility in Cloud Run
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# SYSTEM CONFIGURATION
 SIMULATED_TICKER = "QQQ"
 SIMULATED_SHARES = 100 
 WATCHLIST = ["AAPL", "NVDA", "TSLA", "MSFT", "AMZN", "GOOGL", "META", "AMD", "PLTR", "ARM"]
 
-# API URLs (Internal Services)
+# Infrastructure Constants
+PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT")
+DATASET_ID = "trading_data"
+PORTFOLIO_TABLE = f"{PROJECT_ID}.{DATASET_ID}.portfolio"
 FINANCE_SERVICE_URL = os.getenv("FINANCE_SERVICE_URL", "http://localhost:8081")
 SENTIMENT_SERVICE_URL = os.getenv("SENTIMENT_SERVICE_URL", "http://localhost:8082")
 
-async def fetch_price_data(client, ticker):
-    """Fetches price and FX data from the Finance Service."""
-    url = f"{FINANCE_SERVICE_URL}/price/{ticker}"
-    response = await client.get(url)
-    return response.json()
-
-async def fetch_sentiment_data(client, ticker):
-    """Fetches sentiment score from the Sentiment Service."""
-    url = f"{SENTIMENT_SERVICE_URL}/sentiment/{ticker}"
-    response = await client.get(url)
-    return response.json()
-
 @app.route("/run", methods=["POST"])
 async def run_bot():
-    """Main entry point for the nightly trading logic."""
+    """Main entry point for the stateful nightly trading logic."""
+    bq_client = bigquery.Client()
+    pm = PortfolioManager(bq_client, PORTFOLIO_TABLE)
+    
+    # 1. ANALYZE CURRENT STATE: Query BigQuery for persistent cash and holdings
+    portfolio = pm.get_state(SIMULATED_TICKER)
+    current_cash = portfolio['cash_balance']
+    current_holdings = portfolio['holdings']
+
     async with httpx.AsyncClient() as client:
-        # 1. Concurrent fetching of data for all tickers
-        price_tasks = [fetch_price_data(client, t) for t in WATCHLIST]
-        sentiment_tasks = [fetch_sentiment_data(client, t) for t in WATCHLIST]
+        # 2. DATA INGESTION: Fetch market and sentiment data concurrently
+        price_tasks = [client.get(f"{FINANCE_SERVICE_URL}/price/{t}") for t in WATCHLIST]
+        sentiment_tasks = [client.get(f"{SENTIMENT_SERVICE_URL}/sentiment/{t}") for t in WATCHLIST]
         
-        prices = await asyncio.gather(*price_tasks)
-        sentiments = await asyncio.gather(*sentiment_tasks)
+        price_res = await asyncio.gather(*price_tasks)
+        sentiment_res = await asyncio.gather(*sentiment_tasks)
         
-        # 2. Process results into a watchlist
+        prices = [r.json() for r in price_res]
+        sentiments = [r.json() for r in sentiment_res]
+        
+        # 3. LOGIC HUB: Process results and identify the "Edge"
         watchlist_rows = []
+        sentiment_score = 0
+        ticker_price = 0
+
         for i, ticker in enumerate(WATCHLIST):
+            score = sentiments[i].get("score", 0)
+            price = prices[i].get("price", 0)
+            
             watchlist_rows.append({
                 "ticker": ticker,
-                "price": prices[i].get("price"),
+                "price": price,
                 "fx_rate": prices[i].get("fx_rate"),
-                "sentiment_score": sentiments[i].get("score"),
-                "timestamp": sentiments[i].get("timestamp")
+                "sentiment_score": score,
+                "timestamp": bigquery.dbapi.Timestamp.now()
             })
 
-        # 3. Simulated 'Pilot' Trade (Fixed Logic for now)
-        # In a real scenario, we'd loop through sentiments and pick the highest score
-        target_ticker = SIMULATED_TICKER
-        sentiment_score = next((s["score"] for i, s in enumerate(sentiments) if WATCHLIST[i] == target_ticker), 0)
+            if ticker == SIMULATED_TICKER:
+                sentiment_score = score
+                ticker_price = price
+
+        # 4. THE BET: Entry and Exit logic based on the David Walsh model
+        action = "IDLE"
         
-        # 4. Telemetry: Log the data to BigQuery
-        log_watchlist_data(watchlist_rows)
+        # LOGIC A: THE ENTRY (BUY) - Positive Edge + Available Capital
+        if sentiment_score > 0.5:
+            trade_cost = ticker_price * SIMULATED_SHARES
+            if current_cash >= trade_cost:
+                action = "BUY"
+                current_cash -= trade_cost
+                current_holdings += SIMULATED_SHARES
+                pm.update_ledger(SIMULATED_TICKER, current_cash, current_holdings)
+            else:
+                logger.warning(f"Edge detected for {SIMULATED_TICKER}, but insufficient cash: ${current_cash:.2f}")
+
+        # LOGIC B: THE EXIT (SELL) - Edge Lost + Existing Holdings
+        elif sentiment_score < 0.5 and current_holdings > 0:
+            action = "SELL"
+            sale_proceeds = ticker_price * current_holdings
+            current_cash += sale_proceeds
+            current_holdings = 0
+            pm.update_ledger(SIMULATED_TICKER, current_cash, current_holdings)
+            logger.info(f"Exited {SIMULATED_TICKER} position for ${sale_proceeds:.2f}")
+
+        # 5. TELEMETRY: Record the run for the final audit
+        log_watchlist_data(bq_client, f"{PROJECT_ID}.{DATASET_ID}.tickers", watchlist_rows)
         
-        # Log performance (Simulated)
         log_performance({
-            "ticker": target_ticker,
-            "action": "BUY" if sentiment_score > 0.5 else "HOLD",
-            "shares": SIMULATED_SHARES,
-            "cash_remaining": INITIAL_CASH - (prices[0].get("price") * SIMULATED_SHARES)
+            "ticker": SIMULATED_TICKER,
+            "action": action,
+            "shares": SIMULATED_SHARES if action == "BUY" else current_holdings,
+            "cash_remaining": current_cash
         })
 
         return jsonify({
             "status": "success",
-            "processed_tickers": len(WATCHLIST),
-            "pilot_trade": target_ticker
+            "action": action,
+            "balance": current_cash,
+            "holdings": current_holdings
         }), 200
 
 if __name__ == "__main__":

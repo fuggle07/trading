@@ -54,7 +54,7 @@ terraform apply -auto-approve
 cd ..
 
 # 6. SECRET & ENV SYNC
-./scripts/03_sync_secrets.sh
+#./scripts/03_sync_secrets.sh
 ./scripts/05_sync_env.sh
 
 echo "--- ✅ DEPLOYMENT COMPLETE: ABERFELDIE NODE IS SECURE & LIVE ---"

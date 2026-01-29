@@ -143,3 +143,32 @@ output "service_url" {
   description = "The public URL of the Aberfeldie Trading Node"
 }
 
+# 1. Create the Portfolio Table
+resource "google_bigquery_table" "portfolio" {
+  dataset_id = google_bigquery_dataset.trading_data.dataset_id
+  table_id   = "portfolio"
+  deletion_protection = false # Set to true for production high-res safety
+
+  schema = <<EOF
+[
+  {"name": "asset_name", "type": "STRING", "mode": "REQUIRED"},
+  {"name": "holdings", "type": "FLOAT64", "mode": "REQUIRED"},
+  {"name": "cash_balance", "type": "FLOAT64", "mode": "REQUIRED"},
+  {"name": "last_updated", "type": "TIMESTAMP", "mode": "REQUIRED"}
+]
+EOF
+}
+
+# 2. Harden IAM for the Bot
+# The bot now needs to run Queries (Job User) and Update data (Data Editor)
+resource "google_project_iam_member" "bot_bq_job_user" {
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.bot_sa.email}"
+}
+
+resource "google_bigquery_dataset_iam_member" "bot_bq_editor" {
+  dataset_id = google_bigquery_dataset.trading_data.dataset_id
+  role       = "roles/bigquery.dataEditor"
+  member     = "serviceAccount:${google_service_account.bot_sa.email}"
+}
