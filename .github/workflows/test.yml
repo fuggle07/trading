@@ -8,7 +8,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     env:
-      # Fixes ModuleNotFoundError by adding 'bot' to the search path
+      # Anchors the bot directory so tests can find local modules
       PYTHONPATH: ${{ github.workspace }}/bot
     steps:
     - uses: actions/checkout@v4
@@ -25,6 +25,5 @@ jobs:
         
     - name: Run logic and integration tests
       run: |
-        # Run tests from the bot directory
         pytest bot/tests/ -v
 

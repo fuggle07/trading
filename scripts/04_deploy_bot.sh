@@ -1,25 +1,16 @@
 #!/bin/bash
-# scripts/04_deploy_bot.sh - Refactored for Cloud Run Compliance
-set -e
-
-echo "--- 🛰️  ABERFELDIE NODE: BOT DEPLOYMENT ---"
-
-# 1. Identity Resolution
+# Deployment script with runtime mortgage rate configuration
 PROJECT_ID=$(gcloud config get-value project)
-REGION="us-central1"
-IMAGE_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/trading-node-repo/trading-bot:latest"
+MORTGAGE_RATE=0.0625  # Set your target rate here
 
-# 2. Software Phase: Build & Push (Injecting logic into the registry)
-echo "📦 Building and Pushing Docker Image..."
-# Note: Ensure you have run 'gcloud auth configure-docker' previously
-docker buildx build --load -t "$IMAGE_PATH" ./bot
-docker push "$IMAGE_PATH"
+echo "Deploying Trading Bot to Cloud Run with rate: $MORTGAGE_RATE"
 
-# 3. Infrastructure Phase: Deploy via Terraform
-echo "🚀 Finalizing Cloud Run Deployment..."
-cd terraform
-# We use -var to ensure the project ID is passed from the shell environment
-terraform apply -var="project_id=$PROJECT_ID" -auto-approve
-cd ..
+gcloud builds submit --tag gcr.io/$PROJECT_ID/trading-bot bot/
 
-echo "--- ✅ DEPLOYMENT COMPLETE: Aberfeldie Node is live ---"
+gcloud run deploy trading-bot \
+  --image gcr.io/$PROJECT_ID/trading-bot \
+  --platform managed \
+  --region australia-southeast1 \
+  --allow-unauthenticated \
+  --set-env-vars="GOOGLE_CLOUD_PROJECT=$PROJECT_ID,MORTGAGE_RATE=$MORTGAGE_RATE"
+
