@@ -18,8 +18,9 @@ SIMULATED_TICKER = "QQQ"
 SIMULATED_SHARES = 100 
 WATCHLIST = ["AAPL", "NVDA", "TSLA", "MSFT", "AMZN", "GOOGL", "META", "AMD", "PLTR", "ARM"]
 
-# Infrastructure Constants - Hardened with fallback for Local Dev
-PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "your-project-id") 
+# Infrastructure Constants
+# Using GOOGLE_CLOUD_PROJECT as the primary anchor for BigQuery client and table IDs
+PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "unified-aberfeldie-node") 
 DATASET_ID = "trading_data"
 PORTFOLIO_TABLE = f"{PROJECT_ID}.{DATASET_ID}.portfolio"
 FINANCE_SERVICE_URL = os.getenv("FINANCE_SERVICE_URL", "http://localhost:8081")
@@ -31,26 +32,30 @@ async def run_bot():
     bq_client = bigquery.Client(project=PROJECT_ID)
     pm = PortfolioManager(bq_client, PORTFOLIO_TABLE)
     
-    # 1. ANALYZE CURRENT STATE
-    portfolio = pm.get_state(SIMULATED_TICKER)
-    current_cash = portfolio['cash_balance']
-    current_holdings = portfolio['holdings']
+    # 1. ANALYZE CURRENT STATE: Query BigQuery for persistent cash and holdings
+    try:
+        portfolio = pm.get_state(SIMULATED_TICKER)
+        current_cash = portfolio['cash_balance']
+        current_holdings = portfolio['holdings']
+    except Exception as e:
+        logger.error(f"Failed to retrieve portfolio state: {e}")
+        return jsonify({"status": "error", "message": "Ledger unavailable"}), 500
 
     async with httpx.AsyncClient(timeout=30.0) as client:
-        # 2. DATA INGESTION
+        # 2. DATA INGESTION: Fetch market and sentiment data concurrently
         price_tasks = [client.get(f"{FINANCE_SERVICE_URL}/price/{t}") for t in WATCHLIST]
         sentiment_tasks = [client.get(f"{SENTIMENT_SERVICE_URL}/sentiment/{t}") for t in WATCHLIST]
         
         price_res = await asyncio.gather(*price_tasks, return_exceptions=True)
         sentiment_res = await asyncio.gather(*sentiment_tasks, return_exceptions=True)
         
-        # 3. LOGIC HUB: Use dictionary lookups instead of index assumptions
+        # 3. LOGIC HUB: Process results into lookups to avoid index mismatches
         watchlist_rows = []
         sentiment_lookup = {}
         price_lookup = {}
 
         for i, ticker in enumerate(WATCHLIST):
-            # Check if tasks failed
+            # Safe JSON parsing with error handling for task exceptions
             p_data = price_res[i].json() if not isinstance(price_res[i], Exception) else {}
             s_data = sentiment_res[i].json() if not isinstance(sentiment_res[i], Exception) else {}
             
@@ -68,12 +73,12 @@ async def run_bot():
                 "timestamp": bigquery.dbapi.Timestamp.now()
             })
 
-        # 4. THE BET: Entry and Exit logic based on the Target Ticker
+        # 4. THE BET: Decision logic for the target asset
         target_sentiment = sentiment_lookup.get(SIMULATED_TICKER, 0)
         target_price = price_lookup.get(SIMULATED_TICKER, 0)
         action = "IDLE"
         
-        # LOGIC A: THE ENTRY (BUY)
+        # LOGIC A: THE ENTRY (BUY) - Positive Edge + Capital Check
         if target_sentiment > 0.5:
             trade_cost = target_price * SIMULATED_SHARES
             if current_cash >= trade_cost:
@@ -82,9 +87,9 @@ async def run_bot():
                 current_holdings += SIMULATED_SHARES
                 pm.update_ledger(SIMULATED_TICKER, current_cash, current_holdings)
             else:
-                logger.warning(f"Edge detected for {SIMULATED_TICKER}, but insufficient cash: ${current_cash:.2f}")
+                logger.warning(f"Edge detected for {SIMULATED_TICKER}, but insufficient funds: ${current_cash:.2f}")
 
-        # LOGIC B: THE EXIT (SELL/LIQUIDATE)
+        # LOGIC B: THE EXIT (SELL/LIQUIDATE) - Edge Lost + Holdings Check
         elif target_sentiment < 0.5 and current_holdings > 0:
             action = "SELL"
             sale_proceeds = target_price * current_holdings
@@ -93,7 +98,7 @@ async def run_bot():
             pm.update_ledger(SIMULATED_TICKER, current_cash, current_holdings)
             logger.info(f"Exited {SIMULATED_TICKER} position for ${sale_proceeds:.2f}")
 
-        # 5. TELEMETRY
+        # 5. TELEMETRY: Record results for the final audit
         log_watchlist_data(bq_client, f"{PROJECT_ID}.{DATASET_ID}.tickers", watchlist_rows)
         
         log_performance({
