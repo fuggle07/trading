@@ -89,6 +89,11 @@ resource "google_cloud_run_v2_service" "trading_bot" {
   depends_on = [google_secret_manager_secret_version.initial_versions]
 
   template {
+    # 1. KEEP THE BOT ALIVE 24/7
+    scaling {
+      min_instance_count = 1
+      max_instance_count = 3
+    }
     service_account = google_service_account.bot_sa.email
     containers {
       # Liveness probe: Checks if the app is still alive
