@@ -21,6 +21,11 @@ FINANCE_SERVICE_URL = os.getenv("FINANCE_SERVICE_URL", "http://localhost:8081")
 SENTIMENT_SERVICE_URL = os.getenv("SENTIMENT_SERVICE_URL", "http://localhost:8082")
 MORTGAGE_RATE = float(os.getenv("MORTGAGE_RATE", "0.0514"))
 
+@app.route('/health')
+def health_check():
+    # You can add logic here to check DB connections later
+    return {"status": "healthy"}, 200
+
 @app.route("/run", methods=["POST"])
 async def run_bot():
     bq_client = bigquery.Client(project=PROJECT_ID)

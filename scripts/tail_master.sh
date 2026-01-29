@@ -1,21 +1,28 @@
 #!/bin/bash
 # tail_master.sh
 
-export CLOUDSDK_PYTHON_SITEPACKAGES=1
-
-# Capture the first argument
+PROJECT_ID=$(gcloud config get-value project)
 SERVICE_FILTER=$1
 
 if [ -z "$SERVICE_FILTER" ]; then
-    echo "--- Initializing Global Firehose (All Services) ---"
-    FILTER_STR=""
+    FILTER_STR="resource.type=\"cloud_run_revision\""
 else
-    echo "--- Initializing Tail for Source: $SERVICE_FILTER ---"
-    # This matches the service name specifically
     FILTER_STR="resource.labels.service_name=\"$SERVICE_FILTER\""
 fi
 
-gcloud beta logging tail "$FILTER_STR" \
-  --project=$(gcloud config get-value project) \
-  --format="table(timestamp.date('%H:%M:%S'):label=TIME, resource.labels.service_name:label=SOURCE, severity, textPayload:label=MESSAGE)"
+echo "--- Monitoring $PROJECT_ID ---"
+
+LAST_SEEN_ID=""
+
+while true; do
+    LOGS=$(gcloud logging read "$FILTER_STR" --limit=10 --format="json" 2>/dev/null)
+
+    echo "$LOGS" | jq -r 'reverse | .[] | 
+      "\(.timestamp[11:19]) | " + 
+      "\((.resource.labels.service_name // "sys") | .[0:15]) | " + 
+      "\((.severity // "LOG") | .[0:4]) | " + 
+      "\(.textPayload // .proto_payload.status.message // .jsonPayload.message // .proto_payload.method_name // "---")"' | uniq
+    
+    sleep 3
+done
 

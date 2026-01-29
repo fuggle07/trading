@@ -91,6 +91,27 @@ resource "google_cloud_run_v2_service" "trading_bot" {
   template {
     service_account = google_service_account.bot_sa.email
     containers {
+      # Liveness probe: Checks if the app is still alive
+      liveness_probe {
+        http_get {
+          path = "/health"
+          port = 8080
+        }
+        period_seconds    = 30
+        timeout_seconds   = 5
+        failure_threshold = 3
+      }
+
+      # Startup probe: Gives the app time to boot up
+      startup_probe {
+        http_get {
+          path = "/health"
+          port = 8080
+        }
+        initial_delay_seconds = 10
+        period_seconds        = 10
+        failure_threshold     = 5
+      }
       image = "us-central1-docker.pkg.dev/${var.project_id}/trading-node-repo/trading-bot:latest"
       
       env {
