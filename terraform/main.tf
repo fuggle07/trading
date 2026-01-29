@@ -176,3 +176,12 @@ resource "google_bigquery_dataset_iam_member" "bot_bq_editor" {
   role       = "roles/bigquery.dataEditor"
   member     = "serviceAccount:${google_service_account.bot_sa.email}"
 }
+
+# Create a dedicated high-retention bucket for the system audit
+resource "google_logging_project_bucket_config" "audit_log_bucket" {
+    project    = var.project_id
+    location   = "global"
+    retention_days = 365 # Keep one year for tax/audit purposes
+    bucket_id  = "system-audit-trail"
+}
+
