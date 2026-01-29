@@ -1,5 +1,7 @@
 #!/bin/bash
-# Real-time Master Log Tail
-# Uses the newer tail command to provide a live stream from Cloud Run
-gcloud logging tail 'resource.type="cloud_run_revision" AND jsonPayload.component:*' --format="json"
+# tail_master.sh
+export CLOUDSDK_PYTHON_SITEPACKAGES=1
+
+echo "Initializing global firehose tail..."
+gcloud beta logging tail --project=$(gcloud config get-value project)
 

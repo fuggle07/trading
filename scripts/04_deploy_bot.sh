@@ -1,7 +1,7 @@
 #!/bin/bash
 # Deployment script with runtime mortgage rate configuration
 PROJECT_ID=$(gcloud config get-value project)
-MORTGAGE_RATE=0.0625  # Set your target rate here
+MORTGAGE_RATE=0.0514
 
 echo "Deploying Trading Bot to Cloud Run with rate: $MORTGAGE_RATE"
 
