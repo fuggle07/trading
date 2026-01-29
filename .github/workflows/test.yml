@@ -7,17 +7,24 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      # Fixes ModuleNotFoundError by adding 'bot' to the search path
+      PYTHONPATH: ${{ github.workspace }}/bot
     steps:
     - uses: actions/checkout@v4
+    
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
         python-version: '3.12'
+        
     - name: Install dependencies
       run: |
-        pip install pytest pytest-asyncio httpx flask google-cloud-bigquery
+        python -m pip install --upgrade pip
+        pip install -r bot/requirements.txt
+        
     - name: Run logic and integration tests
       run: |
-        # Runs both unit and integration tests
+        # Run tests from the bot directory
         pytest bot/tests/ -v
 
