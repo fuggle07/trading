@@ -13,7 +13,7 @@ SIMULATED_TICKER = "QQQ"
 SIMULATED_SHARES = 100 
 WATCHLIST = ["AAPL", "NVDA", "TSLA", "MSFT", "AMZN", "GOOGL", "META", "AMD", "PLTR", "ARM"]
 
-# Infrastructure Anchors
+# Infrastructure Constants
 PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "unified-aberfeldie-node")
 DATASET_ID = "trading_data"
 PORTFOLIO_TABLE = f"{PROJECT_ID}.{DATASET_ID}.portfolio"
@@ -22,13 +22,12 @@ SENTIMENT_SERVICE_URL = os.getenv("SENTIMENT_SERVICE_URL", "http://localhost:808
 
 @app.route("/run", methods=["POST"])
 async def run_bot():
-    """Main entry point for the stateful nightly trading logic using the Master Log."""
     bq_client = bigquery.Client(project=PROJECT_ID)
     pm = PortfolioManager(bq_client, PORTFOLIO_TABLE)
     
     log_audit("STARTUP", f"Bot cycle initiated for {SIMULATED_TICKER}")
 
-    # 1. ANALYZE CURRENT STATE (Stateful Check)
+    # 1. ANALYZE CURRENT STATE
     try:
         portfolio = pm.get_state(SIMULATED_TICKER)
         current_cash = portfolio['cash_balance']
@@ -47,7 +46,7 @@ async def run_bot():
         price_res = await asyncio.gather(*price_tasks, return_exceptions=True)
         sentiment_res = await asyncio.gather(*sentiment_tasks, return_exceptions=True)
         
-        # 3. LOGIC HUB: Process results into lookups
+        # 3. LOGIC HUB
         watchlist_rows = []
         sentiment_map = {}
         price_map = {}
@@ -56,17 +55,14 @@ async def run_bot():
             p_data = price_res[i].json() if not isinstance(price_res[i], Exception) else {}
             s_data = sentiment_res[i].json() if not isinstance(sentiment_res[i], Exception) else {}
             
-            score = s_data.get("score", 0)
-            price = p_data.get("price", 0)
-            
-            sentiment_map[ticker] = score
-            price_map[ticker] = price
+            sentiment_map[ticker] = s_data.get("score", 0)
+            price_map[ticker] = p_data.get("price", 0)
 
             watchlist_rows.append({
                 "ticker": ticker,
-                "price": price,
+                "price": price_map[ticker],
                 "fx_rate": p_data.get("fx_rate"),
-                "sentiment_score": score,
+                "sentiment_score": sentiment_map[ticker],
                 "timestamp": bigquery.dbapi.Timestamp.now()
             })
 
@@ -86,17 +82,16 @@ async def run_bot():
                 log_audit("EXECUTION", f"Executing BUY for {SIMULATED_TICKER}")
                 pm.update_ledger(SIMULATED_TICKER, current_cash, current_holdings)
             else:
-                log_audit("WARNING", "Edge detected but capital insufficient", {"required": cost, "available": current_cash})
+                log_audit("WARNING", "Insufficient capital for detected edge", {"required": cost, "available": current_cash})
 
         elif target_score < 0.5 and current_holdings > 0:
             action = "SELL"
-            sale_proceeds = target_price * current_holdings
-            current_cash += sale_proceeds
+            current_cash += (target_price * current_holdings)
             current_holdings = 0
             log_audit("EXECUTION", f"Executing SELL/LIQUIDATE for {SIMULATED_TICKER}")
             pm.update_ledger(SIMULATED_TICKER, current_cash, current_holdings)
 
-        # 5. TELEMETRY: Unified logging and BQ sync
+        # 5. TELEMETRY
         try:
             log_watchlist_data(bq_client, f"{PROJECT_ID}.{DATASET_ID}.tickers", watchlist_rows)
             log_performance({"ticker": SIMULATED_TICKER, "action": action, "cash_remaining": current_cash, "shares": current_holdings})
@@ -105,12 +100,7 @@ async def run_bot():
 
         log_audit("SHUTDOWN", "Bot cycle complete", {"final_balance": current_cash})
 
-        return jsonify({
-            "status": "success", 
-            "action": action, 
-            "balance": current_cash, 
-            "holdings": current_holdings
-        }), 200
+        return jsonify({"status": "success", "action": action, "balance": current_cash}), 200
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)))

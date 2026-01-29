@@ -184,4 +184,30 @@ resource "google_logging_project_bucket_config" "audit_log_bucket" {
     retention_days = 365 # Keep one year for tax/audit purposes
     bucket_id  = "system-audit-trail"
 }
+# Create the Dataset for Log Analytics
+resource "google_bigquery_dataset" "system_logs" {
+  dataset_id                  = "system_logs"
+  location                    = "australia-southeast1"
+  description                 = "Aggregated master logs for the trading node"
+  delete_contents_on_destroy = false
+}
+
+# Create the Master Log Sink
+resource "google_logging_project_sink" "master_log_sink" {
+  name        = "trading-system-master-sink"
+  description = "Routes structured audit logs from all Cloud Run services to BigQuery"
+  destination = "bigquery.googleapis.com/projects/${var.project_id}/datasets/${google_bigquery_dataset.system_logs.dataset_id}"
+
+  # Filter to only capture your high-resolution structured logs
+  filter = "resource.type=\"cloud_run_revision\" AND jsonPayload.component:\"*\""
+
+  unique_writer_identity = true
+}
+
+# Grant the Sink permission to write to BigQuery
+resource "google_project_iam_member" "log_sink_writer" {
+  project = var.project_id
+  role    = "roles/bigquery.dataEditor"
+  member  = google_logging_project_sink.master_log_sink.writer_identity
+}
 
