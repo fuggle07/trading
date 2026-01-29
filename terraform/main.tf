@@ -8,6 +8,11 @@ variable "project_id" {
   type        = string
   description = "The GCP Project ID"
 }
+variable "mortgage_rate" {
+  description = "The annual mortgage interest rate (e.g., 0.06 for 6%)"
+  type        = number
+  default     = 0.0514 # NAB actual 20260129
+}
 
 # 1. SECRET MANAGEMENT TIER
 # Fixed: Expanded nested blocks for HCL compliance
@@ -95,6 +100,11 @@ resource "google_cloud_run_v2_service" "trading_bot" {
       env {
         name  = "PROJECT_ID"
         value = var.project_id
+      }
+      # Inject the rate here
+      env {
+        name  = "MORTGAGE_RATE"
+        value = tostring(var.mortgage_rate)
       }
       env {
         name = "FINNHUB_KEY"

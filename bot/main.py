@@ -19,13 +19,17 @@ DATASET_ID = "trading_data"
 PORTFOLIO_TABLE = f"{PROJECT_ID}.{DATASET_ID}.portfolio"
 FINANCE_SERVICE_URL = os.getenv("FINANCE_SERVICE_URL", "http://localhost:8081")
 SENTIMENT_SERVICE_URL = os.getenv("SENTIMENT_SERVICE_URL", "http://localhost:8082")
+MORTGAGE_RATE = float(os.getenv("MORTGAGE_RATE", "0.0514"))
 
 @app.route("/run", methods=["POST"])
 async def run_bot():
     bq_client = bigquery.Client(project=PROJECT_ID)
     pm = PortfolioManager(bq_client, PORTFOLIO_TABLE)
-    
-    log_audit("STARTUP", f"Bot cycle initiated for {SIMULATED_TICKER}")
+    # Include the rate in your startup audit
+    log_audit("STARTUP", f"Bot initiated", {
+        "ticker": SIMULATED_TICKER,
+        "active_mortgage_rate": MORTGAGE_RATE
+    }) 
 
     # 1. ANALYZE CURRENT STATE
     try:
