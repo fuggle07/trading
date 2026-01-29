@@ -15,8 +15,7 @@ httpx==0.28.1
 
 # --- UTILITIES ---
 pytz==2025.1
-flask==3.1.0
-asgiref
+flask[async]==3.0.3
 
 # --- TESTING SUITE ---
 pytest==8.3.4
