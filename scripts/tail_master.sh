@@ -1,4 +1,5 @@
 #!/bin/bash
-# High-resolution master log tail
-gcloud logging read 'resource.type="cloud_run_revision"' --limit 10 --follow --format="json"
+# Real-time Master Log Tail
+# Uses the newer tail command to provide a live stream from Cloud Run
+gcloud logging tail 'resource.type="cloud_run_revision" AND jsonPayload.component:*' --format="json"
 
