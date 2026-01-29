@@ -1,31 +1,25 @@
-# Use the official lightweight Python image.
+# Use a slim, versioned base to avoid unrecoverable environmental errors
 FROM python:3.12-slim
 
-# Allow statements and log messages to immediately appear in the logs
-ENV PYTHONUNBUFFERED True
-ENV PIP_ROOT_USER_ACTION=ignore
-# Set the working directory
 WORKDIR /app
 
-# Install system dependencies (needed for some bigquery/pandas operations)
+# Install system dependencies for ib_async and networking
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy local code to the container image.
+# Copy pinned requirements first to leverage Docker layer caching
 COPY requirements.txt .
-
-# Upgrade pip
-RUN pip install --no-cache-dir --upgrade pip
-# Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
-# Install uvicorn/gunicorn for async production handling
-RUN pip install --no-cache-dir gunicorn uvicorn
 
-# Copy the rest of the application code
+# Copy application code
 COPY . .
 
-# Run the web service on container startup.
-# We use 1 worker with the uvicorn worker class for async compatibility
-CMD exec gunicorn --bind :$PORT --workers 1 --worker-class uvicorn.workers.UvicornWorker --threads 8 main:app
+# Pass Python logs directly to Cloud Logging stdout without buffering
+ENV PYTHONUNBUFFERED=1
+
+# Production-grade Gunicorn entrypoint
+# - threads: Supports concurrent asyncio tasks
+# - timeout: Set to 0 to let Cloud Run manage request lifetimes
+CMD ["gunicorn", "--bind", ":8080", "--workers", "1", "--threads", "8", "--timeout", "0", "main:app"]
 
