@@ -1,10 +1,28 @@
 import logging
+import os
 from google.cloud import bigquery
 from datetime import datetime
 
 # Configure logging for maximum visibility in Cloud Run
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Standardize the logger to include the service name
+SERVICE_NAME = os.getenv("K_SERVICE", "trading-bot") # K_SERVICE is set by Cloud Run
+logger = logging.getLogger(SERVICE_NAME)
+
+def log_audit(event_type, message, data=None):
+    """
+    Emits a structured log entry that is easily searchable in the Master Log.
+    """
+    entry = {
+        "component": SERVICE_NAME,
+        "event": event_type,
+        "message": message,
+        "details": data or {}
+    }
+    # Structured logging allows you to filter by 'jsonPayload.component' in the browser
+    logger.info(entry)
 
 def log_watchlist_data(client, table_id, rows_to_insert):
     """
