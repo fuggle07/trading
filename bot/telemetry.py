@@ -1,49 +1,29 @@
-import os
 import logging
 from google.cloud import bigquery
-from datetime import datetime, timezone
 
-# Configuration
-PROJECT_ID = os.environ.get("PROJECT_ID", "utopian-calling-429014-r9")
+# Configure logging to ensure visibility in Cloud Run
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-def log_performance(paper_equity, fx_rate_aud, sentiment_score=None, social_volume=None):
-    """Logs primary QQQ performance and sentiment to BigQuery."""
-    client = bigquery.Client()
-    table_id = f"{PROJECT_ID}.trading_data.performance_logs"
+def log_watchlist_data(client, table_id, rows_to_insert):
+    """
+    Inserts rows into BigQuery with explicit error checking.
+    """
+    if not rows_to_insert:
+        logger.warning("Telemetry: No tickers provided for insertion.")
+        return True
 
-    rows_to_insert = [
-        {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "paper_equity": float(paper_equity),
-            "fx_rate_aud": float(fx_rate_aud),
-            "sentiment_score": float(sentiment_score) if sentiment_score is not None else None,
-            "social_volume": int(social_volume) if social_volume is not None else None
-        }
-    ]
-
-    errors = client.insert_rows_json(table_id, rows_to_insert)
-    if errors:
-        logging.error(f"❌ BigQuery Performance Insert Error: {errors}")
-    else:
-        logging.info(f"✅ Performance Logged: ${paper_equity}")
-
-def log_watchlist_data(ticker, price):
-    """Logs individual stock prices to the watchlist_logs table."""
-    client = bigquery.Client()
-    table_id = f"{PROJECT_ID}.trading_data.watchlist_logs"
+    logger.info(f"Telemetry: Attempting to insert {len(rows_to_insert)} rows into {table_id}")
     
-    rows_to_insert = [
-        {
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "ticker": ticker,
-            "price": float(price)
-        }
-    ]
-    
+    # insert_rows_json returns a list of error dictionaries
     errors = client.insert_rows_json(table_id, rows_to_insert)
-    if errors:
-        # This will print directly to your Cloud Run logs
-        print(f"❌ BigQuery Watchlist Insert Error for {ticker}: {errors}")
+    
+    if errors == []:
+        logger.info("Telemetry: Watchlist logged successfully to BigQuery.")
+        return True
     else:
-        print(f"✅ Watchlist Sync: {ticker} @ ${price}")
+        # High-resolution error reporting
+        for error in errors:
+            logger.error(f"Telemetry: BigQuery insertion error in row {error.get('index')}: {error.get('errors')}")
+        return False
 

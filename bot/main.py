@@ -10,100 +10,69 @@ app = Flask(__name__)
 INITIAL_CASH = 50000.0
 SIMULATED_TICKER = "QQQ"
 SIMULATED_SHARES = 100 
-WATCHLIST = ["NVDA", "TSLA", "AAPL", "MSFT"]
+WATCHLIST = ["AAPL", "NVDA", "TSLA", "MSFT", "AMZN", "GOOGL", "META", "AMD", "PLTR", "ARM"]
 
-async def fetch_finnhub_data(endpoint, params):
-    """Generic fetcher for Finnhub REST endpoints."""
-    api_key = os.environ.get("FINNHUB_KEY")
-    if not api_key:
-        print("CRITICAL: FINNHUB_KEY not found in environment.")
-        return {}
-        
-    url = f"https://finnhub.io/api/v1/{endpoint}"
-    params['token'] = api_key
-    
+# API URLs (Internal Services)
+FINANCE_SERVICE_URL = os.getenv("FINANCE_SERVICE_URL", "http://localhost:8081")
+SENTIMENT_SERVICE_URL = os.getenv("SENTIMENT_SERVICE_URL", "http://localhost:8082")
+
+async def fetch_price_data(client, ticker):
+    """Fetches price and FX data from the Finance Service."""
+    url = f"{FINANCE_SERVICE_URL}/price/{ticker}"
+    response = await client.get(url)
+    return response.json()
+
+async def fetch_sentiment_data(client, ticker):
+    """Fetches sentiment score from the Sentiment Service."""
+    url = f"{SENTIMENT_SERVICE_URL}/sentiment/{ticker}"
+    response = await client.get(url)
+    return response.json()
+
+@app.route("/run", methods=["POST"])
+async def run_bot():
+    """Main entry point for the nightly trading logic."""
     async with httpx.AsyncClient() as client:
-        try:
-            response = await client.get(url, params=params, timeout=10.0)
-            if response.status_code == 429:
-                print("WARNING: Finnhub Rate Limit Hit (429). Throttling required.")
-                return {}
-            response.raise_for_status()
-            return response.json()
-        except Exception as e:
-            print(f"Error fetching {endpoint} for {params.get('symbol')}: {e}")
-            return {}
+        # 1. Concurrent fetching of data for all tickers
+        price_tasks = [fetch_price_data(client, t) for t in WATCHLIST]
+        sentiment_tasks = [fetch_sentiment_data(client, t) for t in WATCHLIST]
+        
+        prices = await asyncio.gather(*price_tasks)
+        sentiments = await asyncio.gather(*sentiment_tasks)
+        
+        # 2. Process results into a watchlist
+        watchlist_rows = []
+        for i, ticker in enumerate(WATCHLIST):
+            watchlist_rows.append({
+                "ticker": ticker,
+                "price": prices[i].get("price"),
+                "fx_rate": prices[i].get("fx_rate"),
+                "sentiment_score": sentiments[i].get("score"),
+                "timestamp": sentiments[i].get("timestamp")
+            })
 
-@app.route('/run-audit', methods=['POST'])
-async def run_audit():
-    """
-    Main execution endpoint. Fetches price, FX, and sentiment sequentially
-    to respect Finnhub's 60 calls/minute limit.
-    """
-    try:
-        # 1. Fetch Primary Performance Data (QQQ + FX)
-        price_data = await fetch_finnhub_data("quote", {"symbol": SIMULATED_TICKER})
-        await asyncio.sleep(1.1) # Rate limiting delay
+        # 3. Simulated 'Pilot' Trade (Fixed Logic for now)
+        # In a real scenario, we'd loop through sentiments and pick the highest score
+        target_ticker = SIMULATED_TICKER
+        sentiment_score = next((s["score"] for i, s in enumerate(sentiments) if WATCHLIST[i] == target_ticker), 0)
         
-        fx_data = await fetch_finnhub_data("quote", {"symbol": "FX:AUD-USD"})
-        await asyncio.sleep(1.1)
+        # 4. Telemetry: Log the data to BigQuery
+        log_watchlist_data(watchlist_rows)
         
-        # 2. Fetch QQQ Social Sentiment
-        sentiment_data = await fetch_finnhub_data("stock/social-sentiment", {"symbol": SIMULATED_TICKER})
-        
-        # Extract Core Metrics
-        current_price = float(price_data.get('c', 0))
-        aud_usd_rate = float(fx_data.get('c', 0.65))
-        
-        # Parse Sentiment safely
-        reddit_list = sentiment_data.get('reddit', [])
-        twitter_list = sentiment_data.get('twitter', [])
-        
-        # Use last entry if exists, else default to neutral (0.5)
-        reddit_sent = reddit_list[-1].get('sentiment', 0.5) if reddit_list else 0.5
-        twitter_sent = twitter_list[-1].get('sentiment', 0.5) if twitter_list else 0.5
-        reddit_vol = reddit_list[-1].get('mention', 0) if reddit_list else 0
-        twitter_vol = twitter_list[-1].get('mention', 0) if twitter_list else 0
-        
-        avg_sentiment = (reddit_sent + twitter_sent) / 2
-        mention_vol = reddit_vol + twitter_vol
+        # Log performance (Simulated)
+        log_performance({
+            "ticker": target_ticker,
+            "action": "BUY" if sentiment_score > 0.5 else "HOLD",
+            "shares": SIMULATED_SHARES,
+            "cash_remaining": INITIAL_CASH - (prices[0].get("price") * SIMULATED_SHARES)
+        })
 
-        # 3. Log Performance (The "Aberfeldie Alpha")
-        shadow_equity = current_price * SIMULATED_SHARES
-        log_performance(
-            paper_equity=shadow_equity, 
-            fx_rate_aud=aud_usd_rate,
-            sentiment_score=avg_sentiment,
-            social_volume=mention_vol
-        )
-
-        # 4. Process Watchlist Serially
-        watchlist_count = 0
-        for ticker in WATCHLIST:
-            await asyncio.sleep(1.1) # Essential delay for free tier
-            w_data = await fetch_finnhub_data("quote", {"symbol": ticker})
-            w_price = float(w_data.get('c', 0))
-            
-            if w_price > 0:
-                log_watchlist_data(ticker, w_price)
-                watchlist_count += 1
-
-        print(f"Successfully logged Audit and {watchlist_count} watchlist stocks.")
         return jsonify({
             "status": "success",
-            "paper_equity": shadow_equity,
-            "watchlist_processed": watchlist_count
+            "processed_tickers": len(WATCHLIST),
+            "pilot_trade": target_ticker
         }), 200
-
-    except Exception as e:
-        print(f"CRITICAL ERROR in /run-audit: {str(e)}")
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/', methods=['GET'])
-def health_check():
-    return "Aberfeldie Trading Node: ONLINE", 200
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host="0.0.0.0", port=port)
 
