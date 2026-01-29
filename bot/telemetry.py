@@ -1,68 +1,73 @@
 import logging
 import os
-from google.cloud import bigquery
+import sys
+import json
 from datetime import datetime
+from google.cloud import bigquery
 
-# Configure logging for maximum visibility in Cloud Run
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# 1. STRUCTURED LOGGING CONFIGURATION
+# Cloud Run automatically picks up anything sent to stdout/stderr.
+# By formatting as JSON, the Log Explorer can filter by specific fields.
+class CloudLoggingFormatter(logging.Formatter):
+    def format(self, record):
+        log_entry = {
+            "severity": record.levelname,
+            "message": record.getMessage(),
+            "component": os.getenv("K_SERVICE", "trading-bot"),
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "module": record.module,
+            "funcName": record.funcName
+        }
+        # Include extra dictionary data if provided via the 'extra' param
+        if hasattr(record, "details"):
+            log_entry["details"] = record.details
+        return json.dumps(log_entry)
 
-# Standardize the logger to include the service name
-SERVICE_NAME = os.getenv("K_SERVICE", "trading-bot") # K_SERVICE is set by Cloud Run
-logger = logging.getLogger(SERVICE_NAME)
+# Setup the master logger
+logger = logging.getLogger("master-log")
+logger.setLevel(logging.INFO)
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(CloudLoggingFormatter())
+logger.addHandler(handler)
 
-def log_audit(event_type, message, data=None):
+# 2. MASTER LOGGING INTERFACE
+def log_audit(event_type, message, details=None):
     """
-    Emits a structured log entry that is easily searchable in the Master Log.
+    The primary interface for the Master Log.
+    Emits a structured entry that appears in the unified stream.
     """
-    entry = {
-        "component": SERVICE_NAME,
-        "event": event_type,
-        "message": message,
-        "details": data or {}
-    }
-    # Structured logging allows you to filter by 'jsonPayload.component' in the browser
-    logger.info(entry)
+    # Passing 'details' in a way the formatter can pick up
+    extra = {"details": details} if details else {}
+    logger.info(f"[{event_type}] {message}", extra=extra)
 
+# 3. BIGQUERY TELEMETRY (THE LEDGER AUDIT)
 def log_watchlist_data(client, table_id, rows_to_insert):
     """
-    Hardened BigQuery insertion that fails fast on schema errors.
+    Hardened BigQuery insertion for the nightly audit trail.
     """
     if not rows_to_insert:
-        logger.info("Telemetry: No watchlist rows to log.")
+        log_audit("TELEMETRY", "No watchlist data to log.")
         return
 
-    # Ensure timestamps are actual datetime objects for BQ high-res compatibility
+    # Ensure high-res timestamp format for BigQuery
     for row in rows_to_insert:
         if "timestamp" in row and isinstance(row["timestamp"], str):
             row["timestamp"] = datetime.fromisoformat(row["timestamp"])
 
-    errors = client.insert_rows_json(table_id, rows_to_insert)
-
-    if errors:
-        # CRITICAL: If the audit trail fails, we need to know why immediately
-        logger.error(f"Telemetry: BigQuery insertion failed for {table_id}: {errors}")
-        raise RuntimeError(f"Database sync failed: {errors}")
-    
-    logger.info(f"Telemetry: Successfully logged {len(rows_to_insert)} tickers to {table_id}.")
+    try:
+        errors = client.insert_rows_json(table_id, rows_to_insert)
+        if errors:
+            log_audit("CRITICAL", f"BigQuery Insert Failed: {errors}")
+            raise RuntimeError(f"Database out of sync: {errors}")
+        
+        log_audit("TELEMETRY", f"Successfully synced {len(rows_to_insert)} rows to BigQuery.")
+    except Exception as e:
+        log_audit("ERROR", f"Telemetry connection failure: {e}")
+        raise e
 
 def log_performance(data):
     """
-    Standardizes performance output for Cloud Logging and future BQ ingestion.
+    Helper to bridge legacy performance calls to the new Master Log.
     """
-    ticker = data.get("ticker", "UNKNOWN")
-    action = data.get("action", "IDLE")
-    cash = data.get("cash_remaining", 0.0)
-    
-    # Using structured logging format for easier auditing in Cloud Run logs
-    log_entry = {
-        "event": "TRADE_CYCLE_COMPLETE",
-        "ticker": ticker,
-        "action": action,
-        "shares": data.get("shares", 0),
-        "final_cash": f"${cash:,.2f}",
-        "status": "COMPLETED"
-    }
-    
-    logger.info(f"AUDIT_LOG: {log_entry}")
+    log_audit("PERFORMANCE", f"Cycle complete for {data.get('ticker')}", data)
 

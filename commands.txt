@@ -1,0 +1,8 @@
+Tail the logs:
+--------------
+gcloud logging read 'resource.type="cloud_run_revision"' --limit 10 --follow --format="json"
+
+GCP Logs Explorer:
+------------------
+jsonPayload.component="trading-bot" OR jsonPayload.component="finance-service"
+
