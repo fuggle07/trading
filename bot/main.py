@@ -9,7 +9,7 @@ from telemetry import log_performance, log_watchlist_data
 
 app = Flask(__name__)
 
-# Configure Logging for high-resolution visibility in Cloud Run
+# Configure Logging for high-resolution visibility
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -18,8 +18,8 @@ SIMULATED_TICKER = "QQQ"
 SIMULATED_SHARES = 100 
 WATCHLIST = ["AAPL", "NVDA", "TSLA", "MSFT", "AMZN", "GOOGL", "META", "AMD", "PLTR", "ARM"]
 
-# Infrastructure Constants
-PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT")
+# Infrastructure Constants - Hardened with fallback for Local Dev
+PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "your-project-id") 
 DATASET_ID = "trading_data"
 PORTFOLIO_TABLE = f"{PROJECT_ID}.{DATASET_ID}.portfolio"
 FINANCE_SERVICE_URL = os.getenv("FINANCE_SERVICE_URL", "http://localhost:8081")
@@ -28,52 +28,54 @@ SENTIMENT_SERVICE_URL = os.getenv("SENTIMENT_SERVICE_URL", "http://localhost:808
 @app.route("/run", methods=["POST"])
 async def run_bot():
     """Main entry point for the stateful nightly trading logic."""
-    bq_client = bigquery.Client()
+    bq_client = bigquery.Client(project=PROJECT_ID)
     pm = PortfolioManager(bq_client, PORTFOLIO_TABLE)
     
-    # 1. ANALYZE CURRENT STATE: Query BigQuery for persistent cash and holdings
+    # 1. ANALYZE CURRENT STATE
     portfolio = pm.get_state(SIMULATED_TICKER)
     current_cash = portfolio['cash_balance']
     current_holdings = portfolio['holdings']
 
-    async with httpx.AsyncClient() as client:
-        # 2. DATA INGESTION: Fetch market and sentiment data concurrently
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        # 2. DATA INGESTION
         price_tasks = [client.get(f"{FINANCE_SERVICE_URL}/price/{t}") for t in WATCHLIST]
         sentiment_tasks = [client.get(f"{SENTIMENT_SERVICE_URL}/sentiment/{t}") for t in WATCHLIST]
         
-        price_res = await asyncio.gather(*price_tasks)
-        sentiment_res = await asyncio.gather(*sentiment_tasks)
+        price_res = await asyncio.gather(*price_tasks, return_exceptions=True)
+        sentiment_res = await asyncio.gather(*sentiment_tasks, return_exceptions=True)
         
-        prices = [r.json() for r in price_res]
-        sentiments = [r.json() for r in sentiment_res]
-        
-        # 3. LOGIC HUB: Process results and identify the "Edge"
+        # 3. LOGIC HUB: Use dictionary lookups instead of index assumptions
         watchlist_rows = []
-        sentiment_score = 0
-        ticker_price = 0
+        sentiment_lookup = {}
+        price_lookup = {}
 
         for i, ticker in enumerate(WATCHLIST):
-            score = sentiments[i].get("score", 0)
-            price = prices[i].get("price", 0)
+            # Check if tasks failed
+            p_data = price_res[i].json() if not isinstance(price_res[i], Exception) else {}
+            s_data = sentiment_res[i].json() if not isinstance(sentiment_res[i], Exception) else {}
             
+            score = s_data.get("score", 0)
+            price = p_data.get("price", 0)
+            
+            sentiment_lookup[ticker] = score
+            price_lookup[ticker] = price
+
             watchlist_rows.append({
                 "ticker": ticker,
                 "price": price,
-                "fx_rate": prices[i].get("fx_rate"),
+                "fx_rate": p_data.get("fx_rate"),
                 "sentiment_score": score,
                 "timestamp": bigquery.dbapi.Timestamp.now()
             })
 
-            if ticker == SIMULATED_TICKER:
-                sentiment_score = score
-                ticker_price = price
-
-        # 4. THE BET: Entry and Exit logic based on the David Walsh model
+        # 4. THE BET: Entry and Exit logic based on the Target Ticker
+        target_sentiment = sentiment_lookup.get(SIMULATED_TICKER, 0)
+        target_price = price_lookup.get(SIMULATED_TICKER, 0)
         action = "IDLE"
         
-        # LOGIC A: THE ENTRY (BUY) - Positive Edge + Available Capital
-        if sentiment_score > 0.5:
-            trade_cost = ticker_price * SIMULATED_SHARES
+        # LOGIC A: THE ENTRY (BUY)
+        if target_sentiment > 0.5:
+            trade_cost = target_price * SIMULATED_SHARES
             if current_cash >= trade_cost:
                 action = "BUY"
                 current_cash -= trade_cost
@@ -82,16 +84,16 @@ async def run_bot():
             else:
                 logger.warning(f"Edge detected for {SIMULATED_TICKER}, but insufficient cash: ${current_cash:.2f}")
 
-        # LOGIC B: THE EXIT (SELL) - Edge Lost + Existing Holdings
-        elif sentiment_score < 0.5 and current_holdings > 0:
+        # LOGIC B: THE EXIT (SELL/LIQUIDATE)
+        elif target_sentiment < 0.5 and current_holdings > 0:
             action = "SELL"
-            sale_proceeds = ticker_price * current_holdings
+            sale_proceeds = target_price * current_holdings
             current_cash += sale_proceeds
             current_holdings = 0
             pm.update_ledger(SIMULATED_TICKER, current_cash, current_holdings)
             logger.info(f"Exited {SIMULATED_TICKER} position for ${sale_proceeds:.2f}")
 
-        # 5. TELEMETRY: Record the run for the final audit
+        # 5. TELEMETRY
         log_watchlist_data(bq_client, f"{PROJECT_ID}.{DATASET_ID}.tickers", watchlist_rows)
         
         log_performance({
