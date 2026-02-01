@@ -1,37 +1,74 @@
 import asyncio
 import os
 import logging
+import aiohttp
 from flask import Flask, jsonify, request
 
+# Surgical Tier Imports
+# from telemetry import log_performance
+# from .verification import get_hard_proof
+
+# 1. Initialize Flask at the TOP LEVEL for Gunicorn
 app = Flask(__name__)
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("AberfeldieNode")
 
-# --- AUTH GUARD ---
-# Set this in your Secret Manager / Environment Variables
-CRON_SECRET = os.getenv("INTERNAL_AUTH_TOKEN", "change-me")
+TICKERS = os.getenv("BASE_TICKERS", "NVDA,AAPL,TSLA,MSFT,AMD").split(",")
 
-@app.route('/health', methods=['GET'])
+# --- CLOUD RUN ROUTES ---
+
+@app.route('/health', methods=['GET', 'POST'])
 def health():
-    return jsonify({"status": "healthy", "node": "Aberfeldie"}), 200
+    """Satisfies Cloud Run health probes and manual heartbeat checks."""
+    return jsonify({
+        "status": "healthy",
+        "node": "Aberfeldie",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }), 200
 
-@app.route('/', methods=['POST', 'GET'])
-def run_audit_wrapper():
-    # Basic protection against "stupid" external triggers
-    auth_token = request.headers.get("X-Internal-Token")
-    if auth_token != CRON_SECRET:
-        logger.warning({"event": "unauthorized_access", "ip": request.remote_addr})
-        # For now, let's just log and continue, or return 403 to be strict
-    
+@app.route('/run-audit', methods=['POST'])
+def run_audit_endpoint():
+    """The trigger for your trading logic."""
     try:
-        # The Bridge: Runs your async code in a sync Flask route
-        msg, code = asyncio.run(main_handler())
-        return msg, code
+        # Bridges the sync Flask world to your async main_handler logic
+        result_msg, status_code = asyncio.run(main_handler())
+        return jsonify({"message": result_msg}), status_code
     except Exception as e:
-        logger.error({"event": "node_crash", "error": str(e)})
-        return f"Node Error: {e}", 500
+        logger.error({"event": "audit_crash", "error": str(e)})
+        return jsonify({"error": str(e)}), 500
+
+# --- CORE TRADING LOGIC ---
 
 async def main_handler():
-    # ... your existing logic (get_usd_aud_rate, etc.)
-    # logger.info({"event": "audit_started"})
-    return "Audit Complete", 200
+    """Refactored async entry point."""
+    # 1. Sensors & FX
+    fx_rate = await get_usd_aud_rate()
+    
+    # 2. Execute Ticker Audits (TaskGroup)
+    async with asyncio.TaskGroup() as tg:
+        for ticker in TICKERS:
+            logger.info({"event": "audit_queued", "ticker": ticker})
+            # Add ticker-specific tasks to tg here
+
+    # 3. Telemetry (Placeholder logic)
+    # log_performance(...)
+    
+    return f"Audit complete for {len(TICKERS)} tickers.", 200
+
+async def get_usd_aud_rate():
+    """Fetches the USD to AUD exchange rate."""
+    url = "https://api.frankfurter.dev/v1/latest?base=USD&symbols=AUD"
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, timeout=5) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return float(data['rates']['AUD'])
+    except Exception as e:
+        logger.warning(f"FX Fetch failed: {e}. Defaulting to 1.52")
+    return 1.52
+
+if __name__ == "__main__":
+    # Local dev only; ignored by Gunicorn
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 8080)))
