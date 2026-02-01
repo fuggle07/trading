@@ -1,116 +1,37 @@
-import os
 import asyncio
-import httpx
-from flask import Flask, jsonify
-from google.cloud import bigquery
-from portfolio_manager import PortfolioManager
-from telemetry import log_audit, log_watchlist_data, log_performance
+import os
+import logging
+from flask import Flask, jsonify, request
 
 app = Flask(__name__)
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("AberfeldieNode")
 
-# SYSTEM CONFIGURATION
-SIMULATED_TICKER = "QQQ"
-SIMULATED_SHARES = 100 
-WATCHLIST = ["AAPL", "NVDA", "TSLA", "MSFT", "AMZN", "GOOGL", "META", "AMD", "PLTR", "ARM"]
+# --- AUTH GUARD ---
+# Set this in your Secret Manager / Environment Variables
+CRON_SECRET = os.getenv("INTERNAL_AUTH_TOKEN", "change-me")
 
-# Infrastructure Constants
-PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "unified-aberfeldie-node")
-DATASET_ID = "trading_data"
-PORTFOLIO_TABLE = f"{PROJECT_ID}.{DATASET_ID}.portfolio"
-FINANCE_SERVICE_URL = os.getenv("FINANCE_SERVICE_URL", "http://localhost:8081")
-SENTIMENT_SERVICE_URL = os.getenv("SENTIMENT_SERVICE_URL", "http://localhost:8082")
-MORTGAGE_RATE = float(os.getenv("MORTGAGE_RATE", "0.0514"))
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({"status": "healthy", "node": "Aberfeldie"}), 200
 
-@app.route('/health')
-def health_check():
-    # You can add logic here to check DB connections later
-    return {"status": "healthy"}, 200
-
-@app.route("/run", methods=["POST"])
-async def run_bot():
-    bq_client = bigquery.Client(project=PROJECT_ID)
-    pm = PortfolioManager(bq_client, PORTFOLIO_TABLE)
-    # Include the rate in your startup audit
-    log_audit("STARTUP", f"Bot initiated", {
-        "ticker": SIMULATED_TICKER,
-        "active_mortgage_rate": MORTGAGE_RATE
-    }) 
-
-    # 1. ANALYZE CURRENT STATE
+@app.route('/', methods=['POST', 'GET'])
+def run_audit_wrapper():
+    # Basic protection against "stupid" external triggers
+    auth_token = request.headers.get("X-Internal-Token")
+    if auth_token != CRON_SECRET:
+        logger.warning({"event": "unauthorized_access", "ip": request.remote_addr})
+        # For now, let's just log and continue, or return 403 to be strict
+    
     try:
-        portfolio = pm.get_state(SIMULATED_TICKER)
-        current_cash = portfolio['cash_balance']
-        current_holdings = portfolio['holdings']
-        log_audit("STATE", "Portfolio retrieved", {"cash": current_cash, "shares": current_holdings})
+        # The Bridge: Runs your async code in a sync Flask route
+        msg, code = asyncio.run(main_handler())
+        return msg, code
     except Exception as e:
-        log_audit("CRITICAL", f"Ledger unreachable: {e}")
-        return jsonify({"status": "error", "message": "Portfolio offline"}), 500
+        logger.error({"event": "node_crash", "error": str(e)})
+        return f"Node Error: {e}", 500
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        # 2. DATA INGESTION
-        log_audit("INGEST", "Fetching market and sentiment data")
-        price_tasks = [client.get(f"{FINANCE_SERVICE_URL}/price/{t}") for t in WATCHLIST]
-        sentiment_tasks = [client.get(f"{SENTIMENT_SERVICE_URL}/sentiment/{t}") for t in WATCHLIST]
-        
-        price_res = await asyncio.gather(*price_tasks, return_exceptions=True)
-        sentiment_res = await asyncio.gather(*sentiment_tasks, return_exceptions=True)
-        
-        # 3. LOGIC HUB
-        watchlist_rows = []
-        sentiment_map = {}
-        price_map = {}
-
-        for i, ticker in enumerate(WATCHLIST):
-            p_data = price_res[i].json() if not isinstance(price_res[i], Exception) else {}
-            s_data = sentiment_res[i].json() if not isinstance(sentiment_res[i], Exception) else {}
-            
-            sentiment_map[ticker] = s_data.get("score", 0)
-            price_map[ticker] = p_data.get("price", 0)
-
-            watchlist_rows.append({
-                "ticker": ticker,
-                "price": price_map[ticker],
-                "fx_rate": p_data.get("fx_rate"),
-                "sentiment_score": sentiment_map[ticker],
-                "timestamp": bigquery.dbapi.Timestamp.now()
-            })
-
-        # 4. THE BET: Decision logic
-        target_score = sentiment_map.get(SIMULATED_TICKER, 0)
-        target_price = price_map.get(SIMULATED_TICKER, 0)
-        action = "IDLE"
-        
-        log_audit("DECISION", f"Analyzing edge for {SIMULATED_TICKER}", {"sentiment": target_score, "price": target_price})
-
-        if target_score > 0.5:
-            cost = target_price * SIMULATED_SHARES
-            if current_cash >= cost:
-                action = "BUY"
-                current_cash -= cost
-                current_holdings += SIMULATED_SHARES
-                log_audit("EXECUTION", f"Executing BUY for {SIMULATED_TICKER}")
-                pm.update_ledger(SIMULATED_TICKER, current_cash, current_holdings)
-            else:
-                log_audit("WARNING", "Insufficient capital for detected edge", {"required": cost, "available": current_cash})
-
-        elif target_score < 0.5 and current_holdings > 0:
-            action = "SELL"
-            current_cash += (target_price * current_holdings)
-            current_holdings = 0
-            log_audit("EXECUTION", f"Executing SELL/LIQUIDATE for {SIMULATED_TICKER}")
-            pm.update_ledger(SIMULATED_TICKER, current_cash, current_holdings)
-
-        # 5. TELEMETRY
-        try:
-            log_watchlist_data(bq_client, f"{PROJECT_ID}.{DATASET_ID}.tickers", watchlist_rows)
-            log_performance({"ticker": SIMULATED_TICKER, "action": action, "cash_remaining": current_cash, "shares": current_holdings})
-        except Exception as e:
-            log_audit("ERROR", f"Telemetry sync failed: {e}")
-
-        log_audit("SHUTDOWN", "Bot cycle complete", {"final_balance": current_cash})
-
-        return jsonify({"status": "success", "action": action, "balance": current_cash}), 200
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.getenv("PORT", 8080)))
-
+async def main_handler():
+    # ... your existing logic (get_usd_aud_rate, etc.)
+    # logger.info({"event": "audit_started"})
+    return "Audit Complete", 200

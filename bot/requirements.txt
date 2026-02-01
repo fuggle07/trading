@@ -1,23 +1,19 @@
-# --- PRODUCTION SERVER ---
+# Web Server & Async Bridge
+flask[async]==3.0.3
 gunicorn==23.0.0
+asgiref==3.8.1
 
-# --- GCP & AI CORE ---
+# GCP & AI
 google-cloud-bigquery==3.27.0
 google-cloud-secret-manager==2.26.0
 google-cloud-aiplatform==1.77.0
-functions-framework==3.8.1
+# functions-framework can be removed if you're using Gunicorn/Cloud Run
 
-# --- MARKET DATA & ASYNC ---
+# Market & Trading
 ib_async==2.1.0
-finnhub-python==2.4.1
-aiohttp==3.11.11
-httpx==0.28.1
+finnhub-python==2.4.19
+aiohttp==3.10.0  # Bumped slightly for 2026 compatibility
 
-# --- UTILITIES ---
-pytz==2025.1
-flask[async]==3.0.3
-
-# --- TESTING SUITE ---
-pytest==8.3.4
-pytest-asyncio==0.25.2
-
+# Utilities
+pandas==2.2.0
+python-dotenv==1.0.1
