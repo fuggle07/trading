@@ -3,7 +3,7 @@ import time
 import asyncio
 import finnhub
 from flask import Flask, jsonify
-from datetime import datetime
+from datetime import datetime, timezone
 from telemetry import log_watchlist_data
 import pytz
 
@@ -62,8 +62,10 @@ async def run_audit():
 
 @app.route('/health')
 def health():
-    """Liveness probe for Cloud Run."""
-    return "Aberfeldie Node is healthy", 200
+    return jsonify({
+        "status": "healthy",
+        "timestamp": datetime.now(timezone.utc).isoformat()
+    }), 200
 
 @app.route('/run-audit', methods=['POST'])
 async def run_audit_endpoint():
