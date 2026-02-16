@@ -1,5 +1,4 @@
 #!/bin/bash
-# setup_node.sh - Master Orchestrator v4.2 (Aberfeldie Secure Edition)
 set -e
 
 # 0. SECURITY MASKING
@@ -55,26 +54,30 @@ terraform apply \
   -var="project_id=$PROJECT_ID" -auto-approve
 cd ..
 
-# 4. SOFTWARE PHASE (Build & Push)
-echo "--- 📦 PHASE B: Building and Pushing Docker Image ---"
-# Ensure your context (./) includes requirements.txt and all agent files
+# 4. SOFTWARE PHASE (Force Rebuild & Push)
+echo "--- 📦 PHASE B: Building and Pushing Docker Image (Force Refresh) ---"
 pushd bot
-docker build -t "$FULL_IMAGE_PATH" .
+# Use --no-cache to ensure code changes in main.py are captured
+docker build --no-cache -t "$FULL_IMAGE_PATH" .
 docker push "$FULL_IMAGE_PATH"
 popd
 
 # 5. INFRASTRUCTURE PHASE B (Compute & Orchestration)
-echo "--- ⚙️  PHASE C: Finalizing Infrastructure ---"
+echo "--- ⚙️  PHASE C: Finalizing Infrastructure & Forcing Rollout ---"
 cd terraform
-terraform apply -var="project_id=$PROJECT_ID" -auto-approve
+# We inject a DEPLOY_TIME timestamp via terraform variable to force a Cloud Run revision
+# Note: Ensure your terraform main.tf handles a 'deploy_time' variable or uses it in env vars
+terraform apply \
+  -var="project_id=$PROJECT_ID" \
+  -var="deploy_time=$(date +%s)" \
+  -auto-approve
 cd ..
 
 # 6. POST-DEPLOYMENT SYNC
-# Ensure these scripts are executable: chmod +x scripts/*.sh
 if [ -f "./scripts/05_sync_env.sh" ]; then
     ./scripts/05_sync_env.sh
 fi
 
 echo "--- ✅ DEPLOYMENT COMPLETE: ABERFELDIE NODE IS SECURE & LIVE ---"
-terraform output dashboard_url
-
+# Final sanity check: Output the dashboard link
+cd terraform && terraform output dashboard_url && cd ..

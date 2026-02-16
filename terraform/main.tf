@@ -149,6 +149,10 @@ resource "google_cloud_run_v2_service" "trading_bot" {
         name  = "BASE_TICKERS"
         value = "NVDA,AAPL,TSLA,MSFT,AMD"
       }
+      env {
+        name  = "DEPLOY_TIME"
+        value = var.deploy_time
+      }
     }
   }
 }

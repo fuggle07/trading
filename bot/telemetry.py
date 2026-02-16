@@ -38,26 +38,32 @@ def log_audit(level, message, extra=None):
 
 # 3. BIGQUERY TELEMETRY
 
-def log_watchlist_data(client, table_id, rows_to_insert):
-    if not rows_to_insert:
-        log_audit("INFO", "No watchlist data to log.")
-        return
+def log_watchlist_data(client, table_id, ticker, price, sentiment=None):
+    """
+    Ensures the JSON keys perfectly match the BigQuery schema:
+    - timestamp (TIMESTAMP)
+    - ticker (STRING)
+    - price (FLOAT)
+    - sentiment_score (FLOAT)
+    """
+    row_to_insert = [
+        {
+            "timestamp": datetime.now(pytz.utc).isoformat(),
+            "ticker": ticker,
+            "price": float(price),
+            "sentiment_score": float(sentiment) if sentiment else 0.0
+        }
+    ]
 
     try:
-        # We use retry to handle transient network blips
-        errors = client.insert_rows_json(table_id, rows_to_insert)
-        
+        errors = client.insert_rows_json(table_id, row_to_insert)
         if errors == []:
-            log_audit("INFO", f"Synced {len(rows_to_insert)} rows to BigQuery.")
+            print(f"✅ Telemetry: Logged {ticker} at {price}")
         else:
-            # Errors is a list of dicts: [{'index': 0, 'errors': [...]}]
-            log_audit("CRITICAL", "BigQuery Insert Partial Failure", {"details": errors})
-            # We raise this so the /run-audit endpoint returns a 500
-            raise RuntimeError(f"BQ Sync Error: {errors}")
-
+            print(f"❌ BQ ERROR: {errors}")
+            raise RuntimeError(f"Sync failed: {errors}")
     except Exception as e:
-        log_audit("ERROR", f"BigQuery Connection Failure: {str(e)}")
-        raise e
+        print(f"🔥 Critical Telemetry Failure: {e}")
 
 def log_performance(data):
     """Standardizes cycle summary in the Master Log."""
