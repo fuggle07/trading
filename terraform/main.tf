@@ -189,10 +189,32 @@ resource "google_bigquery_table" "portfolio" {
 
   schema = <<EOF
 [
-  {"name": "asset_name", "type": "STRING", "mode": "REQUIRED"},
-  {"name": "holdings", "type": "FLOAT64", "mode": "REQUIRED"},
-  {"name": "cash_balance", "type": "FLOAT64", "mode": "REQUIRED"},
-  {"name": "last_updated", "type": "TIMESTAMP", "mode": "REQUIRED"}
+  {
+    "name": "asset_name",
+    "type": "STRING",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "holdings",
+    "type": "FLOAT",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "avg_price",
+    "type": "FLOAT",
+    "mode": "NULLABLE",
+    "description": "Weighted Average Cost Basis for Stop Loss calculation"
+  },
+  {
+    "name": "cash_balance",
+    "type": "FLOAT",
+    "mode": "REQUIRED"
+  },
+  {
+    "name": "last_updated",
+    "type": "TIMESTAMP",
+    "mode": "REQUIRED"
+  }
 ]
 EOF
 }
@@ -459,28 +481,29 @@ resource "google_monitoring_notification_channel" "email_me" {
   }
 }
 
-# B. Dead Man's Switch (Alert Policy)
-resource "google_monitoring_alert_policy" "dead_man_switch" {
-  display_name = "CRITICAL: Aberfeldie Node Heartbeat Lost"
+# B. Bot Failure Alert (Instead of Dead Man's Switch)
+resource "google_monitoring_alert_policy" "bot_failure" {
+  display_name = "CRITICAL: Aberfeldie Node Failure (5xx Errors)"
   combiner     = "OR"
   notification_channels = [google_monitoring_notification_channel.email_me.name]
 
   conditions {
-    display_name = "Bot Silence (Metric Absence)"
-    condition_absent {
-      # Monitors for the total absence of logs from the bot
-      filter   = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"trading-audit-agent\" AND metric.type=\"run.googleapis.com/request_count\""
-      duration = "900s" # 15 minutes of silence triggers the alert
-
+    display_name = "Cloud Run 5xx Errors"
+    condition_threshold {
+      filter     = "resource.type = \"cloud_run_revision\" AND resource.labels.service_name = \"trading-audit-agent\" AND metric.type = \"run.googleapis.com/request_count\" AND metric.label.response_code_class = \"5xx\""
+      duration   = "60s"
+      comparison = "COMPARISON_GT"
+      threshold_value = 0
+      
       aggregations {
-        alignment_period = "60s"
+        alignment_period   = "60s"
         per_series_aligner = "ALIGN_RATE"
       }
     }
   }
 
   documentation {
-    content = "The trading bot has not reported an execution in 15 minutes during NASDAQ hours. Check Cloud Run logs and Scheduler status immediately."
+    content = "The trading bot is returning 5xx errors. Check Cloud Run logs immediately for crashes or exceptions."
   }
 }
 output "dashboard_url" {

@@ -8,11 +8,17 @@ class PortfolioManager:
 
     def get_state(self, ticker):
         """Fetches persistent state. Raises error if table is empty."""
-        query = f"SELECT holdings, cash_balance FROM `{self.table_id}` WHERE asset_name = '{ticker}' LIMIT 1"
+        query = f"SELECT holdings, cash_balance, avg_price FROM `{self.table_id}` WHERE asset_name = '{ticker}' LIMIT 1"
         results = list(self.client.query(query).result())
         
         if results:
-            return {"holdings": results[0].holdings, "cash_balance": results[0].cash_balance}
+            # Handle existing rows that might have NULL avg_price
+            avg_price = results[0].avg_price if results[0].avg_price is not None else 0.0
+            return {
+                "holdings": results[0].holdings,
+                "cash_balance": results[0].cash_balance,
+                "avg_price": avg_price
+            }
         
         # High-resolution safety: No default values for real capital
         raise ValueError(f"Portfolio ledger empty for {ticker}. Initialization required.")
@@ -31,26 +37,57 @@ class PortfolioManager:
                 logger.info(f"🌱 Seeding portfolio for {ticker} with $10,000")
                 initial_cash = 10000.0
                 initial_holdings = 0.0
+                initial_avg_price = 0.0
                 
                 dml = f"""
-                INSERT INTO `{self.table_id}` (asset_name, holdings, cash_balance, last_updated)
-                VALUES ('{ticker}', {initial_holdings}, {initial_cash}, CURRENT_TIMESTAMP())
+                INSERT INTO `{self.table_id}` (asset_name, holdings, cash_balance, avg_price, last_updated)
+                VALUES ('{ticker}', {initial_holdings}, {initial_cash}, {initial_avg_price}, CURRENT_TIMESTAMP())
                 """
                 self.client.query(dml).result()
                 
         except Exception as e:
             logger.error(f"Failed to ensure portfolio state for {ticker}: {e}")
 
-    def update_ledger(self, ticker, cash, holdings):
-        """Updates ledger with safety logging for every state transition."""
+    def update_ledger(self, ticker, cash, holdings, price=None, action=None):
+        """
+        Updates ledger and recalculates Weighted Average Cost Basis.
+        """
+        # 1. Get current state to calculate WAC
+        try:
+            current_state = self.get_state(ticker)
+            old_holdings = current_state['holdings']
+            old_avg = current_state['avg_price']
+        except:
+            # If fetch fails, assume 0 (Should not happen if seeded)
+            old_holdings = 0.0
+            old_avg = 0.0
+
+        # 2. Calculate New Average Price
+        new_avg = old_avg # Default: No change (e.g. for Sells)
+        
+        if action == "BUY" and price is not None and holdings > 0:
+            # Weighted Average Cost Formula
+            # NewAvg = ((OldShares * OldAvg) + (NewShares * BuyPrice)) / TotalShares
+            new_shares = holdings - old_holdings
+            if new_shares > 0:
+                total_cost = (old_holdings * old_avg) + (new_shares * price)
+                new_avg = total_cost / holdings
+        
+        # If Holdings go to 0, reset avg to 0
+        if holdings == 0:
+            new_avg = 0.0
+
         dml = f"""
         UPDATE `{self.table_id}`
-        SET cash_balance = {cash}, holdings = {holdings}, last_updated = CURRENT_TIMESTAMP()
+        SET cash_balance = {cash}, 
+            holdings = {holdings}, 
+            avg_price = {new_avg},
+            last_updated = CURRENT_TIMESTAMP()
         WHERE asset_name = '{ticker}'
         """
         try:
             self.client.query(dml).result()
-            logger.info(f"Ledger Sync: {ticker} | New Balance: ${cash:.2f}")
+            logger.info(f"Ledger Sync: {ticker} | New Balance: ${cash:.2f} | Avg Cost: ${new_avg:.2f}")
         except Exception as e:
             logger.critical(f"SYNC FAILURE: Database out of alignment with bot state! {e}")
             raise e

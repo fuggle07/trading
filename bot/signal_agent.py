@@ -44,23 +44,35 @@ class SignalAgent:
             print(f"Skipping trade: Volatility too high ({vol_pct:.2%})")
             return None
 
-        # 3. Sentiment Filter (The Vibe Check)
-        sentiment = market_data.get('sentiment_score')
-        if sentiment is not None and sentiment < -0.5:
-             print(f"Skipping trade: Market sentiment is negative ({sentiment:.2f})")
-             return None
-
-        # 4. Strategy Logic (SMA Crossover)
+        # 3. Strategy Logic (SMA Crossover)
         price = Decimal(str(market_data['current_price']))
         sma_short = Decimal(str(market_data['sma_20']))
         sma_long = Decimal(str(market_data['sma_50']))
-
+        
+        signal = None
         if sma_short > sma_long:
-            return {"action": "BUY", "price": price, "reason": "SMA_CROSSOVER_BULLISH"}
+            signal = {"action": "BUY", "price": price, "reason": "SMA_CROSSOVER_BULLISH"}
         elif sma_short < sma_long:
-            return {"action": "SELL", "price": price, "reason": "SMA_CROSSOVER_BEARISH"}
+            signal = {"action": "SELL", "price": price, "reason": "SMA_CROSSOVER_BEARISH"}
 
-        return None
+        # 3b. Stop Loss Override (Safety Net)
+        # If we own it (implied by having an avg_price > 0) and price is down 10%
+        avg_price = Decimal(str(market_data.get('avg_price', 0.0)))
+        if avg_price > 0:
+            stop_price = avg_price * Decimal("0.90")
+            if price < stop_price:
+                 print(f"🚨 STOP LOSS TRIGGERED: Price {price} < {stop_price} (Avg: {avg_price})")
+                 signal = {"action": "SELL", "price": price, "reason": "STOP_LOSS_HIT"}
+
+        # 4. Sentiment Filter (The Vibe Check) - Apply ONLY to BUYs
+        # We want to be able to SELL even if sentiment is terrible (especially then!)
+        if signal and signal['action'] == 'BUY':
+            sentiment = market_data.get('sentiment_score')
+            if sentiment is not None and sentiment < -0.5:
+                 print(f"Skipping BUY: Market sentiment is negative ({sentiment:.2f})")
+                 return None
+
+        return signal
 
     def _check_volatility(self, market_data: Dict) -> tuple[bool, Decimal]:
         """

@@ -206,6 +206,14 @@ async def run_audit():
                 market_data['current_price'] = current_price
                 market_data['sentiment_score'] = sentiment_score
                 
+                # Fetch Portfolio State for Stop Loss
+                try:
+                    p_state = portfolio_manager.get_state(ticker)
+                    market_data['avg_price'] = p_state.get('avg_price', 0.0)
+                    market_data['holdings'] = p_state.get('holdings', 0.0) # For logic awareness
+                except:
+                    market_data['avg_price'] = 0.0
+
                 print(f"      SMAs: SMA20={market_data['sma_20']:.2f} | SMA50={market_data['sma_50']:.2f}")
 
                 # Evaluate Strategy
