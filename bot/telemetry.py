@@ -3,6 +3,7 @@ import os
 import sys
 import json
 from datetime import datetime
+import pytz
 
 # 1. STRUCTURED LOGGING CONFIGURATION
 class CloudLoggingFormatter(logging.Formatter):

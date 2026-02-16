@@ -6,6 +6,7 @@ from flask import Flask, jsonify
 from datetime import datetime, timezone
 from telemetry import log_watchlist_data
 import pytz
+from google.cloud import bigquery
 
 # --- 1. INITIALIZATION ---
 app = Flask(__name__)
@@ -15,6 +16,11 @@ app.url_map.strict_slashes = False
 # Initialize Finnhub Client (Uses the secret mapped in Terraform)
 FINNHUB_KEY = os.environ.get('EXCHANGE_API_KEY', 'PLACEHOLDER_INIT')
 finnhub_client = finnhub.Client(api_key=FINNHUB_KEY)
+
+# Initialize BigQuery Client
+PROJECT_ID = os.environ.get('PROJECT_ID', 'trading-12345') # Fallback for local dev
+bq_client = bigquery.Client(project=PROJECT_ID)
+table_id = f"{PROJECT_ID}.trading_data.watchlist_logs"
 
 # --- 2. CORE UTILITIES ---
 
@@ -42,8 +48,6 @@ async def fetch_market_data(ticker):
 
 # --- 3. THE AUDIT ENGINE ---
 
-from telemetry import log_watchlist_data # Import your logging function
-
 async def run_audit():
     results = []
     tickers = os.environ.get("BASE_TICKERS", "NVDA,AAPL").split(",")
@@ -53,7 +57,7 @@ async def run_audit():
         if prices:
             current_price = prices[-1]
             # Call your telemetry function to actually write to BQ
-            log_watchlist_data(ticker, current_price) 
+            log_watchlist_data(bq_client, table_id, ticker, current_price) 
             results.append({"ticker": ticker, "price": current_price, "status": "logged"})
         await asyncio.sleep(1.1)
     return results
