@@ -36,22 +36,27 @@ def _get_ny_time():
     return datetime.now(pytz.timezone('America/New_York'))
 
 async def fetch_market_data(ticker):
-    """Wraps synchronous Finnhub SDK in an executor for thread-safety."""
+    """Fetches real-time Quote data (Free Tier friendly)."""
     loop = asyncio.get_event_loop()
     
-    def get_candles():
-        end = int(time.time())
-        # Fetch 7 days to guarantee 50 periods even after weekends/holidays
-        start = end - (7 * 24 * 60 * 60)
+    def get_quote():
         if not finnhub_client:
-            print(f"⚠️  WARNING: Finnhub client not initialized (missing key). Skipping {ticker}")
             return None
-        return finnhub_client.stock_candles(ticker, '15', start, end)
+        return finnhub_client.quote(ticker)
 
     try:
-        res = await loop.run_in_executor(None, get_candles)
-        if res and res.get('s') == 'ok':
-            return res['c'][-50:]
+        res = await loop.run_in_executor(None, get_quote)
+
+        # Finnhub Quote returns 'c' for current price. 
+        # If 'c' is 0, it usually means an invalid ticker.
+        if res and res.get('c') != 0:
+            current_price = res['c']
+            print(f"📊 {ticker} Quote: ${current_price}")
+            # We return a list with one item to maintain compatibility 
+            # with your existing 'prices[-1]' logic.
+            return [current_price]
+
+        print(f"⚠️  Finnhub returned no quote for {ticker}. Response: {res}")
         return []
     except Exception as e:
         print(f"❌ API Error for {ticker}: {e}")
