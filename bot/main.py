@@ -87,7 +87,7 @@ async def main_handler() -> tuple[str, int]:
 
 # --- CLOUD RUN ROUTES ---
 
-@app.route('/health', methods=['GET'])
+@app.route('/health', methods=['GET'], strict_slashes=False)
 def health():
     return jsonify({
         "status": "healthy",
@@ -95,7 +95,7 @@ def health():
         "timestamp": datetime.now(timezone.utc).isoformat()
     }), 200
 
-@app.route('/run-audit', methods=['POST'])
+@app.route('/run-audit', methods=['POST'], strict_slashes=False)
 def run_audit_endpoint():
     try:
         # Bridges Flask (Sync) to the Async logic
