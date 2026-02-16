@@ -342,7 +342,7 @@ resource "google_monitoring_notification_channel" "email_me" {
   display_name = "Trading Bot Alerts"
   type         = "email"
   labels = {
-    email_address = "your-email@example.com" # <--- Change this
+    email_address = "pfuggle@gmail.com"
   }
 }
 
