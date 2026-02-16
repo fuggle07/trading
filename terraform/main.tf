@@ -304,6 +304,44 @@ resource "google_cloud_scheduler_job" "nasdaq_trigger" {
   }
 }
 
+# C. Log-Based Metrics (To bridge Logs -> Dashboard)
+resource "google_logging_metric" "paper_equity" {
+  name   = "trading/paper_equity"
+  filter = "resource.type=\"cloud_run_revision\" AND jsonPayload.message:\"Logged Performance\""
+  metric_descriptor {
+    metric_kind = "GAUGE"
+    value_type  = "DOUBLE"
+    unit        = "1"
+    labels {
+      key         = "node_id"
+      value_type  = "STRING"
+      description = "The Bot ID"
+    }
+  }
+  label_extractors = {
+    "node_id" = "EXTRACT(jsonPayload.node_id)"
+  }
+  value_extractor = "EXTRACT(jsonPayload.paper_equity)"
+}
+
+resource "google_logging_metric" "sentiment_score" {
+  name   = "trading/sentiment_score"
+  filter = "resource.type=\"cloud_run_revision\" AND jsonPayload.message=~\"Logged .* Sentiment\""
+  metric_descriptor {
+    metric_kind = "GAUGE"
+    value_type  = "DOUBLE"
+    unit        = "1"
+    labels {
+      key = "ticker"
+      value_type = "STRING"
+    }
+  }
+  label_extractors = {
+    "ticker" = "EXTRACT(jsonPayload.ticker)"
+  }
+  value_extractor = "EXTRACT(jsonPayload.sentiment_score)"
+}
+
 resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
   dashboard_json = jsonencode({
     displayName = "Aberfeldie Node: NASDAQ Monitor"
@@ -345,6 +383,47 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                     aggregation = {
                       alignmentPeriod = "60s"
                       perSeriesAligner = "ALIGN_PERCENTILE_99"
+                    }
+                  }
+                }
+              }]
+            }
+          }
+        },
+        # WIDGET 3: Total Equity
+        {
+          width = 6, height = 4, xPos = 0, yPos = 4
+          widget = {
+            title = "💰 Paper Equity ($)"
+            xyChart = {
+              dataSets = [{
+                timeSeriesQuery = {
+                  timeSeriesFilter = {
+                    filter = "metric.type=\"logging.googleapis.com/user/trading/paper_equity\""
+                    aggregation = {
+                      alignmentPeriod = "300s"
+                      perSeriesAligner = "ALIGN_MEAN"
+                    }
+                  }
+                }
+              }]
+            }
+          }
+        },
+        # WIDGET 4: Sentiment Heatmap
+        {
+          width = 6, height = 4, xPos = 6, yPos = 4
+          widget = {
+            title = "📰 Market Sentiment (-1 to +1)"
+            xyChart = {
+              dataSets = [{
+                timeSeriesQuery = {
+                  timeSeriesFilter = {
+                    filter = "metric.type=\"logging.googleapis.com/user/trading/sentiment_score\""
+                    aggregation = {
+                      alignmentPeriod = "300s"
+                      perSeriesAligner = "ALIGN_MEAN"
+                      groupByFields = ["metric.label.ticker"]
                     }
                   }
                 }

@@ -17,6 +17,30 @@ class PortfolioManager:
         # High-resolution safety: No default values for real capital
         raise ValueError(f"Portfolio ledger empty for {ticker}. Initialization required.")
 
+    def ensure_portfolio_state(self, ticker):
+        """
+        Seeds the portfolio for a new ticker if it doesn't exist.
+        Default: $10,000 Paper Cash, 0 Holdings.
+        """
+        try:
+            # Check if exists
+            query = f"SELECT asset_name FROM `{self.table_id}` WHERE asset_name = '{ticker}'"
+            results = list(self.client.query(query).result())
+            
+            if not results:
+                logger.info(f"🌱 Seeding portfolio for {ticker} with $10,000")
+                initial_cash = 10000.0
+                initial_holdings = 0.0
+                
+                dml = f"""
+                INSERT INTO `{self.table_id}` (asset_name, holdings, cash_balance, last_updated)
+                VALUES ('{ticker}', {initial_holdings}, {initial_cash}, CURRENT_TIMESTAMP())
+                """
+                self.client.query(dml).result()
+                
+        except Exception as e:
+            logger.error(f"Failed to ensure portfolio state for {ticker}: {e}")
+
     def update_ledger(self, ticker, cash, holdings):
         """Updates ledger with safety logging for every state transition."""
         dml = f"""

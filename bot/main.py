@@ -160,6 +160,14 @@ async def run_audit():
     for ticker in tickers:
         print(f"👉 Processing {ticker}...")
         
+        # 0. Ensure Portfolio State (Seed if new)
+        try:
+            # We run this synchronously to ensure state relies on it
+            # In production, cache this check
+            asyncio.to_thread(portfolio_manager.ensure_portfolio_state, ticker)
+        except Exception as e:
+            print(f"⚠️ Portfolio Init Warning: {e}")
+
         # 1. Fetch History & Sentiment
         df_task = fetch_historical_data(ticker)
         sentiment_task = asyncio.to_thread(fetch_sentiment, ticker)
