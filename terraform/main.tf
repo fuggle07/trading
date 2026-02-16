@@ -258,3 +258,20 @@ resource "google_project_iam_member" "log_sink_writer" {
   member  = google_logging_project_sink.master_log_sink.writer_identity
 }
 
+# 4. SCHEDULING TIER
+resource "google_cloud_scheduler_job" "market_trigger" {
+  name             = "trading-trigger"
+  description      = "Triggers the Aberfeldie Node during market hours"
+  schedule         = "*/5 1-7 * * 2-6"
+  time_zone        = "Australia/Melbourne"
+  attempt_deadline = "320s"
+
+  http_target {
+    http_method = "POST"
+    uri         = "${google_cloud_run_v2_service.trading_bot.uri}/run-audit"
+
+    oidc_token {
+      service_account_email = google_service_account.bot_sa.email
+    }
+  }
+}

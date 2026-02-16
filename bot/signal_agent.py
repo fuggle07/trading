@@ -1,27 +1,50 @@
 from decimal import Decimal
 from typing import Optional, Dict
+from datetime import datetime
+import pytz
+
 
 class SignalAgent:
     """
-    The decision-making engine with built-in Volatility Filtering.
+    The decision-making engine with built-in Volatility Filtering and Holiday Awareness.
     """
     def __init__(self, risk_profile: float = 0.02, vol_threshold: float = 0.05):
         self.risk_per_trade = Decimal(str(risk_profile))
         # vol_threshold: 0.05 means if the bands are > 5% apart, we don't trade.
         self.vol_threshold = Decimal(str(vol_threshold))
 
+        # 2026 US/ASX Major Holidays (Example subset)
+        self.market_holidays = [
+            "2026-01-01", # New Year's Day
+            "2026-01-26", # Australia Day
+            "2026-04-03", # Good Friday
+            "2026-12-25", # Christmas
+            # Add others as needed
+        ]
+
+    def _is_market_holiday(self):
+        """Checks if today is a scheduled market holiday in Melbourne time."""
+        melb_tz = pytz.timezone('Australia/Melbourne')
+        today_str = datetime.now(melb_tz).strftime('%Y-%m-%d')
+        return today_str in self.market_holidays
+
     def evaluate_strategy(self, market_data: Dict) -> Optional[Dict]:
         """
-        Evaluates signals only if the market volatility is within safe bounds.
+        Evaluates signals only if the market is open and volatility is within safe bounds.
         """
-        # 1. Volatility Filter (The Gatekeeper)
+        # 1. Holiday Filter
+        if self._is_market_holiday():
+            print(f"Skipping: Market is closed for holiday today.")
+            return None
+
+        # 2. Volatility Filter (The Gatekeeper)
         is_stable, vol_pct = self._check_volatility(market_data)
         if not is_stable:
             # We log this but return None to skip the trade
             print(f"Skipping trade: Volatility too high ({vol_pct:.2%})")
             return None
 
-        # 2. Strategy Logic (SMA Crossover)
+        # 3. Strategy Logic (SMA Crossover)
         price = Decimal(str(market_data['current_price']))
         sma_short = Decimal(str(market_data['sma_20']))
         sma_long = Decimal(str(market_data['sma_50']))
