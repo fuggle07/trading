@@ -133,13 +133,21 @@ resource "google_cloud_run_v2_service" "trading_bot" {
         value = tostring(var.mortgage_rate)
       }
       env {
-        name = "FINNHUB_KEY"
+        name = "EXCHANGE_API_KEY"
         value_source {
           secret_key_ref {
-            secret  = "FINNHUB_KEY"
+            secret  = "FINNHUB_KEY" # Mapping your Finnhub key to the bot's generic var
             version = "latest"
           }
         }
+      }
+      env {
+        name  = "TRADING_ENABLED"
+        value = "True" # Or use a variable
+      }
+      env {
+        name  = "BASE_TICKERS"
+        value = "NVDA,AAPL,TSLA,MSFT,AMD"
       }
     }
   }
@@ -220,12 +228,20 @@ resource "google_logging_project_bucket_config" "audit_log_bucket" {
     retention_days = 365 # Keep one year for tax/audit purposes
     bucket_id  = "system-audit-trail"
 }
-# Create the Dataset for Log Analytics
+# Update the Dataset for Log Analytics
 resource "google_bigquery_dataset" "system_logs" {
   dataset_id                  = "system_logs"
-  location                    = "australia-southeast1"
+  location                    = "us-central1" 
   description                 = "Aggregated master logs for the trading node"
   delete_contents_on_destroy = false
+}
+
+# Update the Logging Bucket
+resource "google_logging_project_bucket_config" "audit_log_bucket" {
+    project        = var.project_id
+    location       = "us-central1"
+    retention_days = 365 
+    bucket_id      = "system-audit-trail"
 }
 
 # Create the Master Log Sink
