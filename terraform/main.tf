@@ -383,6 +383,13 @@ resource "google_logging_metric" "sentiment_score" {
 resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
   dashboard_json = jsonencode({
     displayName = "Aberfeldie Node: NASDAQ Monitor"
+    # Default to showing last 1 hour to avoid confusion from old data
+    dashboardFilters = [{
+      filterType = "RESOURCE_LABEL"
+      labelKey   = ""
+      stringValue = ""
+      templateVariable = ""
+    }]
     mosaicLayout = {
       columns = 12
       tiles = [
@@ -392,6 +399,10 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
           widget = {
             title = "Cloud Run: Request Status (2xx vs 4xx/5xx)"
             xyChart = {
+              chartOptions = {
+                mode = "COLOR"
+              }
+              timeshiftDuration = "0s"
               dataSets = [{
                 timeSeriesQuery = {
                   timeSeriesFilter = {
@@ -414,6 +425,10 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
           widget = {
             title = "Cloud Run: Latency (ms)"
             xyChart = {
+              chartOptions = {
+                mode = "COLOR"
+              }
+              timeshiftDuration = "0s"
               dataSets = [{
                 timeSeriesQuery = {
                   timeSeriesFilter = {
@@ -434,6 +449,10 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
           widget = {
             title = "💰 Paper Equity ($)"
             xyChart = {
+              chartOptions = {
+                mode = "COLOR"
+              }
+              timeshiftDuration = "0s"
               dataSets = [{
                 timeSeriesQuery = {
                   timeSeriesFilter = {
@@ -454,6 +473,10 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
           widget = {
             title = "📰 Market Sentiment (-1 to +1)"
             xyChart = {
+              chartOptions = {
+                mode = "COLOR"
+              }
+              timeshiftDuration = "0s"
               dataSets = [{
                 timeSeriesQuery = {
                   timeSeriesFilter = {
