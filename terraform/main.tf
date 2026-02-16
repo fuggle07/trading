@@ -327,7 +327,6 @@ resource "google_cloud_scheduler_job" "nasdaq_trigger" {
 }
 
 # C. Log-Based Metrics (To bridge Logs -> Dashboard)
-# C. Log-Based Metrics (To bridge Logs -> Dashboard)
 resource "google_logging_metric" "paper_equity" {
   name   = "trading/paper_equity"
   # Updated filter to match the actual log message: "📈 Logged Performance: $..."

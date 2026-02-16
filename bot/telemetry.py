@@ -59,7 +59,16 @@ def log_watchlist_data(client, table_id, ticker, price, sentiment=None):
     try:
         errors = client.insert_rows_json(table_id, row_to_insert)
         if errors == []:
-            print(f"✅ Telemetry: Logged {ticker} at {price}")
+        if errors == []:
+            # Structured Log for Metric Extraction
+            log_payload = {
+                "message": f"✅ Telemetry: Logged {ticker} at {price}",
+                "ticker": ticker,
+                "price": float(price),
+                "sentiment_score": float(sentiment) if sentiment is not None else 0.0,
+                "event": "WATCHLIST_LOG"
+            }
+            print(json.dumps(log_payload))
         else:
             print(f"❌ BQ ERROR: {errors}")
             raise RuntimeError(f"Sync failed: {errors}")
@@ -87,7 +96,17 @@ def log_performance(client, table_id, metrics):
         if errors:
             print(f"❌ Performance Log Error: {errors}")
         else:
-            print(f"📈 Logged Performance: ${metrics['total_equity']:.2f}")
+        else:
+            # We must log strictly as JSON for Cloud Metrics to pick it up
+            # The filter looks for jsonPayload.message =~ "Logged Performance"
+            # It extracts 'paper_equity' from the top-level keys
+            log_payload = {
+                "message": f"📈 Logged Performance: ${metrics['total_equity']:.2f}",
+                "paper_equity": float(metrics['total_equity']),
+                "node_id": os.getenv("K_SERVICE", "local-bot"),
+                "event": "PERFORMANCE_LOG"
+            }
+            print(json.dumps(log_payload))
     except Exception as e:
         print(f"🔥 Performance Log Failure: {e}")
 
