@@ -13,14 +13,16 @@ def reset_portfolio():
     
     # In an interactive script we'd ask for confirmation, but this is automation.
     
-    client = bigquery.Client(project=PROJECT_ID)
+    # Explicitly set location for Australian dataset
+    client = bigquery.Client(project=PROJECT_ID, location="australia-southeast1")
     table_ref = f"{PROJECT_ID}.{DATASET_ID}.{TABLE_ID}"
     
     query = f"TRUNCATE TABLE `{table_ref}`"
     
-    print(f"🚀 Executing: {query}")
+    print(f"🚀 Executing: {query} [Location: australia-southeast1]")
     try:
-        client.query(query).result()
+        # Pass location explicitly to query job as well
+        client.query(query, location="australia-southeast1").result()
         print("✅ SUCCESS: Portfolio table truncated.")
         print("👉 Next run of the bot will auto-seed $10,000 per ticker.")
     except Exception as e:
