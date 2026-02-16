@@ -34,6 +34,15 @@ echo "--- 🚀 STARTING SECURE DEPLOYMENT FOR PROJECT: $PROJECT_ID ---"
 # 2. AUTH CHECK
 gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
 
+# 2.5. Check for schedulers
+echo "--- 🔍 STEP 2.5: CHECKING FOR UNMANAGED SCHEDULERS ---"
+EXISTING_JOBS=$(gcloud scheduler jobs list --location=$REGION --format="value(ID)")
+for job in $EXISTING_JOBS; do
+  if [[ ! $job == trading-trigger-* ]]; then
+    echo "⚠️  WARNING: Unmanaged job found: $job. Consider deleting manually."
+  fi
+done
+
 # 3. INFRASTRUCTURE PHASE A (Foundations)
 echo "--- 🏗️  PHASE A: Deploying Foundations ---"
 cd terraform

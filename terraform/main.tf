@@ -258,12 +258,17 @@ resource "google_project_iam_member" "log_sink_writer" {
   member  = google_logging_project_sink.master_log_sink.writer_identity
 }
 
-# 4. SCHEDULING TIER
-resource "google_cloud_scheduler_job" "market_trigger" {
-  name             = "trading-trigger"
-  description      = "Triggers the Aberfeldie Node during market hours"
-  schedule         = "*/5 1-7 * * 2-6"
-  time_zone        = "Australia/Melbourne"
+# 4. SCHEDULING TIER (NASDAQ Aligned)
+resource "google_cloud_scheduler_job" "nasdaq_trigger" {
+  name             = "trading-trigger-nasdaq"
+  description      = "Aligned to NASDAQ hours (New York time) - DST Proof"
+
+  # Runs every 5 mins from 9:00 AM to 4:00 PM, Monday-Friday (NY Time)
+  schedule         = "*/5 9-16 * * 1-5"
+
+  # This is the "Magic" that handles DST drift for you
+  time_zone        = "America/New_York"
+
   attempt_deadline = "320s"
 
   http_target {
