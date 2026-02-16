@@ -330,7 +330,9 @@ resource "google_cloud_scheduler_job" "nasdaq_trigger" {
 # C. Log-Based Metrics (To bridge Logs -> Dashboard)
 resource "google_logging_metric" "paper_equity" {
   name   = "trading/paper_equity"
-  filter = "resource.type=\"cloud_run_revision\" AND jsonPayload.message:\"Logged Performance\""
+  # Updated filter to match the actual log message: "📈 Logged Performance: $..."
+  # AND ensures the payload has the 'paper_equity' key we need.
+  filter = "resource.type=\"cloud_run_revision\" AND jsonPayload.message=~\"Logged Performance\""
   metric_descriptor {
     metric_kind = "DELTA"
     value_type  = "DISTRIBUTION"
