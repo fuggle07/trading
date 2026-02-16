@@ -1,4 +1,3 @@
-
 import logging
 import os
 import json
@@ -10,12 +9,13 @@ logger = logging.getLogger("execution-manager")
 
 class ExecutionManager:
     """
-    Handles order execution and logs trades to BigQuery.
+    Handles order execution, validation against portfolio, and logging.
     """
-    def __init__(self):
+    def __init__(self, portfolio_manager=None):
         self.project_id = os.getenv("PROJECT_ID")
         self.bq_client = None
-        self.table_id = "trading_data.executions" # Assumed table based on convention
+        self.table_id = "trading_data.executions"
+        self.portfolio_manager = portfolio_manager
         
         if self.project_id:
             try:
@@ -28,28 +28,68 @@ class ExecutionManager:
 
     def place_order(self, signal: dict) -> dict:
         """
-        Executes an order based on the signal and logs it.
-        In this simulated environment, it just logs and returns a success message.
+        Executes an order if funds/holdings allow, then logs it.
         """
         ticker = signal.get("ticker", "UNKNOWN")
         action = signal.get("action", "HOLD")
         reason = signal.get("reason", "No reason provided")
-        price = signal.get("price", 0.0)
+        price = float(signal.get("price", 0.0))
+        quantity = 1 # Default to 1 share for now
         
-        logger.info(f"EXECUTING {action} on {ticker} @ {price} | Reason: {reason}")
+        logger.info(f"PROCESSING {action} on {ticker} @ {price} | Reason: {reason}")
         
-        # 1. Execute Order (Simulated)
-        # In a real system, this would call IBKR or an exchange API
-        execution_id = f"sim-exec-{int(datetime.now().timestamp())}"
+        # 0. Portfolio Validation (The Gatekeeper)
+        if self.portfolio_manager:
+            try:
+                # Get current state (or init if empty)
+                try:
+                    state = self.portfolio_manager.get_state(ticker)
+                except ValueError:
+                    # Initialize if not found (First time trading this ticker)
+                    state = {"holdings": 0.0, "cash_balance": 10000.0} # $10k seed execution
+                    logger.info(f"Initializing portfolio for {ticker} with $10,000 simulated cash.")
+
+                cash = state['cash_balance']
+                holdings = state['holdings']
+                
+                # Check constraints
+                if action == "BUY":
+                    cost = price * quantity
+                    if cash < cost:
+                        logger.warning(f"❌ REJECTED: Insufficient funds (${cash:.2f} < ${cost:.2f})")
+                        return {"status": "REJECTED", "reason": "INSUFFICIENT_FUNDS"}
+                    
+                    # Update State (Simulated Settlement)
+                    new_cash = cash - cost
+                    new_holdings = holdings + quantity
+                    self.portfolio_manager.update_ledger(ticker, new_cash, new_holdings)
+                    
+                elif action == "SELL":
+                    if holdings < quantity:
+                         logger.warning(f"❌ REJECTED: Insufficient holdings ({holdings} < {quantity})")
+                         return {"status": "REJECTED", "reason": "INSUFFICIENT_HOLDINGS"}
+                    
+                    # Update State
+                    new_cash = cash + (price * quantity)
+                    new_holdings = holdings - quantity
+                    self.portfolio_manager.update_ledger(ticker, new_cash, new_holdings)
+                    
+            except Exception as e:
+                logger.error(f"Portfolio Validation Failed: {e}")
+                return {"status": "ERROR", "reason": str(e)}
+        else:
+             logger.warning("⚠️ PortfolioManager not connected! executing blindly (Sim Mode)")
+
+        # 1. Execute Log
+        execution_id = f"exec-{int(datetime.now().timestamp())}-{ticker}"
         
-        # 2. Log to BigQuery
         execution_data = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "execution_id": execution_id,
             "ticker": ticker,
             "action": action,
-            "price": float(price),
-            "quantity": 1, # Default to 1 for simulation
+            "price": price,
+            "quantity": quantity,
             "reason": reason,
             "status": "FILLED"
         }
@@ -63,26 +103,15 @@ class ExecutionManager:
         }
 
     def _log_to_bigquery(self, data: dict):
-        """
-        Logs execution data to BigQuery. Gracefully handles missing tables.
-        """
+        """Logs execution data to BigQuery."""
         if not self.bq_client:
-            logger.debug("Skipping BQ log (No Client)")
             return
 
         try:
-            # Defensive check
-            if self.bq_client is None:
-                logger.warning("BigQuery client is None (unexpected), skipping log.")
-                return
-
-            # Insert rows returns a list of errors if any
             errors = self.bq_client.insert_rows_json(self.table_id, [data])
             if errors:
                 logger.error(f"BigQuery Insert Errors: {errors}")
             else:
                 logger.info(f"Logged execution {data['execution_id']} to {self.table_id}")
-                
         except Exception as e:
-            # Catch-all for API errors (e.g., 404 Not Found if table doesn't exist)
             logger.warning(f"Failed to log to BigQuery ({self.table_id}): {e}")

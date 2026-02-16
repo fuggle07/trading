@@ -31,3 +31,44 @@ class PortfolioManager:
             logger.critical(f"SYNC FAILURE: Database out of alignment with bot state! {e}")
             raise e
 
+    def calculate_total_equity(self, current_prices: dict):
+        """
+        Calculates total equity across all positions.
+        current_prices: dict of {ticker: price}
+        """
+        query = f"SELECT asset_name, holdings, cash_balance FROM `{self.table_id}`"
+        results = list(self.client.query(query).result())
+        
+        total_cash = 0.0
+        total_market_value = 0.0
+        breakdown = []
+        
+        for row in results:
+            ticker = row.asset_name
+            cash = row.cash_balance
+            holdings = row.holdings
+            
+            # Use current price if available, otherwise 0 (conservative)
+            price = current_prices.get(ticker, 0.0)
+            market_value = holdings * price
+            
+            total_cash += cash
+            total_market_value += market_value
+            
+            breakdown.append({
+                "ticker": ticker,
+                "cash": cash,
+                "holdings": holdings,
+                "market_value": market_value
+            })
+            
+        total_equity = total_cash + total_market_value
+        
+        logger.info(f"💰 Total Equity: ${total_equity:.2f} (Cash: ${total_cash:.2f}, Assets: ${total_market_value:.2f})")
+        
+        return {
+            "total_equity": total_equity,
+            "total_cash": total_cash,
+            "total_market_value": total_market_value,
+            "breakdown": breakdown
+        }

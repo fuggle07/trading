@@ -44,7 +44,13 @@ class SignalAgent:
             print(f"Skipping trade: Volatility too high ({vol_pct:.2%})")
             return None
 
-        # 3. Strategy Logic (SMA Crossover)
+        # 3. Sentiment Filter (The Vibe Check)
+        sentiment = market_data.get('sentiment_score')
+        if sentiment is not None and sentiment < -0.5:
+             print(f"Skipping trade: Market sentiment is negative ({sentiment:.2f})")
+             return None
+
+        # 4. Strategy Logic (SMA Crossover)
         price = Decimal(str(market_data['current_price']))
         sma_short = Decimal(str(market_data['sma_20']))
         sma_long = Decimal(str(market_data['sma_50']))

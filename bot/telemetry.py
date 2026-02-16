@@ -66,7 +66,28 @@ def log_watchlist_data(client, table_id, ticker, price, sentiment=None):
     except Exception as e:
         print(f"🔥 Critical Telemetry Failure: {e}")
 
-def log_performance(data):
-    """Standardizes cycle summary in the Master Log."""
-    log_audit("PERFORMANCE", f"Cycle complete for {data.get('ticker', 'UNKNOWN')}", data)
+def log_performance(client, table_id, metrics):
+    """
+    Logs performance metrics (Total Equity) to BigQuery.
+    """
+    row = {
+        "timestamp": datetime.now(pytz.utc).isoformat(),
+        "paper_equity": float(metrics['total_equity']),
+        # We can add more fields here later as per schema
+        "tax_buffer_usd": 0.0, # Placeholder
+        "fx_rate_aud": 1.0, # Placeholder
+        "daily_hurdle_aud": 0.0, # Placeholder
+        "net_alpha_usd": 0.0, # Placeholder
+        "node_id": os.getenv("K_SERVICE", "local-bot"),
+        "recommendation": "HOLD", # Placeholder
+    }
+    
+    try:
+        errors = client.insert_rows_json(table_id, [row])
+        if errors:
+            print(f"❌ Performance Log Error: {errors}")
+        else:
+            print(f"📈 Logged Performance: ${metrics['total_equity']:.2f}")
+    except Exception as e:
+        print(f"🔥 Performance Log Failure: {e}")
 

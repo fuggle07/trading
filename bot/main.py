@@ -10,6 +10,7 @@ import pytz
 from google.cloud import bigquery
 from signal_agent import SignalAgent
 from execution_manager import ExecutionManager
+from portfolio_manager import PortfolioManager
 
 # --- 1. INITIALIZATION ---
 app = Flask(__name__)
@@ -31,11 +32,13 @@ finnhub_client = finnhub.Client(api_key=FINNHUB_KEY) if FINNHUB_KEY else None
 PROJECT_ID = os.environ.get('PROJECT_ID', 'trading-12345')
 bq_client = bigquery.Client(project=PROJECT_ID)
 table_id = f"{PROJECT_ID}.trading_data.watchlist_logs"
+portfolio_table_id = f"{PROJECT_ID}.trading_data.portfolio"
 
 # Initialize Trading Agents
 # specific risk/vol settings can be loaded from env if needed
 signal_agent = SignalAgent() 
-execution_manager = ExecutionManager()
+portfolio_manager = PortfolioManager(bq_client, portfolio_table_id)
+execution_manager = ExecutionManager(portfolio_manager)
 
 # --- 2. CORE UTILITIES ---
 
@@ -113,17 +116,58 @@ def calculate_technical_indicators(df):
 
 # --- 3. THE AUDIT ENGINE ---
 
+def fetch_sentiment(ticker):
+    """Fetches news sentiment score from Finnhub (0-1 score, or -1 to 1)."""
+    # Note: Finnhub 'news-sentiment' endpoint returns detailed data.
+    # We will use the 'sentiment' score if available, or 'buzz'.
+    # Free tier might define this differently, so we wrap safely.
+    if not finnhub_client: 
+        return None
+        
+    try:
+        # Get News Sentiment
+        res = finnhub_client.news_sentiment(ticker)
+        # Structure: {'sentiment': {'bearishPercent': 0.1, 'bullishPercent': 0.8}, 'sectorAverageBullishPercent': ...}
+        # Actually Finnhub's News Sentiment endpoint structure varies.
+        # Let's try 'news_sentiment' and see if we get a 'buzz' or 'sentiment' object.
+        # Typically: res['sentiment'] object exists.
+        
+        if res and 'sentiment' in res:
+             # Calculate a simple score: Bullish - Bearish
+             bullish = res['sentiment'].get('bullishPercent', 0.5)
+             bearish = res['sentiment'].get('bearishPercent', 0.5)
+             
+             # Score from -1 (Bearish) to +1 (Bullish)
+             score = bullish - bearish
+             return score
+             
+        return 0.0 # Neutral default if no data
+    except Exception as e:
+        print(f"⚠️  Sentiment fetch failed for {ticker}: {e}")
+        return None
+
+# --- 3. THE AUDIT ENGINE ---
+
 async def run_audit():
     results = []
     tickers_env = os.environ.get("BASE_TICKERS", "NVDA,AAPL")
     tickers = [t.strip() for t in tickers_env.split(",") if t.strip()]
     print(f"🔍 DEBUG: Bot is attempting to audit tickers: {tickers}")
     
+    # Track latest prices for portfolio valuation
+    current_prices = {}
+
     for ticker in tickers:
         print(f"👉 Processing {ticker}...")
         
-        # 1. Fetch History
-        df = await fetch_historical_data(ticker)
+        # 1. Fetch History & Sentiment
+        df_task = fetch_historical_data(ticker)
+        sentiment_task = asyncio.to_thread(fetch_sentiment, ticker)
+        
+        # Run safely in parallel (or just await sequential)
+        # Sequential for now to keep logs clean
+        df = await df_task
+        sentiment_score = await sentiment_task
         
         if df is not None:
             # 2. Calculate Indicators
@@ -131,11 +175,17 @@ async def run_audit():
             
             if market_data:
                 current_price = market_data['current_price']
-                print(f"   📊 Price: {current_price} | SMA20: {market_data['sma_20']:.2f} | SMA50: {market_data['sma_50']:.2f}")
+                current_prices[ticker] = current_price # Store for valuation
+                
+                # Add sentiment
+                market_data['sentiment_score'] = sentiment_score
+                
+                sent_str = f"| Sentiment: {sentiment_score:.2f}" if sentiment_score is not None else "| No Sentiment"
+                print(f"   📊 Price: {current_price} | SMA20: {market_data['sma_20']:.2f} | SMA50: {market_data['sma_50']:.2f} {sent_str}")
 
                 # 3. Log Data (Telemetry)
                 # We log the raw price as before
-                log_watchlist_data(bq_client, table_id, ticker, current_price) 
+                log_watchlist_data(bq_client, table_id, ticker, current_price, sentiment_score) 
                 
                 # 4. Evaluate Strategy
                 signal = signal_agent.evaluate_strategy(market_data)
@@ -157,6 +207,22 @@ async def run_audit():
              print(f"   ⚠️  No data fetched for {ticker}")
 
         await asyncio.sleep(1.1) # Rate limit friendly
+    
+    # --- END OF CYCLE: PERFORMANCE LOGGING ---
+    print("🏁 Cycle Complete. Calculating Total Equity...")
+    try:
+        from telemetry import log_performance
+        performance_table = f"{PROJECT_ID}.trading_data.performance_logs"
+        
+        metrics = portfolio_manager.calculate_total_equity(current_prices)
+        log_performance(bq_client, performance_table, metrics)
+        
+        # Append equity to results for API response
+        results.append({"type": "performance_summary", "data": metrics})
+        
+    except Exception as e:
+        print(f"❌ Performance Calculation Failed: {e}")
+
     return results
 
 # --- 4. FLASK ROUTES ---

@@ -197,6 +197,25 @@ resource "google_bigquery_table" "portfolio" {
 EOF
 }
 
+resource "google_bigquery_table" "executions" {
+  dataset_id = google_bigquery_dataset.trading_data.dataset_id
+  table_id   = "executions"
+  deletion_protection = false
+
+  schema = <<EOF
+[
+  {"name": "execution_id", "type": "STRING", "mode": "REQUIRED"},
+  {"name": "timestamp", "type": "TIMESTAMP", "mode": "REQUIRED"},
+  {"name": "ticker", "type": "STRING", "mode": "REQUIRED"},
+  {"name": "action", "type": "STRING", "mode": "REQUIRED"},
+  {"name": "quantity", "type": "FLOAT", "mode": "REQUIRED"},
+  {"name": "price", "type": "FLOAT", "mode": "REQUIRED"},
+  {"name": "reason", "type": "STRING", "mode": "NULLABLE"},
+  {"name": "status", "type": "STRING", "mode": "REQUIRED"}
+]
+EOF
+}
+
 # 2. Harden IAM for the Bot
 # The bot now needs to run Queries (Job User) and Update data (Data Editor)
 resource "google_project_iam_member" "bot_bq_job_user" {
