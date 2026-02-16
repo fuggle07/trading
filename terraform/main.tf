@@ -305,12 +305,13 @@ resource "google_cloud_scheduler_job" "nasdaq_trigger" {
 }
 
 # C. Log-Based Metrics (To bridge Logs -> Dashboard)
+# C. Log-Based Metrics (To bridge Logs -> Dashboard)
 resource "google_logging_metric" "paper_equity" {
   name   = "trading/paper_equity"
   filter = "resource.type=\"cloud_run_revision\" AND jsonPayload.message:\"Logged Performance\""
   metric_descriptor {
-    metric_kind = "GAUGE"
-    value_type  = "DOUBLE"
+    metric_kind = "DELTA"
+    value_type  = "DISTRIBUTION"
     unit        = "1"
     labels {
       key         = "node_id"
@@ -322,14 +323,21 @@ resource "google_logging_metric" "paper_equity" {
     "node_id" = "EXTRACT(jsonPayload.node_id)"
   }
   value_extractor = "EXTRACT(jsonPayload.paper_equity)"
+  bucket_options {
+    exponential_buckets {
+      num_finite_buckets = 64
+      growth_factor      = 2
+      scale              = 0.01
+    }
+  }
 }
 
 resource "google_logging_metric" "sentiment_score" {
   name   = "trading/sentiment_score"
   filter = "resource.type=\"cloud_run_revision\" AND jsonPayload.message=~\"Logged .* Sentiment\""
   metric_descriptor {
-    metric_kind = "GAUGE"
-    value_type  = "DOUBLE"
+    metric_kind = "DELTA"
+    value_type  = "DISTRIBUTION"
     unit        = "1"
     labels {
       key = "ticker"
@@ -340,6 +348,13 @@ resource "google_logging_metric" "sentiment_score" {
     "ticker" = "EXTRACT(jsonPayload.ticker)"
   }
   value_extractor = "EXTRACT(jsonPayload.sentiment_score)"
+  bucket_options {
+    linear_buckets {
+      num_finite_buckets = 20
+      width              = 0.1
+      offset             = -1.0
+    }
+  }
 }
 
 resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
