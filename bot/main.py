@@ -1,110 +1,101 @@
-import asyncio
 import os
-import logging
-import aiohttp
-import pandas as pd
-from datetime import datetime, timezone
+import time
+import asyncio
+import finnhub
 from flask import Flask, jsonify
-from signal_agent import SignalAgent
-from execution_manager import ExecutionManager
+from datetime import datetime
+import pytz
 
-# 1. Initialize App & Components
+# --- 1. INITIALIZATION ---
 app = Flask(__name__)
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("AberfeldieNode")
+# Crucial for Gunicorn/Cloud Run: Disable strict slashes globally or per route
+app.url_map.strict_slashes = False
 
-# Load configuration from Environment
-TICKERS = os.getenv("BASE_TICKERS", "NVDA,AAPL,TSLA,MSFT,AMD").split(",")
-PORT = int(os.environ.get("PORT", 8080))
+# Initialize Finnhub Client (Uses the secret mapped in Terraform)
+FINNHUB_KEY = os.environ.get('EXCHANGE_API_KEY', 'PLACEHOLDER_INIT')
+finnhub_client = finnhub.Client(api_key=FINNHUB_KEY)
 
-# Initialize our custom modules
-agent = SignalAgent(risk_profile=0.02, vol_threshold=0.05)
-executor = ExecutionManager()
+# --- 2. CORE UTILITIES ---
 
-# --- HELPER LOGIC ---
+def _get_ny_time():
+    return datetime.now(pytz.timezone('America/New_York'))
 
-async def fetch_market_data(ticker: str) -> dict:
-    """
-    SENSE: Fetches historical and current price data.
-    Note: For a real edge, replace this with a professional API (Polygon, Alpaca, etc.)
-    """
-    # Simulated fetching of the last 50 periods of data for SMA/BB calculation
-    # In production, you would fetch this from an exchange API
-    url = f"https://api.example.com/v1/ohlcv/{ticker}?limit=50"
+async def fetch_market_data(ticker):
+    """Wraps synchronous Finnhub SDK in an executor for thread-safety."""
+    loop = asyncio.get_event_loop()
     
-    # Placeholder: Generating mock data for the structure
-    # Real logic would use: async with session.get(url) ...
-    prices = [150.0 + i for i in range(50)] # Mock price trend
-    df = pd.DataFrame(prices, columns=['close'])
-    
-    # Calculate Indicators
-    df['sma_20'] = df['close'].rolling(window=20).mean()
-    df['sma_50'] = df['close'].rolling(window=50).mean()
-    df['std_20'] = df['close'].rolling(window=20).std()
-    df['bb_upper'] = df['sma_20'] + (df['std_20'] * 2)
-    df['bb_lower'] = df['sma_20'] - (df['std_20'] * 2)
-    
-    latest = df.iloc[-1]
-    return {
-        "ticker": ticker,
-        "current_price": latest['close'],
-        "sma_20": latest['sma_20'],
-        "sma_50": latest['sma_50'],
-        "bb_upper": latest['bb_upper'],
-        "bb_lower": latest['bb_lower']
-    }
+    def get_candles():
+        end = int(time.time())
+        # Fetch 7 days to guarantee 50 periods even after weekends/holidays
+        start = end - (7 * 24 * 60 * 60)
+        return finnhub_client.stock_candles(ticker, '15', start, end)
 
-# --- CORE TRADING HANDLER ---
-
-async def audit_and_trade(ticker: str):
-    """The full cycle for a single ticker."""
     try:
-        # 1. SENSE
-        market_data = await fetch_market_data(ticker)
-        logger.info(f"Sensed {ticker}: Price {market_data['current_price']}")
-
-        # 2. THINK
-        signal = agent.evaluate_strategy(market_data)
-
-        # 3. ACT
-        if signal:
-            signal['ticker'] = ticker # Add context for executor
-            result = executor.place_order(signal)
-            logger.info(f"Execution Result for {ticker}: {result['status']}")
-        else:
-            logger.info(f"No valid signal/Stable volatility for {ticker}")
-
+        res = await loop.run_in_executor(None, get_candles)
+        if res.get('s') == 'ok':
+            return res['c'][-50:]
+        return []
     except Exception as e:
-        logger.error(f"Failed audit for {ticker}: {str(e)}")
+        print(f"❌ API Error for {ticker}: {e}")
+        return []
 
-async def main_handler() -> tuple[str, int]:
-    """Orchestrates the audit across all tickers concurrently."""
-    async with asyncio.TaskGroup() as tg:
-        for ticker in TICKERS:
-            tg.create_task(audit_and_trade(ticker))
+# --- 3. THE AUDIT ENGINE ---
+
+async def run_audit():
+    """Main execution logic for the NASDAQ Node."""
+    results = []
+    tickers = os.environ.get("BASE_TICKERS", "NVDA,AAPL,TSLA,MSFT,AMD").split(",")
     
-    return f"Audit and Trade cycle complete for {len(TICKERS)} tickers.", 200
+    print(f"🚀 Starting NASDAQ Audit for: {tickers}")
 
-# --- CLOUD RUN ROUTES ---
+    for ticker in tickers:
+        prices = await fetch_market_data(ticker)
+        
+        if not prices:
+            results.append({"ticker": ticker, "status": "failed_data_fetch"})
+            continue
 
-@app.route('/health', methods=['GET'], strict_slashes=False)
+        current_price = prices[-1]
+        
+        # This is where your ExecutionManager.log_performance() would be called
+        # Example: await execution_manager.log_to_bigquery(ticker, current_price)
+        
+        print(f"✅ {ticker}: ${current_price:.2f}")
+        results.append({
+            "ticker": ticker, 
+            "price": current_price, 
+            "bars_analyzed": len(prices),
+            "status": "logged"
+        })
+
+        # Respecting Finnhub 60/min limit
+        await asyncio.sleep(1.1)
+
+    return results
+
+# --- 4. FLASK ROUTES ---
+
+@app.route('/health')
 def health():
-    return jsonify({
-        "status": "healthy",
-        "node": "Aberfeldie",
-        "timestamp": datetime.now(timezone.utc).isoformat()
-    }), 200
+    """Liveness probe for Cloud Run."""
+    return "Aberfeldie Node is healthy", 200
 
-@app.route('/run-audit', methods=['POST'], strict_slashes=False)
-def run_audit_endpoint():
+@app.route('/run-audit', methods=['POST'])
+async def run_audit_endpoint():
+    """Secure endpoint triggered by Scheduler or manual curl."""
     try:
-        # Bridges Flask (Sync) to the Async logic
-        result = asyncio.run(main_handler())
-        result_msg, status_code = result
-        return jsonify({"message": result_msg}), status_code
+        data = await run_audit()
+        return jsonify({
+            "status": "complete",
+            "timestamp": _get_ny_time().isoformat(),
+            "results": data
+        }), 200
     except Exception as e:
-        logger.error({"event": "audit_crash", "error": str(e)})
-        return jsonify({"error": str(e)}), 500
+        print(f"🔥 Critical Failure: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
 
+# --- 5. LOCAL RUNNER ---
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=PORT)
+    # Uses PORT env var provided by Cloud Run, defaults to 8080
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host='0.0.0.0', port=port)
