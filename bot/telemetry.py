@@ -59,7 +59,6 @@ def log_watchlist_data(client, table_id, ticker, price, sentiment=None):
     try:
         errors = client.insert_rows_json(table_id, row_to_insert)
         if errors == []:
-        if errors == []:
             # Structured Log for Metric Extraction
             log_payload = {
                 "message": f"✅ Telemetry: Logged {ticker} at {price}",
@@ -95,7 +94,6 @@ def log_performance(client, table_id, metrics):
         errors = client.insert_rows_json(table_id, [row])
         if errors:
             print(f"❌ Performance Log Error: {errors}")
-        else:
         else:
             # We must log strictly as JSON for Cloud Metrics to pick it up
             # The filter looks for jsonPayload.message =~ "Logged Performance"
