@@ -20,3 +20,8 @@ pytz==2024.1
 
 # Trading logic
 ib-async==1.0.1
+
+# The Compatibility Bridge
+# We pin protobuf to 4.25.3 to satisfy the <5.0.0dev requirement
+protobuf==4.25.3
+
