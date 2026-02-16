@@ -13,19 +13,24 @@ class SignalAgent:
         # vol_threshold: 0.05 means if the bands are > 5% apart, we don't trade.
         self.vol_threshold = Decimal(str(vol_threshold))
 
-        # 2026 US/ASX Major Holidays (Example subset)
+        # 2026 US NASDAQ Holidays
         self.market_holidays = [
             "2026-01-01", # New Year's Day
-            "2026-01-26", # Australia Day
+            "2026-01-19", # Martin Luther King, Jr. Day
+            "2026-02-16", # Washington's Birthday (Presidents' Day)
             "2026-04-03", # Good Friday
-            "2026-12-25", # Christmas
-            # Add others as needed
+            "2026-05-25", # Memorial Day
+            "2026-06-19", # Juneteenth
+            "2026-07-03", # Independence Day (Observed)
+            "2026-09-07", # Labor Day
+            "2026-11-26", # Thanksgiving Day
+            "2026-12-25", # Christmas Day
         ]
 
     def _is_market_holiday(self):
-        """Checks if today is a scheduled market holiday in Melbourne time."""
-        melb_tz = pytz.timezone('Australia/Melbourne')
-        today_str = datetime.now(melb_tz).strftime('%Y-%m-%d')
+        """Checks if today is a scheduled market holiday in New York time."""
+        ny_tz = pytz.timezone('America/New_York')
+        today_str = datetime.now(ny_tz).strftime('%Y-%m-%d')
         return today_str in self.market_holidays
 
     def evaluate_strategy(self, market_data: Dict) -> Optional[Dict]:
