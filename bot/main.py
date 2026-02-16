@@ -4,6 +4,7 @@ import asyncio
 import finnhub
 from flask import Flask, jsonify
 from datetime import datetime
+from telemetry import log_watchlist_data
 import pytz
 
 # --- 1. INITIALIZATION ---
@@ -41,36 +42,20 @@ async def fetch_market_data(ticker):
 
 # --- 3. THE AUDIT ENGINE ---
 
-async def run_audit():
-    """Main execution logic for the NASDAQ Node."""
-    results = []
-    tickers = os.environ.get("BASE_TICKERS", "NVDA,AAPL,TSLA,MSFT,AMD").split(",")
-    
-    print(f"🚀 Starting NASDAQ Audit for: {tickers}")
+from telemetry import log_watchlist_data # Import your logging function
 
+async def run_audit():
+    results = []
+    tickers = os.environ.get("BASE_TICKERS", "NVDA,AAPL").split(",")
+    
     for ticker in tickers:
         prices = await fetch_market_data(ticker)
-        
-        if not prices:
-            results.append({"ticker": ticker, "status": "failed_data_fetch"})
-            continue
-
-        current_price = prices[-1]
-        
-        # This is where your ExecutionManager.log_performance() would be called
-        # Example: await execution_manager.log_to_bigquery(ticker, current_price)
-        
-        print(f"✅ {ticker}: ${current_price:.2f}")
-        results.append({
-            "ticker": ticker, 
-            "price": current_price, 
-            "bars_analyzed": len(prices),
-            "status": "logged"
-        })
-
-        # Respecting Finnhub 60/min limit
+        if prices:
+            current_price = prices[-1]
+            # Call your telemetry function to actually write to BQ
+            log_watchlist_data(ticker, current_price) 
+            results.append({"ticker": ticker, "price": current_price, "status": "logged"})
         await asyncio.sleep(1.1)
-
     return results
 
 # --- 4. FLASK ROUTES ---

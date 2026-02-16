@@ -15,6 +15,8 @@ RESPONSE=$(curl -s -X POST "$URL/run-audit" \
 echo "📦 Server Response: $RESPONSE"
 
 echo "📊 Checking BigQuery for latest entry..."
+echo "⏳ Waiting for BigQuery streaming buffer..."
+sleep 5
 bq query --use_legacy_sql=false \
 "SELECT timestamp, ticker, price FROM \`$(gcloud config get-value project).trading_data.watchlist_logs\` ORDER BY timestamp DESC LIMIT 1"
 
