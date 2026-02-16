@@ -16,6 +16,14 @@ def diagnose():
     ticker = "NVDA"
     print(f"👉 Requesting data for {ticker}...")
     
+    # 1. Test Basic Quote (Current Price)
+    try:
+        quote = client.quote(ticker)
+        print(f"✅ Quote: {quote}")
+    except Exception as e:
+         print(f"❌ Quote Failed: {e}")
+
+    # 2. Test Candles (Historical)
     try:
         # Mimic main.py logic
         end = int(time.time())
