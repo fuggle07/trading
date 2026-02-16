@@ -280,3 +280,56 @@ resource "google_cloud_scheduler_job" "nasdaq_trigger" {
     }
   }
 }
+
+resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
+  dashboard_json = jsonencode({
+    displayName = "Aberfeldie Node: NASDAQ Monitor"
+    mosaicLayout = {
+      columns = 12
+      tiles = [
+        # WIDGET 1: Cloud Run Success/Failure Rate
+        {
+          width = 6, height = 4, xPos = 0, yPos = 0
+          widget = {
+            title = "Cloud Run: Request Status (2xx vs 4xx/5xx)"
+            xyChart = {
+              dataSets = [{
+                timeSeriesQuery = {
+                  timeSeriesFilter = {
+                    filter = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"trading-audit-agent\" AND metric.type=\"run.googleapis.com/request_count\""
+                    aggregation = {
+                      alignmentPeriod = "60s"
+                      perSeriesAligner = "ALIGN_RATE"
+                      crossSeriesReducer = "REDUCE_SUM"
+                      groupByFields = ["metric.label.response_code_class"]
+                    }
+                  }
+                }
+              }]
+            }
+          }
+        },
+        # WIDGET 2: Execution Latency
+        {
+          width = 6, height = 4, xPos = 6, yPos = 0
+          widget = {
+            title = "Cloud Run: Latency (ms)"
+            xyChart = {
+              dataSets = [{
+                timeSeriesQuery = {
+                  timeSeriesFilter = {
+                    filter = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"trading-audit-agent\" AND metric.type=\"run.googleapis.com/request_latencies\""
+                    aggregation = {
+                      alignmentPeriod = "60s"
+                      perSeriesAligner = "ALIGN_PERCENTILE_99"
+                    }
+                  }
+                }
+              }]
+            }
+          }
+        }
+      ]
+    }
+  })
+}
