@@ -49,8 +49,10 @@ cd ..
 # 4. SOFTWARE PHASE (Build & Push)
 echo "--- 📦 PHASE B: Building and Pushing Docker Image ---"
 # Ensure your context (./) includes requirements.txt and all agent files
+pushd bot
 docker build -t "$FULL_IMAGE_PATH" .
 docker push "$FULL_IMAGE_PATH"
+popd
 
 # 5. INFRASTRUCTURE PHASE B (Compute & Orchestration)
 echo "--- ⚙️  PHASE C: Finalizing Infrastructure ---"
