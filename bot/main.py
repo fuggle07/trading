@@ -50,7 +50,9 @@ async def fetch_market_data(ticker):
 
 async def run_audit():
     results = []
-    tickers = os.environ.get("BASE_TICKERS", "NVDA,AAPL").split(",")
+    tickers_env = os.environ.get("BASE_TICKERS", "NVDA,AAPL")
+    tickers = [t.strip() for t in tickers_env.split(",") if t.strip()]
+    print(f"🔍 DEBUG: Bot is attempting to audit these specific tickers: {tickers}")
     
     for ticker in tickers:
         prices = await fetch_market_data(ticker)
