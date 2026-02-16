@@ -164,7 +164,7 @@ async def run_audit():
         try:
             # We run this synchronously to ensure state relies on it
             # In production, cache this check
-            asyncio.to_thread(portfolio_manager.ensure_portfolio_state, ticker)
+            await asyncio.to_thread(portfolio_manager.ensure_portfolio_state, ticker)
         except Exception as e:
             print(f"⚠️ Portfolio Init Warning: {e}")
 
