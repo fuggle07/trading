@@ -233,7 +233,7 @@ resource "google_bigquery_dataset" "system_logs" {
   dataset_id                  = "system_logs"
   location                    = "us-central1" 
   description                 = "Aggregated master logs for the trading node"
-  delete_contents_on_destroy = false
+  delete_contents_on_destroy = true
 }
 
 # Update the Logging Bucket

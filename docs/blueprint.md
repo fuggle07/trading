@@ -20,10 +20,11 @@ The node is architected as a decoupled system using **Cloud Run** for compute an
 | **Step 4** | **Sync** | `Secret Injection` | Moves live keys into Secret Manager. |
 
 ## ### 3. Dependency Manifest (`bot/requirements.txt`)
-Updated for 2026 performance standards:
-* **google-cloud-bigquery**: Telemetry streaming.
+Updated for 2026 performance standards (Python 3.12):
+* **google-cloud-bigquery**: Telemetry streaming (fixed for Py3.12).
 * **ib_async**: High-performance IBKR interface.
-* **httpx**: Async forex polling for the 5.2% hurdle math.
+* **httpx**: Async forex polling & integration testing.
 * **gunicorn**: Production WSGI server for Cloud Run.
+* **pytest / flake8**: Development quality assurance.
 
 

@@ -3,7 +3,7 @@
 # ## Operations Manual: Aberfeldie Node
 
 **Node ID:** `aberfeldie-01`
-**Control Tier:** Ubuntu Workstation (Local)
+**Control Tier:** Local Workstation (Mac/Linux)
 **Execution Tier:** GCP Cloud Run (Remote)
 
 ---

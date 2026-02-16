@@ -14,3 +14,6 @@ google-cloud-bigquery==3.17.2
 # Utilities
 python-dotenv==1.0.1
 
+
+# Trading logic
+ib-async==1.0.1

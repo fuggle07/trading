@@ -4,11 +4,11 @@
 
 **Project:** Nasdaq Concurrent Auditor
 
-**Status:** Multi-Tier Architecture (v2.3)
+**Status:** Multi-Tier Architecture (v2.4 - Python 3.12)
 
 **Deployment Region:** us-central1 (GCP)
 
-**Last Hardened:** 2026-01-27 20:30 AEDT
+**Last Hardened:** 2026-02-16
 
 ---
 

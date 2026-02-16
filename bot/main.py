@@ -77,7 +77,7 @@ async def audit_and_trade(ticker: str):
     except Exception as e:
         logger.error(f"Failed audit for {ticker}: {str(e)}")
 
-async def main_handler():
+async def main_handler() -> tuple[str, int]:
     """Orchestrates the audit across all tickers concurrently."""
     async with asyncio.TaskGroup() as tg:
         for ticker in TICKERS:
@@ -99,9 +99,8 @@ def health():
 def run_audit_endpoint():
     try:
         # Bridges Flask (Sync) to the Async logic
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        result_msg, status_code = loop.run_until_complete(main_handler())
+        result = asyncio.run(main_handler())
+        result_msg, status_code = result
         return jsonify({"message": result_msg}), status_code
     except Exception as e:
         logger.error({"event": "audit_crash", "error": str(e)})
