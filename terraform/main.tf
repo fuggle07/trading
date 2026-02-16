@@ -30,7 +30,7 @@ resource "google_bigquery_dataset" "trading_data" {
   dataset_id                 = "trading_data"
   friendly_name              = "Aberfeldie Trading Analytics"
   location                   = "us-central1"
-  delete_contents_on_destroy = false
+  delete_contents_on_destroy = true
 }
 
 resource "google_bigquery_table" "performance_logs" {
