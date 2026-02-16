@@ -153,20 +153,6 @@ resource "google_cloud_run_v2_service" "trading_bot" {
   }
 }
 
-# BigQuery Data Editor: Permission to insert rows
-resource "google_project_iam_member" "bq_data_editor" {
-  project = var.project_id
-  role    = "roles/bigquery.dataEditor"
-  member  = "serviceAccount:trading-bot-executor@${var.project_id}.iam.gserviceaccount.com"
-}
-
-# BigQuery Job User: Permission to run insertion jobs
-resource "google_project_iam_member" "bq_job_user" {
-  project = var.project_id
-  role    = "roles/bigquery.jobUser"
-  member  = "serviceAccount:trading-bot-executor@${var.project_id}.iam.gserviceaccount.com"
-}
-
 # 3. SECRET ACCESS (Re-confirming for completeness)
 resource "google_secret_manager_secret_iam_member" "secret_access" {
   for_each  = toset(["FINNHUB_KEY", "IBKR_KEY", "APIFY_TOKEN"])
@@ -210,6 +196,20 @@ EOF
 # 2. Harden IAM for the Bot
 # The bot now needs to run Queries (Job User) and Update data (Data Editor)
 resource "google_project_iam_member" "bot_bq_job_user" {
+  project = var.project_id
+  role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.bot_sa.email}"
+}
+
+# BQ Data Editor: Permission to write to tables
+resource "google_project_iam_member" "bq_data_editor" {
+  project = var.project_id
+  role    = "roles/bigquery.dataEditor"
+  member  = "serviceAccount:${google_service_account.bot_sa.email}"
+}
+
+# BQ Job User: Permission to start an 'insert' job (Required)
+resource "google_project_iam_member" "bq_job_user" {
   project = var.project_id
   role    = "roles/bigquery.jobUser"
   member  = "serviceAccount:${google_service_account.bot_sa.email}"
