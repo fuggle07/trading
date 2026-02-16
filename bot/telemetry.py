@@ -25,31 +25,38 @@ handler.setFormatter(CloudLoggingFormatter())
 logger.addHandler(handler)
 
 # 2. MASTER LOGGING INTERFACE
-def log_audit(event_type, message, details=None):
-    """
-    The primary interface for the Master Log.
-    Emits a structured entry tagged with an event type.
-    """
-    # Create a log record with extra attributes for the formatter
-    extra = {"event": event_type, "details": details or {}}
-    logger.info(message, extra=extra)
+
+def log_audit(level, message, extra=None):
+    # This format is automatically parsed by Google Cloud Logging
+    entry = {
+        "severity": level,
+        "message": message,
+        "extra": extra or {}
+    }
+    print(json.dumps(entry))
+    sys.stdout.flush() # Force the log out immediately
 
 # 3. BIGQUERY TELEMETRY
+
 def log_watchlist_data(client, table_id, rows_to_insert):
-    """Logs watchlist data to BQ and records status in the Master Log."""
     if not rows_to_insert:
-        log_audit("TELEMETRY", "No watchlist data to log.")
+        log_audit("INFO", "No watchlist data to log.")
         return
 
     try:
+        # We use retry to handle transient network blips
         errors = client.insert_rows_json(table_id, rows_to_insert)
-        if errors:
-            log_audit("CRITICAL", f"BigQuery Insert Failed", {"errors": errors})
-            raise RuntimeError(f"Database sync failed: {errors}")
         
-        log_audit("TELEMETRY", f"Successfully synced {len(rows_to_insert)} rows.")
+        if errors == []:
+            log_audit("INFO", f"Synced {len(rows_to_insert)} rows to BigQuery.")
+        else:
+            # Errors is a list of dicts: [{'index': 0, 'errors': [...]}]
+            log_audit("CRITICAL", "BigQuery Insert Partial Failure", {"details": errors})
+            # We raise this so the /run-audit endpoint returns a 500
+            raise RuntimeError(f"BQ Sync Error: {errors}")
+
     except Exception as e:
-        log_audit("ERROR", f"Telemetry connection failure: {e}")
+        log_audit("ERROR", f"BigQuery Connection Failure: {str(e)}")
         raise e
 
 def log_performance(data):
