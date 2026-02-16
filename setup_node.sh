@@ -76,3 +76,5 @@ if [ -f "./scripts/05_sync_env.sh" ]; then
 fi
 
 echo "--- ✅ DEPLOYMENT COMPLETE: ABERFELDIE NODE IS SECURE & LIVE ---"
+terraform output dashboard_url
+

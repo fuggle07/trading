@@ -366,3 +366,7 @@ resource "google_monitoring_alert_policy" "dead_man_switch" {
     content = "The trading bot has not reported an execution in 15 minutes during NASDAQ hours. Check Cloud Run logs and Scheduler status immediately."
   }
 }
+output "dashboard_url" {
+  value       = "https://console.cloud.google.com/monitoring/dashboards/custom/${element(split("/", google_monitoring_dashboard.nasdaq_bot_dashboard.id), 3)}?project=${var.project_id}"
+  description = "The direct link to the NASDAQ Monitor Dashboard"
+}
