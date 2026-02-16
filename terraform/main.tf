@@ -439,7 +439,7 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                     filter = "metric.type=\"logging.googleapis.com/user/trading/paper_equity\""
                     aggregation = {
                       alignmentPeriod = "300s"
-                      perSeriesAligner = "ALIGN_MEAN"
+                      perSeriesAligner = "ALIGN_PERCENTILE_50"
                     }
                   }
                 }
@@ -459,7 +459,7 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                     filter = "metric.type=\"logging.googleapis.com/user/trading/sentiment_score\""
                     aggregation = {
                       alignmentPeriod = "300s"
-                      perSeriesAligner = "ALIGN_MEAN"
+                      perSeriesAligner = "ALIGN_PERCENTILE_50"
                       groupByFields = ["metric.label.ticker"]
                     }
                   }
