@@ -1,5 +1,5 @@
 # Web & API
-Flask==3.0.2
+Flask[async]==3.0.2
 gunicorn==21.2.0
 aiohttp==3.9.3
 
