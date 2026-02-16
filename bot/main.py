@@ -168,51 +168,65 @@ async def run_audit():
         except Exception as e:
             print(f"⚠️ Portfolio Init Warning: {e}")
 
-        # 1. Fetch History & Sentiment
-        df_task = fetch_historical_data(ticker)
+        # 1. Fetch Data (Parallel-ish)
+        # We need Current Price (Quote) + Sentiment + History (Candles)
+        quote_task = asyncio.to_thread(finnhub_client.quote, ticker) if finnhub_client else None
         sentiment_task = asyncio.to_thread(fetch_sentiment, ticker)
+        history_task = fetch_historical_data(ticker)
         
-        # Run safely in parallel (or just await sequential)
-        # Sequential for now to keep logs clean
-        df = await df_task
+        # Execute
+        quote_res = await quote_task if quote_task else None
         sentiment_score = await sentiment_task
+        df = await history_task
         
+        current_price = 0.0
+        
+        # 2. Process Quote (The Baseline)
+        if quote_res and 'c' in quote_res:
+             current_price = float(quote_res['c'])
+             current_prices[ticker] = current_price # Store for valuation
+             
+             sent_str = f"| Sentiment: {sentiment_score:.2f}" if sentiment_score is not None else "| No Sentiment"
+             print(f"   📊 Price: {current_price} {sent_str}")
+             
+             # Log Telemetry (Everything required for Dashboard)
+             log_watchlist_data(bq_client, table_id, ticker, current_price, sentiment_score)
+        else:
+             print(f"   ⚠️  Could not fetch quote for {ticker}. Skipping.")
+             continue
+
+        # 3. Process Strategy (The Bonus)
         if df is not None:
-            # 2. Calculate Indicators
+            # Calculate Indicators
             market_data = calculate_technical_indicators(df)
             
             if market_data:
-                current_price = market_data['current_price']
-                current_prices[ticker] = current_price # Store for valuation
-                
-                # Add sentiment
+                # Overwrite price with candle close if needed, but Quote is usually fresher.
+                # We'll use the calculated SMAs.
+                market_data['current_price'] = current_price
                 market_data['sentiment_score'] = sentiment_score
                 
-                sent_str = f"| Sentiment: {sentiment_score:.2f}" if sentiment_score is not None else "| No Sentiment"
-                print(f"   📊 Price: {current_price} | SMA20: {market_data['sma_20']:.2f} | SMA50: {market_data['sma_50']:.2f} {sent_str}")
+                print(f"      SMAs: SMA20={market_data['sma_20']:.2f} | SMA50={market_data['sma_50']:.2f}")
 
-                # 3. Log Data (Telemetry)
-                # We log the raw price as before
-                log_watchlist_data(bq_client, table_id, ticker, current_price, sentiment_score) 
-                
-                # 4. Evaluate Strategy
+                # Evaluate Strategy
                 signal = signal_agent.evaluate_strategy(market_data)
                 
                 status = "logged_no_signal"
                 if signal:
                     print(f"   🚨 SIGNAL DETECTED: {signal['action']} {ticker}")
-                    # 5. Execute Trade
                     signal['ticker'] = ticker
                     exec_result = execution_manager.place_order(signal)
                     status = f"executed_{exec_result['status']}"
                     results.append({"ticker": ticker, "price": current_price, "signal": signal, "status": status})
                 else:
                      results.append({"ticker": ticker, "price": current_price, "status": status})
-
             else:
-                print(f"   ⚠️  Insufficient data for indicators for {ticker}")
+                 print(f"      ⚠️  Insufficient history for indicators.")
         else:
-             print(f"   ⚠️  No data fetched for {ticker}")
+             print(f"      ⚠️  No historical data (Strategy Skipped).")
+             results.append({"ticker": ticker, "price": current_price, "status": "tracking_only"})
+
+        await asyncio.sleep(1.1) # Rate limit friendly
 
         await asyncio.sleep(1.1) # Rate limit friendly
     
