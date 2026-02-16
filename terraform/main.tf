@@ -333,3 +333,36 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
     }
   })
 }
+# A. Notification Channel (Where the alert goes)
+resource "google_monitoring_notification_channel" "email_me" {
+  display_name = "Trading Bot Alerts"
+  type         = "email"
+  labels = {
+    email_address = "your-email@example.com" # <--- Change this
+  }
+}
+
+# B. Dead Man's Switch (Alert Policy)
+resource "google_monitoring_alert_policy" "dead_man_switch" {
+  display_name = "CRITICAL: Aberfeldie Node Heartbeat Lost"
+  combiner     = "OR"
+  notification_channels = [google_monitoring_notification_channel.email_me.name]
+
+  conditions {
+    display_name = "Bot Silence (Metric Absence)"
+    condition_absent {
+      # Monitors for the total absence of logs from the bot
+      filter   = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"trading-audit-agent\" AND metric.type=\"run.googleapis.com/request_count\""
+      duration = "900s" # 15 minutes of silence triggers the alert
+
+      aggregations {
+        alignment_period = "60s"
+        per_series_aligner = "ALIGN_RATE"
+      }
+    }
+  }
+
+  documentation {
+    content = "The trading bot has not reported an execution in 15 minutes during NASDAQ hours. Check Cloud Run logs and Scheduler status immediately."
+  }
+}
