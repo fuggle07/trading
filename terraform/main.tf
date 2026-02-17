@@ -209,6 +209,16 @@ resource "google_cloud_run_v2_service_iam_member" "invoker" {
   member   = "serviceAccount:${google_service_account.bot_sa.email}"
 }
 
+# 5. SCHEDULER ACCESS (Allow Scheduler to impersonate the bot SA for OIDC)
+# Note: Using project number derived from the environment or a data source is preferred
+data "google_project" "project" {}
+
+resource "google_service_account_iam_member" "scheduler_sa_user" {
+  service_account_id = google_service_account.bot_sa.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:service-${data.google_project.project.number}@gcp-sa-cloudscheduler.iam.gserviceaccount.com"
+}
+
 # CREATE INITIAL SECRET VERSIONS
 # This ensures the 'latest' alias exists for Cloud Run
 resource "google_secret_manager_secret_version" "initial_versions" {
@@ -334,6 +344,13 @@ resource "google_project_iam_member" "bq_data_editor" {
 resource "google_project_iam_member" "bq_job_user" {
   project = var.project_id
   role    = "roles/bigquery.jobUser"
+  member  = "serviceAccount:${google_service_account.bot_sa.email}"
+}
+
+# BQ Storage Read Session User: Required for high-performance Storage API
+resource "google_project_iam_member" "bq_read_session_user" {
+  project = var.project_id
+  role    = "roles/bigquery.readSessionUser"
   member  = "serviceAccount:${google_service_account.bot_sa.email}"
 }
 
