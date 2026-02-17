@@ -13,7 +13,7 @@ numpy==1.26.4
 # Cloud & Observability
 google-cloud-logging==3.9.0
 google-cloud-bigquery==3.17.2
-google-cloud-aiplatform==1.38.1
+google-cloud-aiplatform==1.70.0
 
 # Utilities
 python-dotenv==1.0.1
@@ -25,4 +25,5 @@ ib-async==1.0.1
 # The Compatibility Bridge
 # We pin protobuf to 4.25.3 to satisfy the <5.0.0dev requirement
 protobuf==4.25.3
+setuptools==69.0.3
 

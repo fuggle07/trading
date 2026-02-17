@@ -390,13 +390,6 @@ resource "google_logging_metric" "sentiment_score" {
 resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
   dashboard_json = jsonencode({
     displayName = "Aberfeldie Node: NASDAQ Monitor"
-    # Default to showing last 1 hour to avoid confusion from old data
-    dashboardFilters = [{
-      filterType = "RESOURCE_LABEL"
-      labelKey   = ""
-      stringValue = ""
-      templateVariable = ""
-    }]
     mosaicLayout = {
       columns = 12
       tiles = [
