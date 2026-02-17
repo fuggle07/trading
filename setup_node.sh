@@ -87,6 +87,12 @@ if bq show --project_id=$PROJECT_ID trading_data.performance_logs > /dev/null 2>
     terraform import -var="project_id=$PROJECT_ID" google_bigquery_table.performance_logs projects/$PROJECT_ID/datasets/trading_data/tables/performance_logs || true
 fi
 
+# Attempt to import table fundamental_cache
+if bq show --project_id=$PROJECT_ID trading_data.fundamental_cache > /dev/null 2>&1; then
+    echo "📊 Table fundamental_cache exists, importing..."
+    terraform import -var="project_id=$PROJECT_ID" google_bigquery_table.fundamental_cache projects/$PROJECT_ID/datasets/trading_data/tables/fundamental_cache || true
+fi
+
 # Attempt to import Cloud Run Service
 if gcloud run services describe trading-audit-agent --region=us-central1 --project=$PROJECT_ID > /dev/null 2>&1; then
     echo "🚀 Cloud Run Service exists, importing..."
@@ -94,9 +100,9 @@ if gcloud run services describe trading-audit-agent --region=us-central1 --proje
 fi
 
 # Attempt to import Cloud Scheduler Job
-if gcloud scheduler jobs describe trading-trigger-nasdaq --location=us-central1 --project=$PROJECT_ID > /dev/null 2>&1; then
+if gcloud scheduler jobs describe trading-ticker-ranker --location=us-central1 --project=$PROJECT_ID > /dev/null 2>&1; then
     echo "⏰ Scheduler Job exists, importing..."
-    terraform import -var="project_id=$PROJECT_ID" google_cloud_scheduler_job.nasdaq_trigger projects/$PROJECT_ID/locations/us-central1/jobs/trading-trigger-nasdaq || true
+    terraform import -var="project_id=$PROJECT_ID" google_cloud_scheduler_job.ticker_rank_trigger projects/$PROJECT_ID/locations/us-central1/jobs/trading-ticker-ranker || true
 fi
 
 terraform init
