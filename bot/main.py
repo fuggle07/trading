@@ -207,6 +207,10 @@ async def run_audit():
             current_price = float(quote_res['c'])
             current_prices[ticker] = current_price # Store for valuation
 
+            # 2.5 Log to BigQuery (Watchlist)
+            # Ensures data is captured even if technical analysis fails (e.g. 403 error)
+            log_watchlist_data(bq_client, table_id, ticker, current_price, sentiment_score)
+
             # 3. Calculate Technical Indicators
             indicators = calculate_technical_indicators(df)
 
