@@ -81,6 +81,13 @@ resource "google_service_account" "bot_sa" {
   display_name = "Trading Bot Service Account"
 }
 
+# Enable Vertex AI API for Gemini
+resource "google_project_service" "aiplatform" {
+  project = var.project_id
+  service = "aiplatform.googleapis.com"
+  disable_on_destroy = false
+}
+
 resource "google_cloud_run_v2_service" "trading_bot" {
   name     = "trading-audit-agent"
   location = "us-central1"

@@ -11,6 +11,7 @@ from google.cloud import bigquery
 from signal_agent import SignalAgent
 from execution_manager import ExecutionManager
 from portfolio_manager import PortfolioManager
+from sentiment_analyzer import SentimentAnalyzer
 
 # --- 1. INITIALIZATION ---
 app = Flask(__name__)
@@ -32,7 +33,11 @@ finnhub_client = finnhub.Client(api_key=FINNHUB_KEY) if FINNHUB_KEY else None
 PROJECT_ID = os.environ.get('PROJECT_ID', 'trading-12345')
 bq_client = bigquery.Client(project=PROJECT_ID)
 table_id = f"{PROJECT_ID}.trading_data.watchlist_logs"
+table_id = f"{PROJECT_ID}.trading_data.watchlist_logs"
 portfolio_table_id = f"{PROJECT_ID}.trading_data.portfolio"
+
+# Initialize AI Sentiment Analyzer
+sentiment_analyzer = SentimentAnalyzer(PROJECT_ID)
 
 # Initialize Trading Agents
 # specific risk/vol settings can be loaded from env if needed
@@ -117,34 +122,50 @@ def calculate_technical_indicators(df):
 # --- 3. THE AUDIT ENGINE ---
 
 def fetch_sentiment(ticker):
-    """Fetches news sentiment score from Finnhub (0-1 score, or -1 to 1)."""
-    # Note: Finnhub 'news-sentiment' endpoint returns detailed data.
-    # We will use the 'sentiment' score if available, or 'buzz'.
-    # Free tier might define this differently, so we wrap safely.
+    """
+    Fetches news sentiment using Gemini 1.5 AI Analysis of real headlines.
+    Fallbacks to Finnhub's pre-calculated score if AI fails.
+    """
     if not finnhub_client: 
         return None
         
     try:
-        # Get News Sentiment
+        # 1. Try AI Analysis of Company News
+        sentiment_score = None
+        
+        # Get news from last 24 hours
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=1)
+        _from = start_date.strftime('%Y-%m-%d')
+        _to = end_date.strftime('%Y-%m-%d')
+        
+        # Fetch headlines
+        news = finnhub_client.company_news(ticker, _from=_from, _to=_to)
+        
+        if news:
+            print(f"📰 Found {len(news)} news items for {ticker}. Asking Gemini...")
+            sentiment_score = sentiment_analyzer.analyze_news(ticker, news)
+        
+        # If Gemini returned a score (non-zero or even zero if explicitly neutral), usage it.
+        # But if analyze_news returns 0.0 it's ambiguous (neutral or failure).
+        # Let's assume if it returns non-zero it's a valid signal.
+        if sentiment_score is not None and sentiment_score != 0.0:
+            return sentiment_score
+
+        # 2. Fallback to Finnhub's Generic Score
+        print(f"⚠️  No strong AI signal for {ticker}. Falling back to Finnhub Sentiment.")
         res = finnhub_client.news_sentiment(ticker)
-        # Structure: {'sentiment': {'bearishPercent': 0.1, 'bullishPercent': 0.8}, 'sectorAverageBullishPercent': ...}
-        # Actually Finnhub's News Sentiment endpoint structure varies.
-        # Let's try 'news_sentiment' and see if we get a 'buzz' or 'sentiment' object.
-        # Typically: res['sentiment'] object exists.
         
         if res and 'sentiment' in res:
-             # Calculate a simple score: Bullish - Bearish
              bullish = res['sentiment'].get('bullishPercent', 0.5)
              bearish = res['sentiment'].get('bearishPercent', 0.5)
+             return bullish - bearish
              
-             # Score from -1 (Bearish) to +1 (Bullish)
-             score = bullish - bearish
-             return score
-             
-        return 0.0 # Neutral default if no data
+        return 0.0 # Neutral default
+        
     except Exception as e:
         print(f"⚠️  Sentiment fetch failed for {ticker}: {e}")
-        return None
+        return 0.0
 
 # --- 3. THE AUDIT ENGINE ---
 

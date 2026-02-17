@@ -13,6 +13,7 @@ numpy==1.26.4
 # Cloud & Observability
 google-cloud-logging==3.9.0
 google-cloud-bigquery==3.17.2
+google-cloud-aiplatform==1.38.1
 
 # Utilities
 python-dotenv==1.0.1
