@@ -57,7 +57,7 @@ if gcloud artifacts repositories describe trading-node-repo --location=us-centra
 fi
 
 # Attempt to import Secret Manager Secrets
-for secret in APIFY_TOKEN FINNHUB_KEY IBKR_KEY ALPACA_API_KEY ALPACA_API_SECRET; do
+for secret in APIFY_TOKEN FINNHUB_KEY IBKR_KEY ALPACA_API_KEY ALPACA_API_SECRET ALPHA_VANTAGE_KEY; do
     if gcloud secrets describe $secret --project=$PROJECT_ID > /dev/null 2>&1; then
          echo "🔐 Secret $secret exists, importing..."
          terraform import -var="project_id=$PROJECT_ID" "google_secret_manager_secret.secrets[\"$secret\"]" projects/$PROJECT_ID/secrets/$secret || true
