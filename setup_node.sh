@@ -38,7 +38,7 @@ gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
 echo "--- 🔍 STEP 2.5: CHECKING FOR UNMANAGED SCHEDULERS ---"
 EXISTING_JOBS=$(gcloud scheduler jobs list --location=$REGION --format="value(ID)")
 for job in $EXISTING_JOBS; do
-  if [[ ! $job == trading-trigger-* ]]; then
+  if [[ ! $job == trading-trigger-* ]] && [[ ! $job == trading-ticker-* ]]; then
     echo "⚠️  WARNING: Unmanaged job found: $job. Consider deleting manually."
   fi
 done
