@@ -26,8 +26,8 @@ setuptools==69.0.3
 # Trading Logic & Networking
 ib-async==1.0.1
 protobuf==4.25.3
-grpcio==1.78.0
-grpcio-status==1.78.0
+grpcio==1.62.3
+grpcio-status==1.62.3
 
 # Transitive dependencies (pinned for stability)
 aiohappyeyeballs==2.6.1

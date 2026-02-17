@@ -238,8 +238,8 @@ async def run_audit():
             asyncio.to_thread(finnhub_client.quote, ticker) if finnhub_client else None
         )
         sentiment_task = asyncio.to_thread(fetch_sentiment, ticker)
-        fundamental_task = asyncio.to_thread(fundamental_agent.evaluate_health, ticker)
-        deep_health_task = asyncio.to_thread(fundamental_agent.evaluate_deep_health, ticker)
+        fundamental_task = fundamental_agent.evaluate_health(ticker)
+        deep_health_task = fundamental_agent.evaluate_deep_health(ticker)
         history_task = fetch_historical_data(ticker)
 
         # Execute

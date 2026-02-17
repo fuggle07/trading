@@ -289,6 +289,23 @@ resource "google_bigquery_table" "ticker_rankings" {
 EOF
 }
 
+resource "google_bigquery_table" "fundamental_cache" {
+  dataset_id = google_bigquery_dataset.trading_data.dataset_id
+  table_id   = "fundamental_cache"
+  deletion_protection = false
+
+  schema = <<EOF
+[
+  { "name": "timestamp", "type": "TIMESTAMP", "mode": "REQUIRED" },
+  { "name": "ticker", "type": "STRING", "mode": "REQUIRED" },
+  { "name": "is_healthy", "type": "BOOLEAN", "mode": "REQUIRED" },
+  { "name": "health_reason", "type": "STRING", "mode": "NULLABLE" },
+  { "name": "is_deep_healthy", "type": "BOOLEAN", "mode": "REQUIRED" },
+  { "name": "deep_health_reason", "type": "STRING", "mode": "NULLABLE" }
+]
+EOF
+}
+
 # 2. Harden IAM for the Bot
 # The bot now needs to run Queries (Job User) and Update data (Data Editor)
 resource "google_project_iam_member" "bot_bq_job_user" {
