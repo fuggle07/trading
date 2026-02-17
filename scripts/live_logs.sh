@@ -16,4 +16,4 @@ echo "Press Ctrl+C to stop."
 FILTER="resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"$SERVICE_NAME\""
 
 echo "📡 Tailing logs for $SERVICE_NAME..."
-gcloud logging tail "$FILTER" --project "$PROJECT_ID" --format="get(textPayload)"
+gcloud beta logging tail "$FILTER" --project "$PROJECT_ID" --format="get(textPayload)"
