@@ -197,12 +197,17 @@ def fetch_sentiment(ticker):
         print(
             f"⚠️  No strong AI signal for {ticker}. Falling back to Finnhub Sentiment."
         )
-        res = finnhub_client.news_sentiment(ticker)
-
-        if res and "sentiment" in res:
-            bullish = res["sentiment"].get("bullishPercent", 0.5)
-            bearish = res["sentiment"].get("bearishPercent", 0.5)
-            return bullish - bearish
+        try:
+            res = finnhub_client.news_sentiment(ticker)
+            if res and "sentiment" in res:
+                bullish = res["sentiment"].get("bullishPercent", 0.5)
+                bearish = res["sentiment"].get("bearishPercent", 0.5)
+                return bullish - bearish
+        except Exception as e:
+            if "403" in str(e):
+                print(f"ℹ️  Finnhub Sentiment fallback skipped (Premium only) for {ticker}")
+            else:
+                print(f"⚠️  Finnhub Sentiment fallback failed for {ticker}: {e}")
 
         return 0.0  # Neutral default
 

@@ -347,6 +347,13 @@ resource "google_project_iam_member" "bq_job_user" {
   member  = "serviceAccount:${google_service_account.bot_sa.email}"
 }
 
+# Vertex AI User: Required for Gemini analysis
+resource "google_project_iam_member" "bot_ai_user" {
+  project = var.project_id
+  role    = "roles/aiplatform.user"
+  member  = "serviceAccount:${google_service_account.bot_sa.email}"
+}
+
 # BQ Storage Read Session User: Required for high-performance Storage API
 resource "google_project_iam_member" "bq_read_session_user" {
   project = var.project_id
