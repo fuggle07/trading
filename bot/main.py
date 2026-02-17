@@ -181,7 +181,7 @@ def fetch_sentiment(ticker):
         _to = end_date.strftime("%Y-%m-%d")
 
         # Fetch headlines
-        news = finnhub_client.company_news(ticker, _from=_from, _to=_to)
+        news = finnhub_client.company_news(ticker, _from=_from, to=_to)
 
         if news:
             print(f"📰 Found {len(news)} news items for {ticker}. Asking Gemini...")
