@@ -17,7 +17,7 @@ variable "mortgage_rate" {
 # 1. SECRET MANAGEMENT TIER
 # Fixed: Expanded nested blocks for HCL compliance
 resource "google_secret_manager_secret" "secrets" {
-  for_each  = toset(["FINNHUB_KEY", "IBKR_KEY", "APIFY_TOKEN"])
+  for_each  = toset(["FINNHUB_KEY", "IBKR_KEY", "APIFY_TOKEN", "ALPACA_API_KEY", "ALPACA_API_SECRET"])
   secret_id = each.key
 
   replication {
@@ -149,6 +149,24 @@ resource "google_cloud_run_v2_service" "trading_bot" {
         }
       }
       env {
+        name = "ALPACA_API_KEY"
+        value_source {
+          secret_key_ref {
+            secret  = "ALPACA_API_KEY"
+            version = "latest"
+          }
+        }
+      }
+      env {
+        name = "ALPACA_API_SECRET"
+        value_source {
+          secret_key_ref {
+            secret  = "ALPACA_API_SECRET"
+            version = "latest"
+          }
+        }
+      }
+      env {
         name  = "TRADING_ENABLED"
         value = "True" # Or use a variable
       }
@@ -166,7 +184,7 @@ resource "google_cloud_run_v2_service" "trading_bot" {
 
 # 3. SECRET ACCESS (Re-confirming for completeness)
 resource "google_secret_manager_secret_iam_member" "secret_access" {
-  for_each  = toset(["FINNHUB_KEY", "IBKR_KEY", "APIFY_TOKEN"])
+  for_each  = toset(["FINNHUB_KEY", "IBKR_KEY", "APIFY_TOKEN", "ALPACA_API_KEY", "ALPACA_API_SECRET"])
   secret_id = each.key
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.bot_sa.email}"

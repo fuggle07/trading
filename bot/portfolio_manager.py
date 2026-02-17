@@ -38,7 +38,7 @@ class PortfolioManager:
                 logger.info("💰 Seeding GLOBAL CASH POOL (USD) with $50,000")
                 dml = f"""
                 INSERT INTO `{self.table_id}` (asset_name, holdings, cash_balance, avg_price, last_updated)
-                VALUES ('USD', 0.0, 50000.0, 0.0, CURRENT_TIMESTAMP())
+                VALUES ('USD', 0.0, 100000.0, 0.0, CURRENT_TIMESTAMP())
                 """
                 self.client.query(dml).result()
 

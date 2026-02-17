@@ -47,47 +47,77 @@ execution_manager = ExecutionManager(portfolio_manager)
 
 # --- 2. CORE UTILITIES ---
 
+from alpaca.data.historical import StockHistoricalDataClient
+from alpaca.data.requests import StockBarsRequest
+from alpaca.data.timeframe import TimeFrame
+
 def _get_ny_time():
     return datetime.now(pytz.timezone('America/New_York'))
 
+# Retrieve Alpaca Keys
+ALPACA_KEY = os.environ.get('ALPACA_API_KEY')
+ALPACA_SECRET = os.environ.get('ALPACA_API_SECRET')
+
 async def fetch_historical_data(ticker):
-    """Fetches daily candles for the last 60 days to support SMA-50 calculation."""
+    """Fetches daily candles for the last 60 days using Alpaca."""
     loop = asyncio.get_event_loop()
     
     def get_candles():
-        if not finnhub_client:
+        if not ALPACA_KEY or not ALPACA_SECRET:
+            print(f"⚠️  Alpaca keys missing for {ticker}")
             return None
-        
-        # We need ~60 days of data for SMA-50. 
-        # Adding a buffer to 70 days.
-        end = int(time.time())
-        start = end - (70 * 24 * 60 * 60)
-        
-        # Resolution 'D' = Daily
-        return finnhub_client.stock_candles(ticker, 'D', start, end)
 
-    try:
-        res = await loop.run_in_executor(None, get_candles)
-        
-        if res and res.get('s') == 'ok':
-            # Create DataFrame
-            df = pd.DataFrame({
-                't': res['t'],
-                'c': res['c'],
-                'h': res['h'],
-                'l': res['l'],
-                'o': res['o'],
-                'v': res['v']
-            })
-            # Convert timestamp to datetime
-            df['t'] = pd.to_datetime(df['t'], unit='s')
-            return df
+        try:
+            client = StockHistoricalDataClient(ALPACA_KEY, ALPACA_SECRET)
             
-        print(f"⚠️  Finnhub returned no candle data for {ticker}. Response: {res}")
-        return None
-    except Exception as e:
-        print(f"❌ API Error for {ticker}: {e}")
-        return None
+            # Alpaca expects datetime objects
+            end = datetime.now(timezone.utc)
+            start = end - timedelta(days=90) # Buffer for 60 trading days
+            
+            request_params = StockBarsRequest(
+                symbol_or_symbols=ticker,
+                timeframe=TimeFrame.Day,
+                start=start,
+                end=end,
+                feed="iex" 
+            )
+            
+            bars = client.get_stock_bars(request_params)
+            
+            if not bars.data:
+                print(f"⚠️  Alpaca returned no data for {ticker}")
+                return None
+            
+            # Convert to DataFrame
+            # Alpaca returns a dict with 'symbol' as key, list of bars as value if single symbol?
+            # actually bars.df works great
+            df = bars.df.reset_index()
+            
+            # Filter for specific ticker just in case
+            df = df[df['symbol'] == ticker]
+            
+            if df.empty:
+                 return None
+
+            # Normalize column names
+            # Alpaca: timestamp, open, high, low, close, volume, trade_count, vwap
+            # Internal: t, o, h, l, c, v
+            df_norm = pd.DataFrame({
+                't': df['timestamp'],
+                'o': df['open'],
+                'h': df['high'],
+                'l': df['low'],
+                'c': df['close'],
+                'v': df['volume']
+            })
+            
+            return df_norm
+            
+        except Exception as e:
+            print(f"❌ Alpaca Error for {ticker}: {e}")
+            return None
+
+    return await loop.run_in_executor(None, get_candles)
 
 def calculate_technical_indicators(df):
     """Calculates SMA-20, SMA-50, and Bollinger Bands."""
@@ -216,38 +246,62 @@ async def run_audit():
 
             if indicators:
                 # 4. Generate Signal
-                signal, trade_size_limit = signal_agent.generate_signal(
-                    ticker=ticker,
-                    current_price=current_price,
-                    sma_20=indicators['sma_20'],
-                    sma_50=indicators['sma_50'],
-                    bb_upper=indicators['bb_upper'],
-                    bb_lower=indicators['bb_lower'],
-                    sentiment_score=sentiment_score
-                )
-                print(f"   📊 {ticker}: Signal: {signal} (Sentiment: {sentiment_score:.2f})")
+                # Prepare market data for the agent
+                market_data = {
+                    "current_price": current_price,
+                    "sma_20": indicators['sma_20'],
+                    "sma_50": indicators['sma_50'],
+                    "bb_upper": indicators['bb_upper'],
+                    "bb_lower": indicators['bb_lower'],
+                    "sentiment_score": sentiment_score,
+                    # We need avg_price for Stop Loss, fetch it from portfolio
+                    # For now, we'll try to get it if possible, or default to 0
+                    "avg_price": 0.0 
+                }
+                
+                # Fetch Portfolio State for Stop Loss context
+                try: 
+                    # We should probably have fetched this earlier or cached it
+                    # But for now, let's keep it simple or skip it if too complex to fetch here synchronous
+                    # state = portfolio_manager.get_state(ticker)
+                    # market_data['avg_price'] = state.get('avg_price', 0.0)
+                    pass 
+                except:
+                    pass
+
+                signal_dict = signal_agent.evaluate_strategy(market_data)
+                
+                # Unwrap the signal
+                # SignalAgent returns: {"action": "BUY/SELL", "price": ..., "reason": ...} or None
+                action = signal_dict['action'] if signal_dict else "HOLD"
+                signal_reason = signal_dict['reason'] if signal_dict else None
+                
+                print(f"   📊 {ticker}: Signal: {action} (Reason: {signal_reason})")
 
                 # F. Execute Trade (if valid)
-                if signal and signal != "HOLD":
-                    # For BUY, we pass the trade_size_limit as the available cash for THIS trade
-                    # For SELL, the manager handles selling all/some.
-                    
-                    # We re-fetch global cash in case a previous iteration passed
+                if action in ["BUY", "SELL"]:
+                    # For BUY, we need to know how much cash to use
+                    # We re-fetch global cash in case a previous iteration used it
                     current_global_cash = portfolio_manager.get_cash_balance()
+                    
+                    # Allocation Logic:
+                    # Simple rule: Use up to $10k or available cash, whichever is lower
+                    trade_size_limit = 10000.0 
                     allocation = min(current_global_cash, trade_size_limit)
                     
                     exec_result = execution_manager.place_order(
                         ticker=ticker, 
-                        action=signal, 
-                        quantity=0, # Calculated by manager
-                        price=indicators['current_price'],
-                        cash_available=allocation # Pass global cash slice
+                        action=action, 
+                        quantity=0, # Manager calculates quantity based on price/cash
+                        price=current_price,
+                        cash_available=allocation 
                     )
                     
-                    status = f"executed_{exec_result['status']}"
-                    results.append({"ticker": ticker, "price": indicators['current_price'], "signal": signal, "status": status})
+                    status = f"executed_{exec_result.get('status', 'UNKNOWN')}"
+                    results.append({"ticker": ticker, "price": current_price, "signal": action, "status": status, "details": exec_result})
                 else:
-                    print(f"   ⏳ {ticker}: No Action ({signal})")
+                    print(f"   ⏳ {ticker}: No Action ({action})")
+                    results.append({"ticker": ticker, "price": current_price, "signal": "HOLD", "status": "tracking_only"})
             else:
                 print(f"      ⚠️  Insufficient history for indicators.")
                 results.append({"ticker": ticker, "price": current_price, "status": "tracking_only"})
