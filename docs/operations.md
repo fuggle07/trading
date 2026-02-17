@@ -58,7 +58,13 @@ The system operates under strict financial performance hurdles:
 
 ## 4. Monitoring & Telemetry
 
-### A. Health Checks
+### A. Health Checks & Live Monitoring
+**Stream Live Logs (Best for Trading Hours):**
+```bash
+./scripts/live_logs.sh
+```
+*Tip: Keeps a real-time connection to the Cloud Run service output.*
+
 **Standard Connectivity Test:**
 ```bash
 curl -X GET "$(terraform output -no-color -raw service_url)" \
