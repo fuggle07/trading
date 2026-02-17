@@ -16,7 +16,7 @@ class SentimentAnalyzer:
         try:
             vertexai.init(project=self.project_id, location=self.location)
             # Using Gemini 1.5 Flash for speed and cost efficiency
-            self.model = GenerativeModel("gemini-1.5-flash-001")
+            self.model = GenerativeModel("gemini-1.5-flash")
             logger.info("✨ Vertex AI (Gemini 1.5 Flash) initialized successfully.")
         except Exception as e:
             logger.error(f"❌ Failed to initialize Vertex AI: {e}")
