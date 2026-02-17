@@ -204,58 +204,52 @@ async def run_audit():
         
         # 2. Process Quote (The Baseline)
         if quote_res and 'c' in quote_res:
-             current_price = float(quote_res['c'])
-             current_prices[ticker] = current_price # Store for valuation
-             
-             sent_str = f"| Sentiment: {sentiment_score:.2f}" if sentiment_score is not None else "| No Sentiment"
-             print(f"   📊 Price: {current_price} {sent_str}")
-             
-             # Log Telemetry (Everything required for Dashboard)
-             log_watchlist_data(bq_client, table_id, ticker, current_price, sentiment_score)
-        else:
-             print(f"   ⚠️  Could not fetch quote for {ticker}. Skipping.")
-             continue
+            current_price = float(quote_res['c'])
+            current_prices[ticker] = current_price # Store for valuation
 
-        # 3. Process Strategy (The Bonus)
-        if df is not None:
-            # Calculate Indicators
-            market_data = calculate_technical_indicators(df)
-            
-            if market_data:
-                # Overwrite price with candle close if needed, but Quote is usually fresher.
-                # We'll use the calculated SMAs.
-                market_data['current_price'] = current_price
-                market_data['sentiment_score'] = sentiment_score
-                
-                # Fetch Portfolio State for Stop Loss
-                try:
-                    p_state = portfolio_manager.get_state(ticker)
-                    market_data['avg_price'] = p_state.get('avg_price', 0.0)
-                    market_data['holdings'] = p_state.get('holdings', 0.0) # For logic awareness
-                except:
-                    market_data['avg_price'] = 0.0
+            # 3. Calculate Technical Indicators
+            indicators = calculate_technical_indicators(df)
 
-                print(f"      SMAs: SMA20={market_data['sma_20']:.2f} | SMA50={market_data['sma_50']:.2f}")
+            if indicators:
+                # 4. Generate Signal
+                signal, trade_size_limit = signal_agent.generate_signal(
+                    ticker=ticker,
+                    current_price=current_price,
+                    sma_20=indicators['sma_20'],
+                    sma_50=indicators['sma_50'],
+                    bb_upper=indicators['bb_upper'],
+                    bb_lower=indicators['bb_lower'],
+                    sentiment_score=sentiment_score
+                )
+                print(f"   📊 {ticker}: Signal: {signal} (Sentiment: {sentiment_score:.2f})")
 
-                # Evaluate Strategy
-                signal = signal_agent.evaluate_strategy(market_data)
-                
-                status = "logged_no_signal"
-                if signal:
-                    print(f"   🚨 SIGNAL DETECTED: {signal['action']} {ticker}")
-                    signal['ticker'] = ticker
-                    exec_result = execution_manager.place_order(signal)
+                # F. Execute Trade (if valid)
+                if signal and signal != "HOLD":
+                    # For BUY, we pass the trade_size_limit as the available cash for THIS trade
+                    # For SELL, the manager handles selling all/some.
+                    
+                    # We re-fetch global cash in case a previous iteration passed
+                    current_global_cash = portfolio_manager.get_cash_balance()
+                    allocation = min(current_global_cash, trade_size_limit)
+                    
+                    exec_result = execution_manager.place_order(
+                        ticker=ticker, 
+                        action=signal, 
+                        quantity=0, # Calculated by manager
+                        price=indicators['current_price'],
+                        cash_available=allocation # Pass global cash slice
+                    )
+                    
                     status = f"executed_{exec_result['status']}"
-                    results.append({"ticker": ticker, "price": current_price, "signal": signal, "status": status})
+                    results.append({"ticker": ticker, "price": indicators['current_price'], "signal": signal, "status": status})
                 else:
-                     results.append({"ticker": ticker, "price": current_price, "status": status})
+                    print(f"   ⏳ {ticker}: No Action ({signal})")
             else:
-                 print(f"      ⚠️  Insufficient history for indicators.")
+                print(f"      ⚠️  Insufficient history for indicators.")
+                results.append({"ticker": ticker, "price": current_price, "status": "tracking_only"})
         else:
-             print(f"      ⚠️  No historical data (Strategy Skipped).")
-             results.append({"ticker": ticker, "price": current_price, "status": "tracking_only"})
-
-        await asyncio.sleep(1.1) # Rate limit friendly
+            print(f"      ⚠️  No historical data (Strategy Skipped).")
+            results.append({"ticker": ticker, "price": current_price, "status": "tracking_only"})
 
         await asyncio.sleep(1.1) # Rate limit friendly
     

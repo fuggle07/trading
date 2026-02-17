@@ -26,53 +26,61 @@ class ExecutionManager:
         else:
             logger.warning("PROJECT_ID not found. BigQuery logging disabled.")
 
-    def place_order(self, signal: dict) -> dict:
+    def place_order(self, ticker, action, quantity, price, cash_available=0.0):
         """
         Executes an order if funds/holdings allow, then logs it.
+        Now supports Unified Cash Pool via 'cash_available' parameter.
         """
-        ticker = signal.get("ticker", "UNKNOWN")
-        action = signal.get("action", "HOLD")
-        reason = signal.get("reason", "No reason provided")
-        price = float(signal.get("price", 0.0))
-        quantity = 1 # Default to 1 share for now
+        reason = "Strategy Signal" # Simple default
         
-        logger.info(f"PROCESSING {action} on {ticker} @ {price} | Reason: {reason}")
+        logger.info(f"PROCESSING {action} on {ticker} @ {price} | Cash Alloc: ${cash_available:.2f}")
         
         # 0. Portfolio Validation (The Gatekeeper)
         if self.portfolio_manager:
             try:
-                # Get current state (or init if empty)
+                # Get current holdings state for this TICKER
+                # Note: We don't check cash here anymore, we check 'cash_available' passed in
                 try:
                     state = self.portfolio_manager.get_state(ticker)
                 except ValueError:
-                    # Initialize if not found (First time trading this ticker)
-                    state = {"holdings": 0.0, "cash_balance": 10000.0} # $10k seed execution
-                    logger.info(f"Initializing portfolio for {ticker} with $10,000 simulated cash.")
+                    state = {"holdings": 0.0, "avg_price": 0.0}
 
-                cash = state['cash_balance']
                 holdings = state['holdings']
                 
                 # Check constraints
                 if action == "BUY":
+                    # Calculate max quantity based on allocated cash
+                    if quantity == 0:
+                        # Auto-calculate max shares
+                        quantity = int(cash_available // price)
+                    
                     cost = price * quantity
-                    if cash < cost:
-                        logger.warning(f"❌ REJECTED: Insufficient funds (${cash:.2f} < ${cost:.2f})")
+                    
+                    if quantity <= 0:
+                        logger.warning(f"❌ REJECTED: Quantity would be 0 (Cash ${cash_available:.2f} / Price ${price:.2f})")
+                        return {"status": "REJECTED", "reason": "ZERO_QUANTITY"}
+
+                    if cash_available < cost:
+                        logger.warning(f"❌ REJECTED: Insufficient funds (${cash_available:.2f} < ${cost:.2f})")
                         return {"status": "REJECTED", "reason": "INSUFFICIENT_FUNDS"}
                     
                     # Update State (Simulated Settlement)
-                    new_cash = cash - cost
-                    new_holdings = holdings + quantity
-                    self.portfolio_manager.update_ledger(ticker, new_cash, new_holdings)
+                    # For Unified Cash: We pass the NEGATIVE cost as cash_delta
+                    self.portfolio_manager.update_ledger(ticker, -cost, quantity, price, action="BUY")
                     
                 elif action == "SELL":
-                    if holdings < quantity:
+                    if quantity == 0:
+                        # Auto-sell ALL
+                        quantity = holdings
+                        
+                    if holdings < quantity or quantity <= 0:
                          logger.warning(f"❌ REJECTED: Insufficient holdings ({holdings} < {quantity})")
                          return {"status": "REJECTED", "reason": "INSUFFICIENT_HOLDINGS"}
                     
                     # Update State
-                    new_cash = cash + (price * quantity)
-                    new_holdings = holdings - quantity
-                    self.portfolio_manager.update_ledger(ticker, new_cash, new_holdings)
+                    # For Unified Cash: We pass the POSITIVE revenue as cash_delta
+                    revenue = price * quantity
+                    self.portfolio_manager.update_ledger(ticker, revenue, -quantity, price, action="SELL")
                     
             except Exception as e:
                 logger.error(f"Portfolio Validation Failed: {e}")

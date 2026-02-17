@@ -24,7 +24,16 @@ def reset_portfolio():
         # Pass location explicitly to query job as well
         client.query(query, location="us-central1").result()
         print("✅ SUCCESS: Portfolio table truncated.")
-        print("👉 Next run of the bot will auto-seed $10,000 per ticker.")
+        
+        # New: Seed the Global Cash Pool
+        seed_query = f"""
+        INSERT INTO `{table_ref}` (asset_name, holdings, cash_balance, avg_price, last_updated)
+        VALUES ('USD', 0.0, 50000.0, 0.0, CURRENT_TIMESTAMP())
+        """
+        print(f"🌱 Seeding Global Cash Pool (USD) with $50,000...")
+        client.query(seed_query, location="us-central1").result()
+        
+        print("✅ SUCCESS: Global Cash Pool Initialized.")
     except Exception as e:
         print(f"❌ FAILED: {e}")
 
