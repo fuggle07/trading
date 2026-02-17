@@ -200,6 +200,15 @@ resource "google_secret_manager_secret_iam_member" "secret_access" {
   depends_on = [google_secret_manager_secret.secrets]
 }
 
+# 4. CLOUD RUN INVOKER (For Scheduler)
+resource "google_cloud_run_v2_service_iam_member" "invoker" {
+  project  = var.project_id
+  location = google_cloud_run_v2_service.trading_bot.location
+  name     = google_cloud_run_v2_service.trading_bot.name
+  role     = "roles/run.invoker"
+  member   = "serviceAccount:${google_service_account.bot_sa.email}"
+}
+
 # CREATE INITIAL SECRET VERSIONS
 # This ensures the 'latest' alias exists for Cloud Run
 resource "google_secret_manager_secret_version" "initial_versions" {
