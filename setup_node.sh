@@ -111,7 +111,9 @@ cd ..
 # 4. SOFTWARE PHASE (Force Rebuild & Push)
 echo "--- 📦 PHASE B: Building and Pushing Docker Image (Force Refresh) ---"
 # Build from root context so we can copy requirements.txt
-gcloud builds submit --tag us-central1-docker.pkg.dev/$PROJECT_ID/trading-node-repo/trading-bot:latest --file bot/Dockerfile .
+cp bot/Dockerfile Dockerfile
+gcloud builds submit --tag us-central1-docker.pkg.dev/$PROJECT_ID/trading-node-repo/trading-bot:latest .
+rm Dockerfile
 # 5. INFRASTRUCTURE PHASE B (Compute & Orchestration)
 echo "--- ⚙️  PHASE C: Finalizing Infrastructure & Forcing Rollout ---"
 cd terraform

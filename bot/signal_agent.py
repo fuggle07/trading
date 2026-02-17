@@ -116,17 +116,21 @@ class SignalAgent:
                 print(f"Skipping BUY: Deep Filing Analysis Failed ({deep_reason})")
                 return None
 
-        # 6. Prediction Confidence Filter (The Morning Conviction Check) - Apply ONLY to BUYs
-        if signal and signal["action"] == "BUY":
+        # 6. Prediction Confidence Filter (The Morning Conviction Check) - Apply to BUYs and SELLs
+        # Safety: We NEVER suppress a STOP_LOSS_HIT exit.
+        if (
+            signal 
+            and signal["action"] in ["BUY", "SELL"] 
+            and signal.get("reason") != "STOP_LOSS_HIT"
+        ):
             confidence = market_data.get("prediction_confidence")
             if confidence is not None:
                 confidence_val = int(confidence)
-                if confidence_val < 70:
-                    print(f"Skipping BUY: Confidence ({confidence_val}%) < Morning Threshold (70%)")
+                if confidence_val < 65:
+                    print(f"Skipping {signal['action']}: Confidence ({confidence_val}%) < Morning Threshold (65%)")
                     return None
             else:
                 # If no confidence is found (e.g. ranking job failed), we default to allowed
-                # but log a warning.
                 print(f"⚠️ Warning: No prediction confidence found for {market_data.get('ticker')}. Proceeding without filter.")
 
         return signal
