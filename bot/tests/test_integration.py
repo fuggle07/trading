@@ -11,12 +11,12 @@ async def test_service_connectivity_dry_run():
     Mocks BigQuery to prevent any real ledger updates.
     """
     # 1. Setup Mocks for Infrastructure
-    with patch('google.cloud.bigquery.Client') as mock_bq_client:
+    with patch("google.cloud.bigquery.Client") as mock_bq_client:
         mock_bq = mock_bq_client.return_value
-        
+
         # 2. Mock Portfolio Manager to return a safe test state
         pm = PortfolioManager(mock_bq, "test-project.trading_data.portfolio")
-        
+
         # 3. Define the internal endpoints (using your local defaults)
         finance_url = "http://localhost:8081/price/QQQ"
         sentiment_url = "http://localhost:8082/sentiment/QQQ"
@@ -50,14 +50,13 @@ def test_ledger_sql_logic_integrity():
     mock_client = MagicMock()
     table_id = "unified-aberfeldie-node.trading_data.portfolio"
     pm = PortfolioManager(mock_client, table_id)
-    
+
     # Simulate a ledger sync
     pm.update_ledger("QQQ", 45000.0, 100)
-    
+
     # Verify the SQL string construction
     assert mock_client.query.called
     sql_call = mock_client.query.call_args[0][0]
     assert f"UPDATE `{table_id}`" in sql_call
     assert "SET cash_balance = 45000.0" in sql_call
     assert "asset_name = 'QQQ'" in sql_call
-

@@ -8,6 +8,7 @@ try:
     print("Checking imports...")
     from bot import sentiment_analyzer
     from bot import main
+
     print("✅ Imports successful.")
 except ImportError as e:
     print(f"❌ Import failed: {e}")

@@ -1,3 +1,4 @@
+
 from google.cloud import bigquery
 import os
 
@@ -6,14 +7,14 @@ TABLE_ID = "trading_data.portfolio"
 
 def reset_cash():
     client = bigquery.Client(project=PROJECT_ID)
-    
+
     query = f"""
         UPDATE `{PROJECT_ID}.{TABLE_ID}`
         SET cash_balance = 100000.0,
             last_updated = CURRENT_TIMESTAMP()
         WHERE asset_name = 'USD'
     """
-    
+
     print(f"🚀 Resetting Cash in {TABLE_ID} to $100,000...")
     try:
         query_job = client.query(query)

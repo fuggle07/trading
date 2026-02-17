@@ -54,4 +54,3 @@ else
 fi
 
 echo "--- ✨ ALL DEPENDENCIES VERIFIED ---"
-

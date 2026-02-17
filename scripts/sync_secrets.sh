@@ -1,9 +1,10 @@
+
 #!/bin/bash
 # sync_secrets.sh - Authenticated Secret Injection
 # Directive: Inject values into GCP shells without leaking to history.
 
 # 1. Config: Define the required sensor keys
-REQUIRED_SECRETS=("FINNHUB_KEY" "IBKR_KEY" "APIFY_TOKEN")
+REQUIRED_SECRETS=("FINNHUB_KEY" "IBKR_KEY" "APIFY_TOKEN" "ALPACA_API_KEY" "ALPACA_API_SECRET" "ALPHA_VANTAGE_KEY")
 
 echo "--- ABERFELDIE NODE: SECRET SYNCHRONIZATION ---"
 
@@ -36,4 +37,3 @@ for SECRET in "${REQUIRED_SECRETS[@]}"; do
 done
 
 echo "--- SYNC COMPLETE ---"
-

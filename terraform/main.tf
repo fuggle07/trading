@@ -17,7 +17,7 @@ variable "mortgage_rate" {
 # 1. SECRET MANAGEMENT TIER
 # Fixed: Expanded nested blocks for HCL compliance
 resource "google_secret_manager_secret" "secrets" {
-  for_each  = toset(["FINNHUB_KEY", "IBKR_KEY", "APIFY_TOKEN", "ALPACA_API_KEY", "ALPACA_API_SECRET"])
+  for_each  = toset(["FINNHUB_KEY", "IBKR_KEY", "APIFY_TOKEN", "ALPACA_API_KEY", "ALPACA_API_SECRET", "ALPHA_VANTAGE_KEY"])
   secret_id = each.key
 
   replication {
@@ -125,7 +125,7 @@ resource "google_cloud_run_v2_service" "trading_bot" {
         failure_threshold     = 5
       }
       image = "us-central1-docker.pkg.dev/${var.project_id}/trading-node-repo/trading-bot:latest"
-      
+
       env {
         name  = "GOOGLE_CLOUD_PROJECT"
         value = var.project_id
@@ -167,6 +167,15 @@ resource "google_cloud_run_v2_service" "trading_bot" {
         }
       }
       env {
+        name = "ALPHA_VANTAGE_KEY"
+         value_source {
+          secret_key_ref {
+            secret  = "ALPHA_VANTAGE_KEY"
+            version = "latest"
+          }
+        }
+      }
+      env {
         name  = "TRADING_ENABLED"
         value = "True" # Or use a variable
       }
@@ -184,10 +193,11 @@ resource "google_cloud_run_v2_service" "trading_bot" {
 
 # 3. SECRET ACCESS (Re-confirming for completeness)
 resource "google_secret_manager_secret_iam_member" "secret_access" {
-  for_each  = toset(["FINNHUB_KEY", "IBKR_KEY", "APIFY_TOKEN", "ALPACA_API_KEY", "ALPACA_API_SECRET"])
+  for_each  = toset(["FINNHUB_KEY", "IBKR_KEY", "APIFY_TOKEN", "ALPACA_API_KEY", "ALPACA_API_SECRET", "ALPHA_VANTAGE_KEY"])
   secret_id = each.key
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.bot_sa.email}"
+  depends_on = [google_secret_manager_secret.secrets]
 }
 
 # CREATE INITIAL SECRET VERSIONS
@@ -263,6 +273,22 @@ resource "google_bigquery_table" "executions" {
 EOF
 }
 
+resource "google_bigquery_table" "ticker_rankings" {
+  dataset_id = google_bigquery_dataset.trading_data.dataset_id
+  table_id   = "ticker_rankings"
+  deletion_protection = false
+
+  schema = <<EOF
+[
+  { "name": "timestamp", "type": "TIMESTAMP", "mode": "REQUIRED" },
+  { "name": "ticker", "type": "STRING", "mode": "REQUIRED" },
+  { "name": "sentiment", "type": "FLOAT", "mode": "REQUIRED" },
+  { "name": "confidence", "type": "INTEGER", "mode": "REQUIRED" },
+  { "name": "reason", "type": "STRING", "mode": "NULLABLE" }
+]
+EOF
+}
+
 # 2. Harden IAM for the Bot
 # The bot now needs to run Queries (Job User) and Update data (Data Editor)
 resource "google_project_iam_member" "bot_bq_job_user" {
@@ -296,7 +322,7 @@ resource "google_bigquery_dataset_iam_member" "bot_bq_editor" {
 # Update the Dataset for Log Analytics
 resource "google_bigquery_dataset" "system_logs" {
   dataset_id                  = "system_logs"
-  location                    = "us-central1" 
+  location                    = "us-central1"
   description                 = "Aggregated master logs for the trading node"
   delete_contents_on_destroy = false
 }
@@ -305,7 +331,7 @@ resource "google_bigquery_dataset" "system_logs" {
 resource "google_logging_project_bucket_config" "audit_log_bucket" {
     project        = var.project_id
     location       = "us-central1"
-    retention_days = 365 
+    retention_days = 365
     bucket_id      = "system-audit-trail"
 }
 
@@ -329,21 +355,16 @@ resource "google_project_iam_member" "log_sink_writer" {
 }
 
 # 4. SCHEDULING TIER (NASDAQ Aligned)
-resource "google_cloud_scheduler_job" "nasdaq_trigger" {
-  name             = "trading-trigger-nasdaq"
-  description      = "Aligned to NASDAQ hours (New York time) - DST Proof"
-
-  # Runs every 5 mins from 9:00 AM to 4:00 PM, Monday-Friday (NY Time)
-  schedule         = "*/5 9-16 * * 1-5"
-
-  # This is the "Magic" that handles DST drift for you
+resource "google_cloud_scheduler_job" "ticker_rank_trigger" {
+  name             = "trading-ticker-ranker"
+  description      = "Pre-market ticker ranking (9:15 AM ET)"
+  schedule         = "15 9 * * 1-5"
   time_zone        = "America/New_York"
-
   attempt_deadline = "320s"
 
   http_target {
     http_method = "POST"
-    uri         = "${google_cloud_run_v2_service.trading_bot.uri}/run-audit"
+    uri         = "${google_cloud_run_v2_service.trading_bot.uri}/rank-tickers"
 
     oidc_token {
       service_account_email = google_service_account.bot_sa.email
@@ -536,7 +557,7 @@ resource "google_monitoring_alert_policy" "bot_failure" {
       duration   = "60s"
       comparison = "COMPARISON_GT"
       threshold_value = 0
-      
+
       aggregations {
         alignment_period   = "60s"
         per_series_aligner = "ALIGN_RATE"

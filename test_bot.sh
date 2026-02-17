@@ -1,3 +1,4 @@
+
 # test_bot.sh - Manual Verification Script
 set -e
 
@@ -19,4 +20,3 @@ echo "⏳ Waiting for BigQuery streaming buffer..."
 sleep 5
 bq query --use_legacy_sql=false \
 "SELECT timestamp, ticker, price FROM \`$(gcloud config get-value project).trading_data.watchlist_logs\` ORDER BY timestamp DESC LIMIT 1"
-

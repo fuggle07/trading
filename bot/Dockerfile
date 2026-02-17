@@ -36,7 +36,7 @@ RUN groupadd -r botuser && useradd -r -g botuser botuser
 COPY --from=builder /opt/venv /opt/venv
 
 # Copy app code with ownership set during the copy
-COPY --chown=botuser:botuser . .
+COPY --chown=botuser:botuser bot/ .
 
 # Switch to non-root user
 USER botuser

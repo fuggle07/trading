@@ -30,4 +30,3 @@ From your Ubuntu workstation, execute the master orchestrator:
 ```bash
 chmod +x setup_node.sh
 ./setup_node.sh
-

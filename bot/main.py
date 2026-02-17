@@ -1,5 +1,4 @@
 import os
-import time
 import asyncio
 import finnhub
 import pandas as pd
@@ -12,13 +11,15 @@ from signal_agent import SignalAgent
 from execution_manager import ExecutionManager
 from portfolio_manager import PortfolioManager
 from sentiment_analyzer import SentimentAnalyzer
+from fundamental_agent import FundamentalAgent
+from ticker_ranker import TickerRanker
 
 # --- 1. INITIALIZATION ---
 app = Flask(__name__)
 app.url_map.strict_slashes = False
 
 # Retrieve the key
-FINNHUB_KEY = os.environ.get('EXCHANGE_API_KEY')
+FINNHUB_KEY = os.environ.get("EXCHANGE_API_KEY")
 
 def check_api_key():
     """Validates that the API key is present."""
@@ -30,9 +31,8 @@ def check_api_key():
 finnhub_client = finnhub.Client(api_key=FINNHUB_KEY) if FINNHUB_KEY else None
 
 # Initialize BigQuery Client
-PROJECT_ID = os.environ.get('PROJECT_ID', 'trading-12345')
+PROJECT_ID = os.environ.get("PROJECT_ID", "trading-12345")
 bq_client = bigquery.Client(project=PROJECT_ID)
-table_id = f"{PROJECT_ID}.trading_data.watchlist_logs"
 table_id = f"{PROJECT_ID}.trading_data.watchlist_logs"
 portfolio_table_id = f"{PROJECT_ID}.trading_data.portfolio"
 
@@ -40,10 +40,19 @@ portfolio_table_id = f"{PROJECT_ID}.trading_data.portfolio"
 sentiment_analyzer = SentimentAnalyzer(PROJECT_ID)
 
 # Initialize Trading Agents
-# specific risk/vol settings can be loaded from env if needed
-signal_agent = SignalAgent() 
+# Load Mortgage Rate and calculate Tax-Adjusted Hurdle
+# Assuming 35% tax deductibility as per user request
+raw_mortgage_rate = float(os.environ.get("MORTGAGE_RATE", 0.0))
+tax_adjusted_hurdle = raw_mortgage_rate * (1 - 0.35)
+
+print(f"🏦 Mortgage Rate: {raw_mortgage_rate:.2%}")
+print(f"📉 Tax-Adjusted Hurdle: {tax_adjusted_hurdle:.2%}")
+
+signal_agent = SignalAgent(hurdle_rate=tax_adjusted_hurdle)
 portfolio_manager = PortfolioManager(bq_client, portfolio_table_id)
 execution_manager = ExecutionManager(portfolio_manager)
+fundamental_agent = FundamentalAgent()
+ticker_ranker = TickerRanker(PROJECT_ID, bq_client)
 
 # --- 2. CORE UTILITIES ---
 
@@ -52,16 +61,16 @@ from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame
 
 def _get_ny_time():
-    return datetime.now(pytz.timezone('America/New_York'))
+    return datetime.now(pytz.timezone("America/New_York"))
 
 # Retrieve Alpaca Keys
-ALPACA_KEY = os.environ.get('ALPACA_API_KEY')
-ALPACA_SECRET = os.environ.get('ALPACA_API_SECRET')
+ALPACA_KEY = os.environ.get("ALPACA_API_KEY")
+ALPACA_SECRET = os.environ.get("ALPACA_API_SECRET")
 
 async def fetch_historical_data(ticker):
     """Fetches daily candles for the last 60 days using Alpaca."""
     loop = asyncio.get_event_loop()
-    
+
     def get_candles():
         if not ALPACA_KEY or not ALPACA_SECRET:
             print(f"⚠️  Alpaca keys missing for {ticker}")
@@ -69,50 +78,52 @@ async def fetch_historical_data(ticker):
 
         try:
             client = StockHistoricalDataClient(ALPACA_KEY, ALPACA_SECRET)
-            
+
             # Alpaca expects datetime objects
             end = datetime.now(timezone.utc)
-            start = end - timedelta(days=90) # Buffer for 60 trading days
-            
+            start = end - timedelta(days=90)  # Buffer for 60 trading days
+
             request_params = StockBarsRequest(
                 symbol_or_symbols=ticker,
                 timeframe=TimeFrame.Day,
                 start=start,
                 end=end,
-                feed="iex" 
+                feed="iex",
             )
-            
+
             bars = client.get_stock_bars(request_params)
-            
+
             if not bars.data:
                 print(f"⚠️  Alpaca returned no data for {ticker}")
                 return None
-            
+
             # Convert to DataFrame
             # Alpaca returns a dict with 'symbol' as key, list of bars as value if single symbol?
             # actually bars.df works great
             df = bars.df.reset_index()
-            
+
             # Filter for specific ticker just in case
-            df = df[df['symbol'] == ticker]
-            
+            df = df[df["symbol"] == ticker]
+
             if df.empty:
-                 return None
+                return None
 
             # Normalize column names
             # Alpaca: timestamp, open, high, low, close, volume, trade_count, vwap
             # Internal: t, o, h, l, c, v
-            df_norm = pd.DataFrame({
-                't': df['timestamp'],
-                'o': df['open'],
-                'h': df['high'],
-                'l': df['low'],
-                'c': df['close'],
-                'v': df['volume']
-            })
-            
+            df_norm = pd.DataFrame(
+                {
+                    "t": df["timestamp"],
+                    "o": df["open"],
+                    "h": df["high"],
+                    "l": df["low"],
+                    "c": df["close"],
+                    "v": df["volume"],
+                }
+            )
+
             return df_norm
-            
+
         except Exception as e:
             print(f"❌ Alpaca Error for {ticker}: {e}")
             return None
@@ -125,28 +136,28 @@ def calculate_technical_indicators(df):
         return None
 
     # Calculate SMAs
-    df['sma_20'] = df['c'].rolling(window=20).mean()
-    df['sma_50'] = df['c'].rolling(window=50).mean()
+    df["sma_20"] = df["c"].rolling(window=20).mean()
+    df["sma_50"] = df["c"].rolling(window=50).mean()
 
     # Calculate Bollinger Bands (20-day, 2 std dev)
-    rolling_std = df['c'].rolling(window=20).std()
-    df['bb_upper'] = df['sma_20'] + (rolling_std * 2)
-    df['bb_lower'] = df['sma_20'] - (rolling_std * 2)
+    rolling_std = df["c"].rolling(window=20).std()
+    df["bb_upper"] = df["sma_20"] + (rolling_std * 2)
+    df["bb_lower"] = df["sma_20"] - (rolling_std * 2)
 
     # Return the latest slice as a dictionary for the strategy
     latest = df.iloc[-1]
-    
+
     # Ensure no NaN values in the latest slice (can happen if data is too short)
-    if pd.isna(latest['sma_50']):
+    if pd.isna(latest["sma_50"]):
         return None
 
     return {
-        "current_price": latest['c'],
-        "sma_20": latest['sma_20'],
-        "sma_50": latest['sma_50'],
-        "bb_upper": latest['bb_upper'],
-        "bb_lower": latest['bb_lower'],
-        "timestamp": latest['t']
+        "current_price": latest["c"],
+        "sma_20": latest["sma_20"],
+        "sma_50": latest["sma_50"],
+        "bb_upper": latest["bb_upper"],
+        "bb_lower": latest["bb_lower"],
+        "timestamp": latest["t"],
     }
 
 # --- 3. THE AUDIT ENGINE ---
@@ -156,26 +167,26 @@ def fetch_sentiment(ticker):
     Fetches news sentiment using Gemini 1.5 AI Analysis of real headlines.
     Fallbacks to Finnhub's pre-calculated score if AI fails.
     """
-    if not finnhub_client: 
+    if not finnhub_client:
         return None
-        
+
     try:
         # 1. Try AI Analysis of Company News
         sentiment_score = None
-        
+
         # Get news from last 24 hours
         end_date = datetime.now()
         start_date = end_date - timedelta(days=1)
-        _from = start_date.strftime('%Y-%m-%d')
-        _to = end_date.strftime('%Y-%m-%d')
-        
+        _from = start_date.strftime("%Y-%m-%d")
+        _to = end_date.strftime("%Y-%m-%d")
+
         # Fetch headlines
         news = finnhub_client.company_news(ticker, _from=_from, _to=_to)
-        
+
         if news:
             print(f"📰 Found {len(news)} news items for {ticker}. Asking Gemini...")
             sentiment_score = sentiment_analyzer.analyze_news(ticker, news)
-        
+
         # If Gemini returned a score (non-zero or even zero if explicitly neutral), usage it.
         # But if analyze_news returns 0.0 it's ambiguous (neutral or failure).
         # Let's assume if it returns non-zero it's a valid signal.
@@ -183,16 +194,18 @@ def fetch_sentiment(ticker):
             return sentiment_score
 
         # 2. Fallback to Finnhub's Generic Score
-        print(f"⚠️  No strong AI signal for {ticker}. Falling back to Finnhub Sentiment.")
+        print(
+            f"⚠️  No strong AI signal for {ticker}. Falling back to Finnhub Sentiment."
+        )
         res = finnhub_client.news_sentiment(ticker)
-        
-        if res and 'sentiment' in res:
-             bullish = res['sentiment'].get('bullishPercent', 0.5)
-             bearish = res['sentiment'].get('bearishPercent', 0.5)
-             return bullish - bearish
-             
-        return 0.0 # Neutral default
-        
+
+        if res and "sentiment" in res:
+            bullish = res["sentiment"].get("bullishPercent", 0.5)
+            bearish = res["sentiment"].get("bearishPercent", 0.5)
+            return bullish - bearish
+
+        return 0.0  # Neutral default
+
     except Exception as e:
         print(f"⚠️  Sentiment fetch failed for {ticker}: {e}")
         return 0.0
@@ -204,13 +217,13 @@ async def run_audit():
     tickers_env = os.environ.get("BASE_TICKERS", "NVDA,AAPL")
     tickers = [t.strip() for t in tickers_env.split(",") if t.strip()]
     print(f"🔍 DEBUG: Bot is attempting to audit tickers: {tickers}")
-    
+
     # Track latest prices for portfolio valuation
     current_prices = {}
 
     for ticker in tickers:
         print(f"👉 Processing {ticker}...")
-        
+
         # 0. Ensure Portfolio State (Seed if new)
         try:
             # We run this synchronously to ensure state relies on it
@@ -220,26 +233,34 @@ async def run_audit():
             print(f"⚠️ Portfolio Init Warning: {e}")
 
         # 1. Fetch Data (Parallel-ish)
-        # We need Current Price (Quote) + Sentiment + History (Candles)
-        quote_task = asyncio.to_thread(finnhub_client.quote, ticker) if finnhub_client else None
+        # We need Current Price (Quote) + Sentiment + History (Candles) + Fundamentals
+        quote_task = (
+            asyncio.to_thread(finnhub_client.quote, ticker) if finnhub_client else None
+        )
         sentiment_task = asyncio.to_thread(fetch_sentiment, ticker)
+        fundamental_task = asyncio.to_thread(fundamental_agent.evaluate_health, ticker)
+        deep_health_task = asyncio.to_thread(fundamental_agent.evaluate_deep_health, ticker)
         history_task = fetch_historical_data(ticker)
-        
+
         # Execute
         quote_res = await quote_task if quote_task else None
         sentiment_score = await sentiment_task
+        is_healthy, health_reason = await fundamental_task
+        is_deep_healthy, deep_health_reason = await deep_health_task
         df = await history_task
-        
+
         current_price = 0.0
-        
+
         # 2. Process Quote (The Baseline)
-        if quote_res and 'c' in quote_res:
-            current_price = float(quote_res['c'])
-            current_prices[ticker] = current_price # Store for valuation
+        if quote_res and "c" in quote_res:
+            current_price = float(quote_res["c"])
+            current_prices[ticker] = current_price  # Store for valuation
 
             # 2.5 Log to BigQuery (Watchlist)
             # Ensures data is captured even if technical analysis fails (e.g. 403 error)
-            log_watchlist_data(bq_client, table_id, ticker, current_price, sentiment_score)
+            log_watchlist_data(
+                bq_client, table_id, ticker, current_price, sentiment_score
+            )
 
             # 3. Calculate Technical Indicators
             indicators = calculate_technical_indicators(df)
@@ -249,33 +270,39 @@ async def run_audit():
                 # Prepare market data for the agent
                 market_data = {
                     "current_price": current_price,
-                    "sma_20": indicators['sma_20'],
-                    "sma_50": indicators['sma_50'],
-                    "bb_upper": indicators['bb_upper'],
-                    "bb_lower": indicators['bb_lower'],
+                    "sma_20": indicators["sma_20"],
+                    "sma_50": indicators["sma_50"],
+                    "bb_upper": indicators["bb_upper"],
+                    "bb_lower": indicators["bb_lower"],
+                    "bb_lower": indicators["bb_lower"],
                     "sentiment_score": sentiment_score,
+                    "is_healthy": is_healthy,
+                    "health_reason": health_reason,
+                    "is_deep_healthy": is_deep_healthy,
+                    "deep_health_reason": deep_health_reason,
                     # We need avg_price for Stop Loss, fetch it from portfolio
-                    # For now, we'll try to get it if possible, or default to 0
-                    "avg_price": 0.0 
+                    # we'll try to get it if possible, or default to 0
+                    "avg_price": 0.0,
+                    "prediction_confidence": await get_latest_confidence(ticker),
                 }
-                
+
                 # Fetch Portfolio State for Stop Loss context
-                try: 
+                try:
                     # We should probably have fetched this earlier or cached it
                     # But for now, let's keep it simple or skip it if too complex to fetch here synchronous
                     # state = portfolio_manager.get_state(ticker)
                     # market_data['avg_price'] = state.get('avg_price', 0.0)
-                    pass 
+                    pass
                 except:
                     pass
 
                 signal_dict = signal_agent.evaluate_strategy(market_data)
-                
+
                 # Unwrap the signal
                 # SignalAgent returns: {"action": "BUY/SELL", "price": ..., "reason": ...} or None
-                action = signal_dict['action'] if signal_dict else "HOLD"
-                signal_reason = signal_dict['reason'] if signal_dict else None
-                
+                action = signal_dict["action"] if signal_dict else "HOLD"
+                signal_reason = signal_dict["reason"] if signal_dict else None
+
                 print(f"   📊 {ticker}: Signal: {action} (Reason: {signal_reason})")
 
                 # F. Execute Trade (if valid)
@@ -283,61 +310,119 @@ async def run_audit():
                     # For BUY, we need to know how much cash to use
                     # We re-fetch global cash in case a previous iteration used it
                     current_global_cash = portfolio_manager.get_cash_balance()
-                    
+
                     # Allocation Logic:
-                    # Simple rule: Use up to $10k or available cash, whichever is lower
-                    trade_size_limit = 10000.0 
+                    # Simple rule: Use up to $5k or available cash, whichever is lower
+                    trade_size_limit = 5000.0
                     allocation = min(current_global_cash, trade_size_limit)
-                    
+
                     exec_result = execution_manager.place_order(
-                        ticker=ticker, 
-                        action=action, 
-                        quantity=0, # Manager calculates quantity based on price/cash
+                        ticker=ticker,
+                        action=action,
+                        quantity=0,  # Manager calculates quantity based on price/cash
                         price=current_price,
-                        cash_available=allocation 
+                        cash_available=allocation,
                     )
-                    
+
                     status = f"executed_{exec_result.get('status', 'UNKNOWN')}"
-                    results.append({"ticker": ticker, "price": current_price, "signal": action, "status": status, "details": exec_result})
+                    results.append(
+                        {
+                            "ticker": ticker,
+                            "price": current_price,
+                            "signal": action,
+                            "status": status,
+                            "details": exec_result,
+                        }
+                    )
                 else:
                     print(f"   ⏳ {ticker}: No Action ({action})")
-                    results.append({"ticker": ticker, "price": current_price, "signal": "HOLD", "status": "tracking_only"})
+                    results.append(
+                        {
+                            "ticker": ticker,
+                            "price": current_price,
+                            "signal": "HOLD",
+                            "status": "tracking_only",
+                        }
+                    )
             else:
-                print(f"      ⚠️  Insufficient history for indicators.")
-                results.append({"ticker": ticker, "price": current_price, "status": "tracking_only"})
+                print("      ⚠️  Insufficient history for indicators.")
+                results.append(
+                    {
+                        "ticker": ticker,
+                        "price": current_price,
+                        "status": "tracking_only",
+                    }
+                )
         else:
-            print(f"      ⚠️  No historical data (Strategy Skipped).")
-            results.append({"ticker": ticker, "price": current_price, "status": "tracking_only"})
+            print("      ⚠️  No historical data (Strategy Skipped).")
+            results.append(
+                {"ticker": ticker, "price": current_price, "status": "tracking_only"}
+            )
 
-        await asyncio.sleep(1.1) # Rate limit friendly
-    
+        await asyncio.sleep(1.1)  # Rate limit friendly
+
     # --- END OF CYCLE: PERFORMANCE LOGGING ---
     print("🏁 Cycle Complete. Calculating Total Equity...")
     try:
         from telemetry import log_performance
+
         performance_table = f"{PROJECT_ID}.trading_data.performance_logs"
-        
+
         metrics = portfolio_manager.calculate_total_equity(current_prices)
         log_performance(bq_client, performance_table, metrics)
-        
+
         # Append equity to results for API response
         results.append({"type": "performance_summary", "data": metrics})
-        
+
     except Exception as e:
         print(f"❌ Performance Calculation Failed: {e}")
 
     return results
 
+from typing import List, Dict, Optional
+
+async def get_latest_confidence(ticker: str) -> Optional[int]:
+    """Fetches the latest prediction confidence for a ticker from BQ."""
+    query = f"""
+        SELECT confidence 
+        FROM `{PROJECT_ID}.trading_data.ticker_rankings` 
+        WHERE ticker = '{ticker}' 
+        AND DATE(timestamp) = CURRENT_DATE('America/New_York')
+        ORDER BY timestamp DESC 
+        LIMIT 1
+    """
+    try:
+        loop = asyncio.get_event_loop()
+        query_job = await loop.run_in_executor(None, bq_client.query, query)
+        results = await loop.run_in_executor(None, query_job.to_dataframe)
+        if not results.empty:
+            return int(results.iloc[0]["confidence"])
+    except Exception as e:
+        print(f"⚠️ Error fetching confidence for {ticker}: {e}")
+    return None
+
+@app.route("/rank-tickers", methods=["POST"])
+async def run_ranker_endpoint():
+    """Trigger the morning ticker ranking job."""
+    tickers = os.environ.get("BASE_TICKERS", "NVDA,AAPL,TSLA,MSFT,AMD").split(",")
+    try:
+        results = await ticker_ranker.rank_and_log(tickers)
+        return jsonify({"status": "success", "results": results}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 # --- 4. FLASK ROUTES ---
 
-@app.route('/health')
+@app.route("/health")
 def health():
-    return jsonify({
-        "status": "healthy",
-        "timestamp": datetime.now(timezone.utc).isoformat()
-    }), 200
+    return (
+        jsonify(
+            {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
+        ),
+        200,
+    )
 
-@app.route('/run-audit', methods=['POST'])
+@app.route("/run-audit", methods=["POST"])
 async def run_audit_endpoint():
     # 1. Immediate Key Validation
     if not check_api_key():
@@ -349,23 +434,26 @@ async def run_audit_endpoint():
         data = await run_audit()
 
         if not data:
-             return jsonify({
-                "status": "warning",
-                "message": "No data returned."
-            }), 200
+            return jsonify({"status": "warning", "message": "No data returned."}), 200
 
-        return jsonify({
-            "status": "complete",
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "results": data
-        }), 200
+        return (
+            jsonify(
+                {
+                    "status": "complete",
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                    "results": data,
+                }
+            ),
+            200,
+        )
     except Exception as e:
         print(f"🔥 Critical Failure: {e}")
         import traceback
+
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
 
 # --- 5. LOCAL RUNNER ---
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host="0.0.0.0", port=port)

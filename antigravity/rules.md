@@ -7,7 +7,7 @@
 
 ## 2. Python Coding Standards
 - **Financial Precision:** STICK TO THE `decimal` MODULE. Never use `float` for currency, coin quantities, or price calculations to avoid floating-point errors.
-- **Type Safety:** Use Python type hints for all function arguments and return types. 
+- **Type Safety:** Use Python type hints for all function arguments and return types.
 - **Async Strategy:** Use `asyncio` and `aiohttp` for exchange API interactions to minimize latency.
 - **Error Handling:** Implement explicit try-except blocks for `RequestException` and `json.JSONDecodeError`. Use exponential backoff for rate-limited endpoints.
 
@@ -24,4 +24,3 @@
 ## 5. Logging & Observability
 - **BigQuery Integration:** Every signal (win or loss) must be logged to the `trading_logs` dataset with a timestamp, raw signal data, and executed price.
 - **Structured Logs:** Use `google-cloud-logging` to output JSON-formatted logs for easy filtering in the GCP Console.
-

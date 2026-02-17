@@ -1,3 +1,4 @@
+
 #!/bin/bash
 # scripts/01_deploy_infra.sh
 # Directive: Provision unified infrastructure for the Aberfeldie Node.
@@ -41,4 +42,3 @@ echo "🚀 Applying Infrastructure Blueprint..."
 terraform apply -auto-approve
 
 echo "✅ INFRASTRUCTURE READY: Project shells and analytics tier provisioned."
-

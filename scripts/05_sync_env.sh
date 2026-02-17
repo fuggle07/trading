@@ -1,3 +1,4 @@
+
 #!/bin/bash
 # scripts/05_sync_env.sh
 # Directive: Synchronize High-Resolution environmental parameters.
@@ -46,4 +47,3 @@ else
 fi
 
 echo "--- ✨ ENVIRONMENT READY: Node is configured for tax and hurdle audits ---"
-

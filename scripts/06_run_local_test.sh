@@ -1,3 +1,4 @@
+
 #!/bin/bash
 export PROJECT_ID="trading-123456" # Dummy for now
 export EXCHANGE_API_KEY="test_key_will_fail_but_thats_ok"

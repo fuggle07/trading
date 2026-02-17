@@ -37,4 +37,3 @@ else
 fi
 
 echo "--- ✨ AUDIT RUNNING IN BACKGROUND. WATCH THE LOGS. ---"
-

@@ -1,3 +1,4 @@
+
 #!/bin/bash
 # Deployment script with runtime mortgage rate configuration
 PROJECT_ID=$(gcloud config get-value project)
@@ -13,4 +14,3 @@ gcloud run deploy trading-bot \
   --region australia-southeast1 \
   --allow-unauthenticated \
   --set-env-vars="GOOGLE_CLOUD_PROJECT=$PROJECT_ID,MORTGAGE_RATE=$MORTGAGE_RATE"
-

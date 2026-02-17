@@ -1,6 +1,5 @@
 import logging
 import os
-import json
 from google.cloud import bigquery
 from datetime import datetime, timezone
 from alpaca.trading.client import TradingClient
@@ -15,20 +14,23 @@ class ExecutionManager:
     Handles order execution, validation against portfolio, and logging.
     Integrates with Alpaca for actual paper trading execution.
     """
+
     def __init__(self, portfolio_manager=None):
         self.project_id = os.getenv("PROJECT_ID")
         self.bq_client = None
         self.table_id = "trading_data.executions"
         self.portfolio_manager = portfolio_manager
-        
+
         # Alpaca Setup
         self.alpaca_key = os.getenv("ALPACA_API_KEY")
         self.alpaca_secret = os.getenv("ALPACA_API_SECRET")
         self.trading_client = None
-        
+
         if self.alpaca_key and self.alpaca_secret:
             try:
-                self.trading_client = TradingClient(self.alpaca_key, self.alpaca_secret, paper=True)
+                self.trading_client = TradingClient(
+                    self.alpaca_key, self.alpaca_secret, paper=True
+                )
                 logger.info("✅ Alpaca Trading Client Connected (Paper)")
             except Exception as e:
                 logger.error(f"❌ Failed to initialize Alpaca Client: {e}")
@@ -38,7 +40,9 @@ class ExecutionManager:
         if self.project_id:
             try:
                 self.bq_client = bigquery.Client(project=self.project_id)
-                logger.info(f"ExecutionManager connected to BigQuery project: {self.project_id}")
+                logger.info(
+                    f"ExecutionManager connected to BigQuery project: {self.project_id}"
+                )
             except Exception as e:
                 logger.error(f"Failed to initialize BigQuery client: {e}")
         else:
@@ -50,10 +54,12 @@ class ExecutionManager:
         Now supports Unified Cash Pool via 'cash_available' parameter.
         Executes real paper trades on Alpaca if configured.
         """
-        reason = "Strategy Signal" # Simple default
-        
-        logger.info(f"PROCESSING {action} on {ticker} @ {price} | Cash Alloc: ${cash_available:.2f}")
-        
+        reason = "Strategy Signal"  # Simple default
+
+        logger.info(
+            f"PROCESSING {action} on {ticker} @ {price} | Cash Alloc: ${cash_available:.2f}"
+        )
+
         # 0. Portfolio Validation (The Gatekeeper)
         # We keep the local validation to ensure our internal ledger stays sane
         if self.portfolio_manager:
@@ -64,85 +70,101 @@ class ExecutionManager:
                 except ValueError:
                     state = {"holdings": 0.0, "avg_price": 0.0}
 
-                holdings = state['holdings']
-                
+                holdings = state["holdings"]
+
                 # Check constraints & Calculate Quantity
                 if action == "BUY":
                     # Calculate max quantity based on allocated cash
                     if quantity == 0:
                         # Auto-calculate max shares
                         quantity = int(cash_available // price)
-                    
+
                     cost = price * quantity
-                    
+
                     if quantity <= 0:
-                        logger.warning(f"❌ REJECTED: Quantity would be 0 (Cash ${cash_available:.2f} / Price ${price:.2f})")
+                        logger.warning(
+                            f"❌ REJECTED: Quantity would be 0 (Cash ${cash_available:.2f} / Price ${price:.2f})"
+                        )
                         return {"status": "REJECTED", "reason": "ZERO_QUANTITY"}
 
                     if cash_available < cost:
-                        logger.warning(f"❌ REJECTED: Insufficient funds (${cash_available:.2f} < ${cost:.2f})")
+                        logger.warning(
+                            f"❌ REJECTED: Insufficient funds (${cash_available:.2f} < ${cost:.2f})"
+                        )
                         return {"status": "REJECTED", "reason": "INSUFFICIENT_FUNDS"}
-                    
+
                 elif action == "SELL":
                     if quantity == 0:
                         # Auto-sell ALL
                         quantity = holdings
-                        
+
                     if holdings < quantity or quantity <= 0:
-                         logger.warning(f"❌ REJECTED: Insufficient holdings ({holdings} < {quantity})")
-                         return {"status": "REJECTED", "reason": "INSUFFICIENT_HOLDINGS"}
-                    
+                        logger.warning(
+                            f"❌ REJECTED: Insufficient holdings ({holdings} < {quantity})"
+                        )
+                        return {"status": "REJECTED", "reason": "INSUFFICIENT_HOLDINGS"}
+
             except Exception as e:
                 logger.error(f"Portfolio Validation Failed: {e}")
                 return {"status": "ERROR", "reason": str(e)}
         else:
-             logger.warning("⚠️ PortfolioManager not connected! executing blindly (Sim Mode)")
+            logger.warning(
+                "⚠️ PortfolioManager not connected! executing blindly (Sim Mode)"
+            )
 
         # 1. Execute on Alpaca (The Real Execution)
         alpaca_order_id = None
-        execution_status = "FILLED" # Default to filled for local log unless Alpaca fails
-        
+        execution_status = (
+            "FILLED"  # Default to filled for local log unless Alpaca fails
+        )
+
         if self.trading_client:
             try:
                 side = OrderSide.BUY if action == "BUY" else OrderSide.SELL
-                
+
                 # Prepare Order
                 order_data = MarketOrderRequest(
                     symbol=ticker,
                     qty=quantity,
                     side=side,
-                    time_in_force=TimeInForce.DAY
+                    time_in_force=TimeInForce.DAY,
                 )
-                
+
                 logger.info(f"🚀 Submitting Alpaca Order: {side} {quantity} {ticker}")
                 order = self.trading_client.submit_order(order_data)
                 alpaca_order_id = str(order.id)
-                logger.info(f"✅ Alpaca Order Submitted: {alpaca_order_id} ({order.status})")
-                
+                logger.info(
+                    f"✅ Alpaca Order Submitted: {alpaca_order_id} ({order.status})"
+                )
+
             except Exception as e:
                 logger.error(f"❌ Alpaca Execution Failed: {e}")
                 return {"status": "FAILED", "reason": f"Alpaca Error: {str(e)}"}
 
         # 2. Update Local Ledger (Shadow Ledger)
-        # We only update if we (conceptually) succeeded. 
+        # We only update if we (conceptually) succeeded.
         # Since Alpaca is async (submitted -> filled), strictly speaking we shouldn't update ledger until fill.
-        # But for this bot's simplicity, we assume FILL on submit for the internal ledger 
+        # But for this bot's simplicity, we assume FILL on submit for the internal ledger
         # or we accept that internal ledger is an 'estimate'.
-        
+
         if self.portfolio_manager:
             try:
                 if action == "BUY":
                     cost = price * quantity
-                    self.portfolio_manager.update_ledger(ticker, -cost, quantity, price, action="BUY")
+                    self.portfolio_manager.update_ledger(
+                        ticker, -cost, quantity, price, action="BUY"
+                    )
                 elif action == "SELL":
                     revenue = price * quantity
-                    self.portfolio_manager.update_ledger(ticker, revenue, -quantity, price, action="SELL")
+                    self.portfolio_manager.update_ledger(
+                        ticker, revenue, -quantity, price, action="SELL"
+                    )
             except Exception as e:
                 logger.error(f"Ledger Update Failed: {e}")
 
         # 3. Log to BigQuery
         execution_id = f"exec-{int(datetime.now().timestamp())}-{ticker}"
-        
+
         execution_data = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "execution_id": execution_id,
@@ -152,16 +174,16 @@ class ExecutionManager:
             "price": price,
             "quantity": quantity,
             "reason": reason,
-            "status": execution_status
+            "status": execution_status,
         }
-        
+
         self._log_to_bigquery(execution_data)
-        
+
         return {
             "status": execution_status,
             "execution_id": execution_id,
             "alpaca_id": alpaca_order_id,
-            "details": execution_data
+            "details": execution_data,
         }
 
     def _log_to_bigquery(self, data: dict):
@@ -171,17 +193,19 @@ class ExecutionManager:
 
         try:
             # Check if schema supports alpaca_order_id, if not it might ignore it or fail?
-            # BQ insert_rows_json usually handles extra fields by ignoring them if not in schema 
-            # OR failing if strictly defined. 
+            # BQ insert_rows_json usually handles extra fields by ignoring them if not in schema
+            # OR failing if strictly defined.
             # Safe bet: The current schema likely doesn't have 'alpaca_order_id'.
             # We should probably update the TF schema, but for now let's be safe and maybe put it in 'reason' or similar if needed?
             # Actually, `executions` table is likely auto-created or defined in TF.
             # Let's inspect IF we need to update TF.
-            
+
             errors = self.bq_client.insert_rows_json(self.table_id, [data])
             if errors:
                 logger.error(f"BigQuery Insert Errors: {errors}")
             else:
-                logger.info(f"Logged execution {data['execution_id']} to {self.table_id}")
+                logger.info(
+                    f"Logged execution {data['execution_id']} to {self.table_id}"
+                )
         except Exception as e:
             logger.warning(f"Failed to log to BigQuery ({self.table_id}): {e}")

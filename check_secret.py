@@ -1,5 +1,4 @@
 from google.cloud import secretmanager
-import os
 
 project_id = "utopian-calling-429014-r9"
 secret_id = "FINNHUB_KEY"

@@ -18,6 +18,7 @@ graph TD
     subgraph "External APIs"
         Alpaca[Alpaca API<br>(Market Data & Execution)]
         Finnhub[Finnhub API<br>(News Sentiment)]
+        Alpha[Alpha Vantage<br>(Fundamental Data)]
         Vertex[Vertex AI<br>(Gemini 1.5 Pro)]
     end
 
@@ -26,7 +27,9 @@ graph TD
         Signal[SignalAgent<br>(Strategy Logic)]
         Exec[ExecutionManager<br>(Order Routing)]
         Port[PortfolioManager<br>(State & Ledger)]
+        Port[PortfolioManager<br>(State & Ledger)]
         Sent[SentimentAnalyzer<br>(AI Analysis)]
+        Fund[FundamentalAgent<br>(Value Analysis)]
     end
 
     subgraph "Google Cloud Data"
@@ -39,17 +42,20 @@ graph TD
     %% Data Flow
     Alpaca -->|Daily Candles| Main
     Finnhub -->|News & Score| Main
+    Alpha -->|PE/EPS Data| Main
     Main -->|News Context| Vertex
     Vertex -->|AI Reasoning| Sent
     Sent -->|Sentiment Score| Signal
-    
+    Main -->|Health Check| Fund
+    Fund -->|Value Score| Signal
+
     Main -->|Market Data| Signal
     Signal -->|Trade Signal| Exec
-    
+
     Exec -->|Order Request| Alpaca
     Exec -->|Trade Details| BQ_Exec
     Exec -->|Ledger Update| Port
-    
+
     Port <-->|Sync State| BQ_Port
     Main -->|Log Metrics| BQ_Logs
     Main -->|Log Equity| BQ_Perf
@@ -103,12 +109,19 @@ graph TD
     - Analyzes raw news headlines/summaries to derive a nuanced sentiment score (-1 to +1).
     - Provides reasoning for the score (e.g., "Regulatory concerns outweigh earnings beat").
 
+### F. Fundamental Agent (`fundamental_agent.py`)
+- **Role**: The value investor.
+- **Function**:
+    - **Source**: Alpha Vantage API.
+    - **Logic**: Checks for basic financial health (PE Ratio, EPS).
+    - **Filter**: Rejects BUY signals for unprofitable companies (EPS < 0) or extreme bubbles (PE > 100).
+
 ## 4. Key Data Flows
 
 ### 1. The Audit Cycle (Every ~1-5 mins)
 1.  **Fetch**: Retrieve last 60 days of daily candles from Alpaca.
 2.  **Compute**: Calculate SMA-20, SMA-50, Bollinger Bands.
-3.  **Sense**: Fetch news sentiment.
+3.  **Sense**: Fetch news sentiment & Fundamental Health (PE/EPS).
 4.  **Evaluate**: `SignalAgent` determines action (e.g., BUY NVDA).
 5.  **Execute**: `ExecutionManager` routes order to Alpaca.
 6.  **Record**: Trade logged to BigQuery; Portfolio updated.

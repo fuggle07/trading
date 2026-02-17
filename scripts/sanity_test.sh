@@ -1,3 +1,4 @@
+
 #!/bin/bash
 # scripts/sanity_test.sh
 # Directive: Verify the 'Agentic Thought Stream' is reachable.
@@ -26,5 +27,3 @@ curl -m 60 -X POST "$FUNCTION_URL" \
   -d '{"action": "audit"}'
 
 echo -e "\n--- ✨ TEST COMPLETE. CHECK CLOUD LOGS FOR RESULTS ---"
-
-

@@ -1,4 +1,3 @@
-import os
 import time
 import finnhub
 from google.cloud import secretmanager
@@ -26,11 +25,11 @@ except Exception as e:
 
 # 2. Test Candles (Small Range)
 end = int(time.time())
-start = end - (5 * 24 * 60 * 60) # 5 days
+start = end - (5 * 24 * 60 * 60)  # 5 days
 print(f"📡 Testing CANDLES for {ticker} (Last 5 days, Daily)...")
 try:
-    res = finnhub_client.stock_candles(ticker, 'D', start, end)
-    if res.get('s') == 'ok':
+    res = finnhub_client.stock_candles(ticker, "D", start, end)
+    if res.get("s") == "ok":
         print(f"✅ Candles Success! Got {len(res['c'])} candles.")
     else:
         print(f"⚠️  Candle Response 's': {res.get('s')} | Message: {res}")

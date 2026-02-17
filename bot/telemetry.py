@@ -14,7 +14,7 @@ class CloudLoggingFormatter(logging.Formatter):
             "component": os.getenv("K_SERVICE", "trading-bot"),
             "timestamp": datetime.utcnow().isoformat() + "Z",
             "event": getattr(record, "event", "GENERIC"),
-            "details": getattr(record, "details", {})
+            "details": getattr(record, "details", {}),
         }
         return json.dumps(log_entry)
 
@@ -29,13 +29,9 @@ logger.addHandler(handler)
 
 def log_audit(level, message, extra=None):
     # This format is automatically parsed by Google Cloud Logging
-    entry = {
-        "severity": level,
-        "message": message,
-        "extra": extra or {}
-    }
+    entry = {"severity": level, "message": message, "extra": extra or {}}
     print(json.dumps(entry))
-    sys.stdout.flush() # Force the log out immediately
+    sys.stdout.flush()  # Force the log out immediately
 
 # 3. BIGQUERY TELEMETRY
 
@@ -52,7 +48,7 @@ def log_watchlist_data(client, table_id, ticker, price, sentiment=None):
             "timestamp": datetime.now(pytz.utc).isoformat(),
             "ticker": ticker,
             "price": float(price),
-            "sentiment_score": float(sentiment) if sentiment else 0.0
+            "sentiment_score": float(sentiment) if sentiment else 0.0,
         }
     ]
 
@@ -65,7 +61,7 @@ def log_watchlist_data(client, table_id, ticker, price, sentiment=None):
                 "ticker": ticker,
                 "price": float(price),
                 "sentiment_score": float(sentiment) if sentiment is not None else 0.0,
-                "event": "WATCHLIST_LOG"
+                "event": "WATCHLIST_LOG",
             }
             print(json.dumps(log_payload))
         else:
@@ -80,16 +76,16 @@ def log_performance(client, table_id, metrics):
     """
     row = {
         "timestamp": datetime.now(pytz.utc).isoformat(),
-        "paper_equity": float(metrics['total_equity']),
+        "paper_equity": float(metrics["total_equity"]),
         # We can add more fields here later as per schema
-        "tax_buffer_usd": 0.0, # Placeholder
-        "fx_rate_aud": 1.0, # Placeholder
-        "daily_hurdle_aud": 0.0, # Placeholder
-        "net_alpha_usd": 0.0, # Placeholder
+        "tax_buffer_usd": 0.0,  # Placeholder
+        "fx_rate_aud": 1.0,  # Placeholder
+        "daily_hurdle_aud": 0.0,  # Placeholder
+        "net_alpha_usd": 0.0,  # Placeholder
         "node_id": os.getenv("K_SERVICE", "local-bot"),
-        "recommendation": "HOLD", # Placeholder
+        "recommendation": "HOLD",  # Placeholder
     }
-    
+
     try:
         errors = client.insert_rows_json(table_id, [row])
         if errors:
@@ -100,11 +96,10 @@ def log_performance(client, table_id, metrics):
             # It extracts 'paper_equity' from the top-level keys
             log_payload = {
                 "message": f"📈 Logged Performance: ${metrics['total_equity']:.2f}",
-                "paper_equity": float(metrics['total_equity']),
+                "paper_equity": float(metrics["total_equity"]),
                 "node_id": os.getenv("K_SERVICE", "local-bot"),
-                "event": "PERFORMANCE_LOG"
+                "event": "PERFORMANCE_LOG",
             }
             print(json.dumps(log_payload))
     except Exception as e:
         print(f"🔥 Performance Log Failure: {e}")
-

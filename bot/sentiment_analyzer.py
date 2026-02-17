@@ -1,4 +1,3 @@
-import os
 import json
 import logging
 import vertexai
@@ -33,25 +32,27 @@ class SentimentAnalyzer:
         # Limit to top 5 news items to fit context window efficiently and stay relevant
         # Assuming news_items are sorted by relevance/recency
         top_news = news_items[:5]
-        
-        news_text = "\n\n".join([
-            f"- {item.get('headline', '')}: {item.get('summary', '')}" 
-            for item in top_news
-        ])
+
+        news_text = "\n\n".join(
+            [
+                f"- {item.get('headline', '')}: {item.get('summary', '')}"
+                for item in top_news
+            ]
+        )
 
         prompt = f"""
-        You are a financial sentiment analysis expert. 
+        You are a financial sentiment analysis expert.
         Analyze the following news headlines and summaries for the stock '{ticker}'.
-        
+
         News Data:
         {news_text}
-        
+
         Task:
         Determine the overall market sentiment for this stock based strictly on the provided news.
         Return a single JSON object with the following keys:
         - "score": A float between -1.0 (Very Bearish) and 1.0 (Very Bullish).
         - "reasoning": A brief explanation of why you assigned this score.
-        
+
         Output JSON only. Do not include markdown formatting.
         """
 
@@ -67,9 +68,9 @@ class SentimentAnalyzer:
             response = self.model.generate_content(
                 prompt,
                 safety_settings=safety_settings,
-                generation_config={"response_mime_type": "application/json"}
+                generation_config={"response_mime_type": "application/json"},
             )
-            
+
             result_text = response.text.strip()
             # Clean up potential markdown code blocks if the model ignores instruction
             if result_text.startswith("```json"):
@@ -80,8 +81,10 @@ class SentimentAnalyzer:
             data = json.loads(result_text)
             score = float(data.get("score", 0.0))
             reasoning = data.get("reasoning", "No reasoning provided.")
-            
-            logger.info(f"🧠 Gemini Analysis for {ticker}: Score={score} | Reason: {reasoning}")
+
+            logger.info(
+                f"🧠 Gemini Analysis for {ticker}: Score={score} | Reason: {reasoning}"
+            )
             return score
 
         except Exception as e:

@@ -1,3 +1,4 @@
+
 #!/bin/bash
 # harden_iam.sh - Automated Least Privilege Enforcement
 # Directive: Ensure the Service Account has exactly what it needs and nothing more.
@@ -35,4 +36,3 @@ for ROLE in "${REQUIRED_ROLES[@]}"; do
 done
 
 echo "--- IAM AUDIT COMPLETE ---"
-

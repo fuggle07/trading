@@ -1,3 +1,4 @@
+
 #!/bin/bash
 # deploy_agent.sh - Automation Script for GCP Cloud Functions
 
@@ -22,4 +23,3 @@ gcloud functions deploy $FUNCTION_NAME \
   --entry-point=$ENTRY_POINT \
   --trigger-http \
   --allow-unauthenticated # In production, use --no-allow-unauthenticated for safety
-
