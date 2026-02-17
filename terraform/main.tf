@@ -389,6 +389,23 @@ resource "google_cloud_scheduler_job" "ticker_rank_trigger" {
   }
 }
 
+resource "google_cloud_scheduler_job" "audit_trigger" {
+  name             = "trading-audit-trigger"
+  description      = "High-frequency audit (Every 2 minutes during market hours)"
+  schedule         = "*/2 9-16 * * 1-5" # Every 2 minutes, 9 AM - 4 PM ET, Mon-Fri
+  time_zone        = "America/New_York"
+  attempt_deadline = "320s"
+
+  http_target {
+    http_method = "POST"
+    uri         = "${google_cloud_run_v2_service.trading_bot.uri}/run-audit"
+
+    oidc_token {
+      service_account_email = google_service_account.bot_sa.email
+    }
+  }
+}
+
 # C. Log-Based Metrics (To bridge Logs -> Dashboard)
 resource "google_logging_metric" "paper_equity" {
   name   = "trading/paper_equity"
