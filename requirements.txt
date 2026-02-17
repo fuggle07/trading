@@ -25,7 +25,7 @@ setuptools==69.0.3
 
 # Trading Logic & Networking
 ib-async==1.0.1
-protobuf==6.33.5
+protobuf==4.25.3
 grpcio==1.78.0
 grpcio-status==1.78.0
 
