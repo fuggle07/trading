@@ -394,6 +394,7 @@ resource "google_cloud_scheduler_job" "ticker_rank_trigger" {
 
     oidc_token {
       service_account_email = google_service_account.bot_sa.email
+      audience              = google_cloud_run_v2_service.trading_bot.uri
     }
   }
 }
@@ -411,6 +412,7 @@ resource "google_cloud_scheduler_job" "audit_trigger" {
 
     oidc_token {
       service_account_email = google_service_account.bot_sa.email
+      audience              = google_cloud_run_v2_service.trading_bot.uri
     }
   }
 }
