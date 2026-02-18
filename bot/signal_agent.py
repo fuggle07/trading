@@ -68,6 +68,8 @@ class SignalAgent:
         Evaluates signals only if the market is open and volatility is within safe bounds.
         Can be forced to evaluate (Dry-Run) even if market is closed.
         """
+        ticker = market_data.get("ticker", "Unknown")
+
         # 1. Market Status Filter
         if not force_eval and not self.is_market_open():
             log_decision(ticker, "SKIP", "Market is closed (Weekend, Holiday, or After-Hours)")
@@ -75,7 +77,6 @@ class SignalAgent:
 
         # 2. Volatility Filter (The Gatekeeper)
         is_stable, vol_pct = self._check_volatility(market_data)
-        ticker = market_data.get("ticker", "Unknown")
         if not is_stable:
             log_decision(ticker, "SKIP", f"Volatility too high ({vol_pct:.2%})", {"vol_pct": float(vol_pct)})
             return None
@@ -98,6 +99,9 @@ class SignalAgent:
                 "price": price,
                 "reason": "SMA_CROSSOVER_BEARISH",
             }
+        else:
+            log_decision(ticker, "SKIP", "No Technical Signal (SMA)")
+            return None
 
         # 3b. Stop Loss Override (Safety Net)
         # If we own it (implied by having an avg_price > 0) and price is down 10%

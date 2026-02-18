@@ -53,7 +53,7 @@ def log_watchlist_data(client, table_id, ticker, price, sentiment=None, confiden
         if errors == []:
             # Structured Log for Metric Extraction
             log_payload = {
-                "message": f"✅ Telemetry: Logged {ticker} at {price}",
+                "message": f"[{ticker}] ✅ Telemetry: Logged {ticker} at {price}",
                 "ticker": ticker,
                 "price": float(price),
                 "sentiment_score": float(sentiment) if sentiment is not None else 0.0,
@@ -115,7 +115,7 @@ def log_decision(ticker, action, reason, details=None):
     message = f"[DECISION] {emoji} {action} {ticker}: {reason}"
     
     # console output for tailing
-    print(f"\n{message}")
+    print(f"\n[{ticker}] {message}")
     if details:
         print(f"           Details: {details}")
     

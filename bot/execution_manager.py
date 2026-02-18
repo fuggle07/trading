@@ -56,7 +56,7 @@ class ExecutionManager:
         """
 
         logger.info(
-            f"PROCESSING {action} on {ticker} @ {price} | Cash Alloc: ${cash_available:.2f}"
+            f"[{ticker}] PROCESSING {action} on {ticker} @ {price} | Cash Alloc: ${cash_available:.2f}"
         )
 
         # 0. Portfolio Validation (The Gatekeeper)
@@ -82,13 +82,13 @@ class ExecutionManager:
 
                     if quantity <= 0:
                         logger.warning(
-                            f"❌ REJECTED: Quantity would be 0 (Cash ${cash_available:.2f} / Price ${price:.2f})"
+                            f"[{ticker}] ❌ REJECTED: Quantity would be 0 (Cash ${cash_available:.2f} / Price ${price:.2f})"
                         )
                         return {"status": "REJECTED", "reason": "ZERO_QUANTITY"}
 
                     if cash_available < cost:
                         logger.warning(
-                            f"❌ REJECTED: Insufficient funds (${cash_available:.2f} < ${cost:.2f})"
+                            f"[{ticker}] ❌ REJECTED: Insufficient funds (${cash_available:.2f} < ${cost:.2f})"
                         )
                         return {"status": "REJECTED", "reason": "INSUFFICIENT_FUNDS"}
 
@@ -99,12 +99,12 @@ class ExecutionManager:
 
                     if holdings < quantity or quantity <= 0:
                         logger.warning(
-                            f"❌ REJECTED: Insufficient holdings ({holdings} < {quantity})"
+                            f"[{ticker}] ❌ REJECTED: Insufficient holdings ({holdings} < {quantity})"
                         )
                         return {"status": "REJECTED", "reason": "INSUFFICIENT_HOLDINGS"}
 
             except Exception as e:
-                logger.error(f"Portfolio Validation Failed: {e}")
+                logger.error(f"[{ticker}] Portfolio Validation Failed: {e}")
                 return {"status": "ERROR", "reason": str(e)}
         else:
             logger.warning(
@@ -129,15 +129,15 @@ class ExecutionManager:
                     time_in_force=TimeInForce.DAY,
                 )
 
-                logger.info(f"🚀 Submitting Alpaca Order: {side} {quantity} {ticker}")
+                logger.info(f"[{ticker}] 🚀 Submitting Alpaca Order: {side} {quantity} {ticker}")
                 order = self.trading_client.submit_order(order_data)
                 alpaca_order_id = str(order.id)
                 logger.info(
-                    f"✅ Alpaca Order Submitted: {alpaca_order_id} ({order.status})"
+                    f"[{ticker}] ✅ Alpaca Order Submitted: {alpaca_order_id} ({order.status})"
                 )
 
             except Exception as e:
-                logger.error(f"❌ Alpaca Execution Failed: {e}")
+                logger.error(f"[{ticker}] ❌ Alpaca Execution Failed: {e}")
                 return {"status": "FAILED", "reason": f"Alpaca Error: {str(e)}"}
 
         # 2. Update Local Ledger (Shadow Ledger)
@@ -159,7 +159,7 @@ class ExecutionManager:
                         ticker, revenue, -quantity, price, action="SELL"
                     )
             except Exception as e:
-                logger.error(f"Ledger Update Failed: {e}")
+                logger.error(f"[{ticker}] Ledger Update Failed: {e}")
 
         # 3. Log to BigQuery
         execution_id = f"exec-{int(datetime.now().timestamp())}-{ticker}"
@@ -204,7 +204,7 @@ class ExecutionManager:
                 logger.error(f"BigQuery Insert Errors: {errors}")
             else:
                 logger.info(
-                    f"Logged execution {data['execution_id']} to {self.table_id}"
+                    f"[{data['ticker']}] Logged execution {data['execution_id']} to {self.table_id}"
                 )
         except Exception as e:
             logger.warning(f"Failed to log to BigQuery ({self.table_id}): {e}")

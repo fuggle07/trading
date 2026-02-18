@@ -48,7 +48,7 @@ class FundamentalAgent:
                     isinstance(overview, str)
                     and "Alpha Vantage! Please consider" in overview
                 ):
-                    logger.error(f"❌ Alpha Vantage Rate Limit Hit (Overview): {ticker}")
+                    logger.error(f"[{ticker}] ❌ Alpha Vantage Rate Limit Hit (Overview): {ticker}")
                 elif overview and isinstance(overview, dict) and "Symbol" in overview:
                     data = {
                         "pe_ratio": float(overview.get("PERatio", 0) or 0),
@@ -58,19 +58,19 @@ class FundamentalAgent:
                         "market_cap": int(overview.get("MarketCapitalization", 0) or 0),
                     }
                     logger.info(
-                        f"📊 {ticker} Fundamentals (AlphaVantage): PE={data['pe_ratio']}, EPS={data['eps']}"
+                        f"[{ticker}] 📊 {ticker} Fundamentals (AlphaVantage): PE={data['pe_ratio']}, EPS={data['eps']}"
                     )
             except asyncio.TimeoutError:
-                logger.error(f"⏳ Alpha Vantage Timeout for {ticker}")
+                logger.error(f"[{ticker}] ⏳ Alpha Vantage Timeout for {ticker}")
             except Exception as e:
-                logger.error(f"⚠️ Alpha Vantage Overview Error for {ticker}: {e}")
+                logger.error(f"[{ticker}] ⚠️ Alpha Vantage Overview Error for {ticker}: {e}")
 
         # 2. Fallback to Finnhub (Basic Financials)
         if not data and self.finnhub_client:
             try:
                 import asyncio
 
-                logger.info(f"📡 Falling back to Finnhub for {ticker} fundamentals...")
+                logger.info(f"[{ticker}] 📡 Falling back to Finnhub for {ticker} fundamentals...")
                 basic_fin = await asyncio.to_thread(
                     self.finnhub_client.company_basic_financials, ticker, "all"
                 )
@@ -85,12 +85,12 @@ class FundamentalAgent:
                         * 1_000_000,  # Finnhub is in Millions
                     }
                     logger.info(
-                        f"📊 {ticker} Fundamentals (Finnhub): PE={data['pe_ratio']}, EPS={data['eps']}"
+                        f"[{ticker}] 📊 {ticker} Fundamentals (Finnhub): PE={data['pe_ratio']}, EPS={data['eps']}"
                     )
                 else:
-                    logger.warning(f"⚠️ Finnhub also has no fundamental data for {ticker}")
+                    logger.warning(f"[{ticker}] ⚠️ Finnhub also has no fundamental data for {ticker}")
             except Exception as e:
-                logger.error(f"❌ Finnhub Fallback failed for {ticker}: {e}")
+                logger.error(f"[{ticker}] ❌ Finnhub Fallback failed for {ticker}: {e}")
 
         return data
 
@@ -116,7 +116,7 @@ class FundamentalAgent:
             if not results.empty:
                 return results.iloc[0].to_dict()
         except Exception as e:
-            logger.error(f"⚠️ Cache lookup failed for {ticker}: {e}")
+            logger.error(f"[{ticker}] ⚠️ Cache lookup failed for {ticker}: {e}")
         return None
 
     def _save_to_cache(
@@ -140,9 +140,9 @@ class FundamentalAgent:
         try:
             table_id = f"{PROJECT_ID}.trading_data.fundamental_cache"
             client.insert_rows_json(table_id, rows_to_insert)
-            logger.info(f"✅ Cached fundamental results for {ticker}")
+            logger.info(f"[{ticker}] ✅ Cached fundamental results for {ticker}")
         except Exception as e:
-            logger.error(f"❌ Failed to cache results for {ticker}: {e}")
+            logger.error(f"[{ticker}] ❌ Failed to cache results for {ticker}: {e}")
 
     async def evaluate_health(self, ticker: str):
         """
@@ -154,7 +154,7 @@ class FundamentalAgent:
 
         cached = await asyncio.to_thread(self._get_cached_evaluation, ticker)
         if cached:
-            logger.info(f"💾 Using cached health for {ticker}")
+            logger.info(f"[{ticker}] 💾 Using cached health for {ticker}")
             return cached["is_healthy"], cached["health_reason"]
 
         # 2. Proceed to API if no cache
@@ -180,7 +180,7 @@ class FundamentalAgent:
             return None
 
         try:
-            logger.info(f"📡 Fetching deep financials for {ticker}...")
+            logger.info(f"[{ticker}] 📡 Fetching deep financials for {ticker}...")
             import asyncio
 
             # Increased to 20s for deep financials
@@ -192,7 +192,7 @@ class FundamentalAgent:
                 isinstance(income_q, str)
                 and "Alpha Vantage! Please consider" in income_q
             ):
-                logger.error(f"❌ Alpha Vantage Rate Limit Hit (Income Q): {income_q}")
+                logger.error(f"[{ticker}] ❌ Alpha Vantage Rate Limit Hit (Income Q): {income_q}")
                 return None
 
             balance_a, _ = await asyncio.wait_for(
@@ -204,7 +204,7 @@ class FundamentalAgent:
                 and "Alpha Vantage! Please consider" in balance_a
             ):
                 logger.error(
-                    f"❌ Alpha Vantage Rate Limit Hit (Balance A): {balance_a}"
+                    f"[{ticker}] ❌ Alpha Vantage Rate Limit Hit (Balance A): {balance_a}"
                 )
                 return None
 
@@ -214,10 +214,10 @@ class FundamentalAgent:
             )
             return {"income_q": income_q, "balance_a": balance_a, "cash_a": cash_a}
         except asyncio.TimeoutError:
-            logger.error(f"⏳ Deep Health Fetch Timeout for {ticker}")
+            logger.error(f"[{ticker}] ⏳ Deep Health Fetch Timeout for {ticker}")
             return None
         except Exception as e:
-            logger.error(f"❌ Failed to fetch financial statements for {ticker}: {e}")
+            logger.error(f"[{ticker}] ❌ Failed to fetch financial statements for {ticker}: {e}")
             return None
 
     async def evaluate_deep_health(self, ticker: str):
@@ -238,7 +238,7 @@ class FundamentalAgent:
         if not stats or not stats.get("balance_a") or not stats.get("income_q"):
             # Deep Fallback to Finnhub if AV Statement fetch fails
             if self.finnhub_client:
-                logger.info(f"📡 AV Statement Fail. Attempting Finnhub deep fallback for {ticker}...")
+                logger.info(f"[{ticker}] 📡 AV Statement Fail. Attempting Finnhub deep fallback for {ticker}...")
                 basic_fin = await asyncio.to_thread(
                     self.finnhub_client.company_basic_financials, ticker, "all"
                 )
@@ -310,7 +310,7 @@ class FundamentalAgent:
                                 f"Deep Health OK (CR {current_ratio:.2f})",
                             )
             except Exception as e:
-                logger.error(f"⚠️ Error parsing financials for {ticker}: {e}")
+                logger.error(f"[{ticker}] ⚠️ Error parsing financials for {ticker}: {e}")
                 is_deep, d_reason = True, "Parsing Error (Skipped)"
 
         # 3. Cache the final result of BOTH evaluations (async to thread since BQ client is sync)

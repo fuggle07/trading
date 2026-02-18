@@ -196,7 +196,7 @@ async def fetch_sentiment(ticker):
         news = await asyncio.to_thread(finnhub_client.company_news, ticker, _from=_from, to=_to)
 
         if news:
-            print(f"📰 Found {len(news)} news items for {ticker}. Asking Gemini...")
+            print(f"[{ticker}] 📰 Found {len(news)} news items for {ticker}. Asking Gemini...")
             sentiment_score = await sentiment_analyzer.analyze_news(ticker, news)
 
         # If Gemini returned a score (non-zero), use it.
@@ -204,7 +204,7 @@ async def fetch_sentiment(ticker):
             return sentiment_score
 
         # 2. Fallback to Finnhub's Generic Score
-        print(f"⚠️  No strong AI signal for {ticker}. Falling back to Finnhub Sentiment.")
+        print(f"[{ticker}] ⚠️  No strong AI signal for {ticker}. Falling back to Finnhub Sentiment.")
         try:
             res = await asyncio.to_thread(finnhub_client.news_sentiment, ticker)
             if res and "sentiment" in res:
@@ -213,13 +213,13 @@ async def fetch_sentiment(ticker):
                 return bullish - bearish
         except Exception as e:
             if "403" in str(e):
-                print(f"ℹ️  Finnhub Sentiment fallback skipped (Premium only) for {ticker}")
+                print(f"[{ticker}] ℹ️  Finnhub Sentiment fallback skipped (Premium only) for {ticker}")
             else:
-                print(f"⚠️  Finnhub Sentiment fallback failed for {ticker}: {e}")
+                print(f"[{ticker}] ⚠️  Finnhub Sentiment fallback failed for {ticker}: {e}")
 
         return 0.0  # Neutral default
     except Exception as e:
-        print(f"⚠️  Global fetch_sentiment error for {ticker}: {e}")
+        print(f"[{ticker}] ⚠️  Global fetch_sentiment error for {ticker}: {e}")
         return 0.0
 
 # --- 3. THE AUDIT ENGINE ---
@@ -240,7 +240,7 @@ async def run_audit():
     current_prices = {}
 
     for ticker in tickers:
-        print(f"   📡 Gathering Intel for {ticker}...")
+        print(f"[{ticker}]    📡 Gathering Intel for {ticker}...")
         try:
             # Parallel fetch for a single ticker to save time
             quote_task = asyncio.to_thread(finnhub_client.quote, ticker) if finnhub_client else None
@@ -282,7 +282,7 @@ async def run_audit():
                 # Log to Watchlist (Persistence)
                 log_watchlist_data(bq_client, table_id, ticker, price, sentiment_score)
         except Exception as e:
-            print(f"      ⚠️ Failed to gather intel for {ticker}: {e}")
+            print(f"[{ticker}]       ⚠️ Failed to gather intel for {ticker}: {e}")
 
         await asyncio.sleep(0.5) # Rate limit spread
 
@@ -365,7 +365,7 @@ async def run_audit():
         if sig.get("action") == "SELL":
             reason = sig.get("reason", "Strategy Signal")
             if not effective_enabled:
-                log_decision(ticker, "SKIP", f"DRY_RUN: Intent SELL ({reason})")
+                log_decision(ticker, "SKIP", f"🧊 DRY RUN: Intent SELL ({reason})")
                 status = "dry_run_sell"
             else:
                 exec_res = execution_manager.place_order(ticker, "SELL", 0, sig["price"], reason=reason)
@@ -379,7 +379,7 @@ async def run_audit():
         if sig.get("action") == "BUY":
             reason = sig.get("reason", "Strategy Signal")
             if not effective_enabled:
-                log_decision(ticker, "SKIP", f"DRY_RUN: Intent BUY ({reason})")
+                log_decision(ticker, "SKIP", f"🧊 DRY RUN: Intent BUY ({reason})")
                 status = "dry_run_buy"
             else:
                 cash_pool = portfolio_manager.get_cash_balance()
