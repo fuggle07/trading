@@ -594,14 +594,17 @@ async def get_latest_confidence(ticker: str) -> Optional[int]:
         LIMIT 1
     """
     try:
-        loop = asyncio.get_event_loop()
-        query_job = await loop.run_in_executor(None, bq_client.query, query)
-        results = await loop.run_in_executor(None, query_job.to_dataframe)
-        if not results.empty:
-            return int(results.iloc[0]["confidence"])
+        query_job = bq_client.query(query)
+        results = query_job.result()
+        for row in results:
+            # print(f"DEBUG: Found confidence for {ticker}: {row.confidence}")
+            return row.confidence
+        
+        print(f"⚠️ No confidence data found for {ticker} in last 24h")
+        return 0
     except Exception as e:
         print(f"⚠️ Error fetching confidence for {ticker}: {e}")
-    return None
+    return 0
 
 
 @app.route("/rank-tickers", methods=["POST"])

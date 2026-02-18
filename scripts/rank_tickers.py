@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
+import sys
 import os
+
+# Ensure the project root is in the path so we can import 'bot'
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import asyncio
 import logging
 from dotenv import load_dotenv
