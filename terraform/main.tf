@@ -836,26 +836,26 @@ resource "google_billing_budget" "budget_alert" {
 
   amount {
     specified_amount {
-      currency_code = "USD"
-      units         = "10"
+      currency_code = "AUD"
+      units         = "15"
     }
   }
 
-  threshold_rules {
-    threshold_percent = 0.5
-  }
-  threshold_rules {
-    threshold_percent = 0.9
-  }
-  threshold_rules {
-    threshold_percent = 1.0
-  }
+  # threshold_rules {
+  #   threshold_percent = 0.5
+  # }
+  # threshold_rules {
+  #   threshold_percent = 0.9
+  # }
+  # threshold_rules {
+  #   threshold_percent = 1.0
+  # }
 
-  all_updates_rule {
-    monitoring_notification_channels = [
-      google_monitoring_notification_channel.email_me.id
-    ]
-  }
+  # all_updates_rule {
+  #   monitoring_notification_channels = [
+  #     google_monitoring_notification_channel.email_me.id
+  #   ]
+  # }
 
   depends_on = [google_project_service.billing_budgets]
 }
