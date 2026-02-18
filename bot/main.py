@@ -140,6 +140,7 @@ async def fetch_historical_data(ticker):
                 }
             )
 
+            print(f"[{ticker}] 📊 Alpaca Data Fetched: {len(df)} rows")
             return df_norm
 
         except Exception as e:
@@ -159,7 +160,12 @@ async def fetch_historical_data(ticker):
 
 def calculate_technical_indicators(df):
     """Calculates SMA-20, SMA-50, and Bollinger Bands."""
-    if df is None or len(df) < 50:
+    if df is None:
+        print("⚠️ calculate_technical_indicators received None dataframe")
+        return None
+    
+    if len(df) < 50:
+        print(f"⚠️ Insufficient technical data: {len(df)} rows < 50 required")
         return None
 
     # Calculate SMAs
