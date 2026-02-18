@@ -123,6 +123,7 @@ async def fetch_historical_data(ticker):
             df = df[df["symbol"] == ticker]
 
             if df.empty:
+                print(f"⚠️  Alpaca data frame empty for {ticker}")
                 return None
 
             # Normalize column names
@@ -381,6 +382,12 @@ async def run_audit():
             sig = signal_agent.evaluate_strategy(market_data, force_eval=True)
             if sig:
                 signals[ticker] = sig
+        else:
+            log_decision(
+                ticker,
+                "SKIP",
+                "Missing Technical Data (Indicators unavailable)",
+            )
 
     # REBALANCING LOGIC: The Conviction Swap
     weakest_link = None
