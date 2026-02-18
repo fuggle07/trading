@@ -390,20 +390,22 @@ async def run_audit():
             sig = signal_agent.evaluate_strategy(market_data, force_eval=True)
             if sig:
                 signals[ticker] = sig
-                # Identify why indicators are missing
-                history_res = intel_results[4]
-                if isinstance(history_res, Exception):
-                    reason_msg = f"Alpaca API Error: {type(history_res).__name__}"
-                elif history_res is None:
-                    reason_msg = "Alpaca returned None (Check API Keys/Feed)"
-                else:
-                    reason_msg = f"Insufficient history ({len(history_res)} rows)"
+        else:
+            # Identify why indicators are missing
+            # intel_results[4] is the history_task result
+            history_res = intel_results[4]
+            if isinstance(history_res, Exception):
+                reason_msg = f"Alpaca API Error: {type(history_res).__name__}"
+            elif history_res is None:
+                reason_msg = "Alpaca returned None (Check API Keys/Feed)"
+            else:
+                reason_msg = f"Insufficient history ({len(history_res)} rows)"
 
-                log_decision(
-                    ticker,
-                    "SKIP",
-                    f"Missing Technical Data ({reason_msg})",
-                )
+            log_decision(
+                ticker,
+                "SKIP",
+                f"Missing Technical Data ({reason_msg})",
+            )
 
     # REBALANCING LOGIC: The Conviction Swap
     weakest_link = None

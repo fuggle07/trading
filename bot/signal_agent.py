@@ -82,18 +82,32 @@ class SignalAgent:
 
         return "HOLD"
 
-    def get_signal(
+    def evaluate_strategy(
         self,
-        ticker: str,
-        current_price: float,
-        indicators: Dict,
-        sentiment: float = 0.0,
-        fundamentals: Optional[Dict] = None,
-        lessons: str = "",
+        market_data: Dict,
+        force_eval: bool = False,
     ) -> Dict:
         """
         Orchestrates Signal Selection by combining technicals, sentiment, and fundamental conviction.
         """
+        ticker = market_data.get("ticker", "Unknown")
+        current_price = market_data.get("current_price", 0.0)
+        indicators = {
+            "upper": market_data.get("bb_upper", 0.0),
+            "lower": market_data.get("bb_lower", 0.0),
+            "sma_20": market_data.get("sma_20", 0.0),
+            "sma_50": market_data.get("sma_50", 0.0),
+        }
+        sentiment = market_data.get("sentiment_score", 0.0)
+        fundamentals = {
+            "is_healthy": market_data.get("is_healthy", True),
+            "health_reason": market_data.get("health_reason", ""),
+            "is_deep_healthy": market_data.get("is_deep_healthy", True),
+            "deep_health_reason": market_data.get("deep_health_reason", ""),
+            "score": market_data.get("prediction_confidence", 0),
+        }
+        lessons = "" # Placeholder for now
+
         technical_signal = self.evaluate_bands(
             current_price, indicators.get("upper", 0), indicators.get("lower", 0)
         )
@@ -131,8 +145,10 @@ class SignalAgent:
             conviction -= 10
 
         # 4. Final Sanity Check: Is Market Open?
-        if not self.is_market_open():
-            # In paper/sim we might still want the signal, but let's flag it.
+        is_open = self.is_market_open()
+        dry_run_prefix = ""
+        if not is_open:
+            dry_run_prefix = "[DRY-RUN] "
             final_action = f"OFF_MARKET_{final_action}"
 
         decision = {
@@ -145,11 +161,13 @@ class SignalAgent:
                 "sentiment": sentiment,
                 "technical": technical_signal,
                 "fundamentals_analyzed": fundamentals is not None,
+                "is_open": is_open,
             },
         }
 
-        # Log it to BQ (via main.py's helper usually, but let's use telemtry direct if needed)
-        log_decision(decision)
+        # Log it using the correct signature: (ticker, action, reason, details)
+        reason = f"{dry_run_prefix}Signal: {technical_signal} | Sent: {sentiment:.2f} | Conf: {conviction}"
+        log_decision(ticker, final_action, reason, decision)
 
         return decision
 
