@@ -19,7 +19,7 @@ graph TD
         Alpaca[Alpaca API<br>(Market Data & Execution)]
         Finnhub[Finnhub API<br>(News Sentiment)]
         Alpha[Alpha Vantage<br>(Fundamental Data)]
-        Vertex[Vertex AI<br>(Gemini 1.5 Pro)]
+        Vertex[Vertex AI<br>(Gemini 2.0 Flash)]
     end
 
     subgraph "Cloud Run Service (The Bot)"
@@ -105,9 +105,14 @@ graph TD
 ### E. Sentiment Analyzer (`sentiment_analyzer.py`)
 - **Role**: The analyst.
 - **Function**:
-    - Uses Google's **Gemini 1.5** via Vertex AI.
-    - Analyzes raw news headlines/summaries to derive a nuanced sentiment score (-1 to +1).
+    - Uses Google's **Gemini 2.0 Flash** via Vertex AI.
+    - Analyzes raw news headlines/summaries to derive a nuanced sentiment score (-1 to +1) and a **Confidence Score** (0-100).
     - Provides reasoning for the score (e.g., "Regulatory concerns outweigh earnings beat").
+
+### G. Ticker Ranker (`ticker_ranker.py`)
+- **Role**: The prioritized filter.
+- **Function**: Runs a daily 9:15 AM ET job to establish a "Confidence Baseline" for all tickers.
+- **Goal**: Prevents trading in "muddy" or "noisy" tickers unless a clear signal emerges.
 
 ### F. Fundamental Agent (`fundamental_agent.py`)
 - **Role**: The value investor.
@@ -118,14 +123,11 @@ graph TD
 
 ## 4. Key Data Flows
 
-### 1. The Audit Cycle (Every ~1-5 mins)
-1.  **Fetch**: Retrieve last 60 days of daily candles from Alpaca.
-2.  **Compute**: Calculate SMA-20, SMA-50, Bollinger Bands.
-3.  **Sense**: Fetch news sentiment & Fundamental Health (PE/EPS).
-4.  **Evaluate**: `SignalAgent` determines action (e.g., BUY NVDA).
-5.  **Execute**: `ExecutionManager` routes order to Alpaca.
-6.  **Record**: Trade logged to BigQuery; Portfolio updated.
-7.  **Monitor**: Total Equity calculated and logged to `performance_logs`.
+    1.  **Intelligence Gathering**: Fetches quotes, news sentiment, fundamentals, and confidence for all tickers in parallel.
+    2.  **Relative Strength Analysis**: Identifies held laggards (Weakest Link) and non-held leaders (Rising Star).
+    3.  **Conviction Swap**: Sells poor candidates to fund winners.
+    4.  **Coordinated Execution**: Routes orders to Alpaca; updates Ledger.
+    5.  **Monitor**: Total Equity calculated and logged to `performance_logs` and Dashboard.
 
 ### 2. Infrastructure (Terraform)
 - **Cloud Run**: Hosts the Python bot container.

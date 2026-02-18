@@ -16,4 +16,5 @@ echo "Press Ctrl+C to stop."
 FILTER="resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"$SERVICE_NAME\""
 
 echo "📡 Tailing logs for $SERVICE_NAME..."
-gcloud beta logging tail "$FILTER" --project "$PROJECT_ID" --format="get(textPayload)"
+echo "💡 Tip: Use 'live_logs.sh | grep DECISION' to see only trading actions."
+gcloud beta logging tail "$FILTER" --project "$PROJECT_ID" --format="get(textPayload)" | grep --line-buffered -E "\[DECISION\]|Deep Health|Fundamental|Filing|🚨|✅|❌"

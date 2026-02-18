@@ -4,7 +4,7 @@ import finnhub
 import pandas as pd
 from flask import Flask, jsonify
 from datetime import datetime, timezone, timedelta
-from telemetry import log_watchlist_data
+from telemetry import log_watchlist_data, log_decision
 import pytz
 from google.cloud import bigquery
 from signal_agent import SignalAgent
@@ -347,7 +347,7 @@ async def run_audit():
         weakest_conf = ticker_intel[weakest_link].get("confidence", 0)
         star_conf = ticker_intel[rising_star].get("confidence", 0)
 
-        print(f"   🔄 CONVICTION_SWAP: Rotating out of {weakest_link} (Conf: {weakest_conf}%) into {rising_star} (Conf: {star_conf}%)")
+        log_decision(rising_star, "SWAP", f"Rotating out of {weakest_link} ({weakest_conf}%) into {rising_star} ({star_conf}%)")
         signals[weakest_link] = {"action": "SELL", "reason": "CONVICTION_SWAP", "price": ticker_intel[weakest_link]["price"]}
         if rising_star not in signals:
             signals[rising_star] = {"action": "BUY", "reason": "CONVICTION_ROTATION", "price": ticker_intel[rising_star]["price"]}
@@ -365,11 +365,12 @@ async def run_audit():
         if sig.get("action") == "SELL":
             reason = sig.get("reason", "Strategy Signal")
             if not effective_enabled:
-                print(f"      🛡️ DRY_RUN: Intent SELL {ticker} ({reason})")
+                log_decision(ticker, "SKIP", f"DRY_RUN: Intent SELL ({reason})")
                 status = "dry_run_sell"
             else:
                 exec_res = execution_manager.place_order(ticker, "SELL", 0, sig["price"], reason=reason)
                 status = f"executed_{exec_res.get('status', 'FAIL')}"
+                log_decision(ticker, "SELL", f"Execution Status: {status} | Reason: {reason}")
 
             execution_results.append({"ticker": ticker, "signal": "SELL", "status": status, "reason": reason})
 
@@ -378,7 +379,7 @@ async def run_audit():
         if sig.get("action") == "BUY":
             reason = sig.get("reason", "Strategy Signal")
             if not effective_enabled:
-                print(f"      🛡️ DRY_RUN: Intent BUY {ticker} ({reason})")
+                log_decision(ticker, "SKIP", f"DRY_RUN: Intent BUY ({reason})")
                 status = "dry_run_buy"
             else:
                 cash_pool = portfolio_manager.get_cash_balance()
@@ -393,7 +394,9 @@ async def run_audit():
                 if allocation > 100:
                     exec_res = execution_manager.place_order(ticker, "BUY", 0, sig["price"], cash_available=allocation, reason=reason)
                     status = f"executed_{exec_res.get('status', 'FAIL')}"
+                    log_decision(ticker, "BUY", f"Execution Status: {status} | Alloc: ${allocation:.2f} | Reason: {reason}")
                 else:
+                    log_decision(ticker, "SKIP", f"Insufficient Allocation (${allocation:.2f} < $100) or Room to Buy.")
                     status = "skipped_insufficient_funds"
 
             execution_results.append({"ticker": ticker, "signal": "BUY", "status": status, "reason": reason})

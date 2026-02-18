@@ -105,3 +105,29 @@ def log_performance(client, table_id, metrics):
             print(json.dumps(log_payload))
     except Exception as e:
         print(f"🔥 Performance Log Failure: {e}")
+
+def log_decision(ticker, action, reason, details=None):
+    """
+    High-visibility logging for trading decisions (BUY, SELL, SKIP).
+    Priority: Terminal readability for tailing logs.
+    """
+    emoji = "🚀" if action == "BUY" else "🛑" if action == "SELL" else "⏭️"
+    message = f"[DECISION] {emoji} {action} {ticker}: {reason}"
+    
+    # console output for tailing
+    print(f"\n{message}")
+    if details:
+        print(f"           Details: {details}")
+    
+    # Structured log for Cloud Logging
+    log_payload = {
+        "severity": "INFO",
+        "message": message,
+        "ticker": ticker,
+        "action": action,
+        "reason": reason,
+        "details": details or {},
+        "event": "TRADING_DECISION",
+    }
+    print(json.dumps(log_payload))
+    sys.stdout.flush()

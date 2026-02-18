@@ -2,6 +2,7 @@ from decimal import Decimal
 from typing import Optional, Dict
 from datetime import datetime
 import pytz
+from telemetry import log_decision
 
 class SignalAgent:
     """
@@ -69,15 +70,14 @@ class SignalAgent:
         """
         # 1. Market Status Filter
         if not force_eval and not self.is_market_open():
-            print("Skipping: Market is closed (Weekend, Holiday, or After-Hours).")
+            log_decision(ticker, "SKIP", "Market is closed (Weekend, Holiday, or After-Hours)")
             return None
 
         # 2. Volatility Filter (The Gatekeeper)
         is_stable, vol_pct = self._check_volatility(market_data)
         ticker = market_data.get("ticker", "Unknown")
         if not is_stable:
-            # We log this but return None to skip the trade
-            print(f"Skipping {ticker}: Volatility too high ({vol_pct:.2%})")
+            log_decision(ticker, "SKIP", f"Volatility too high ({vol_pct:.2%})", {"vol_pct": float(vol_pct)})
             return None
 
         # 3. Strategy Logic (SMA Crossover)
@@ -105,9 +105,7 @@ class SignalAgent:
         if avg_price > 0:
             stop_price = avg_price * Decimal("0.90")
             if price < stop_price:
-                print(
-                    f"🚨 STOP LOSS TRIGGERED: Price {price} < {stop_price} (Avg: {avg_price})"
-                )
+                log_decision(ticker, "SELL", f"STOP LOSS TRIGGERED: Price {price} < {stop_price} (Avg: {avg_price})")
                 signal = {"action": "SELL", "price": price, "reason": "STOP_LOSS_HIT"}
 
         # 3c. Sentiment Exit Override (The Black Swan Exit)
@@ -116,9 +114,7 @@ class SignalAgent:
         if sentiment is not None:
             sentiment_dec = Decimal(str(sentiment))
             if sentiment_dec < Decimal("-0.6"):
-                print(
-                    f"🚨 EXTREME BEARISH SENTIMENT: {sentiment_dec} < -0.6. Forcing EXIT."
-                )
+                log_decision(ticker, "SELL", f"EXTREME BEARISH SENTIMENT: {sentiment_dec} < -0.6. Forcing EXIT.")
                 signal = {
                     "action": "SELL",
                     "price": price,
@@ -138,9 +134,7 @@ class SignalAgent:
             if sentiment is not None:
                 sentiment_dec = Decimal(str(sentiment))
                 if sentiment_dec < sentiment_floor:
-                    print(
-                        f"Skipping BUY: Sentiment ({sentiment_dec:.2f}) < Hurdle-Adjusted Floor ({sentiment_floor:.2f})"
-                    )
+                    log_decision(ticker, "SKIP", f"Sentiment ({sentiment_dec:.2f}) < Hurdle-Adjusted Floor ({sentiment_floor:.2f})")
                     return None
 
         # 5. Fundamental Filter (The Value Check) - Apply ONLY to BUYs
@@ -151,7 +145,7 @@ class SignalAgent:
             reason = market_data.get("health_reason", "Unknown")
 
             if not is_healthy:
-                print(f"Skipping BUY: Fundamental Health Check Failed ({reason})")
+                log_decision(ticker, "SKIP", f"Fundamental Health Check Failed ({reason})")
                 return None
 
         # 6. Deep Filing Filter (The Solvency Check) - Apply ONLY to BUYs
@@ -160,7 +154,7 @@ class SignalAgent:
             deep_reason = market_data.get("deep_health_reason", "Unknown")
 
             if not is_deep_healthy:
-                print(f"Skipping BUY: Deep Filing Analysis Failed ({deep_reason})")
+                log_decision(ticker, "SKIP", f"Deep Filing Analysis Failed ({deep_reason})")
                 return None
 
         # 6. Prediction Confidence Filter (The Morning Conviction Check) - Apply to BUYs and SELLs
@@ -174,9 +168,7 @@ class SignalAgent:
             if confidence is not None:
                 confidence_val = int(confidence)
                 if confidence_val < 65:
-                    print(
-                        f"Skipping {signal['action']}: Confidence ({confidence_val}%) < Morning Threshold (65%)"
-                    )
+                    log_decision(ticker, "SKIP", f"{signal['action']} Rejected: Confidence ({confidence_val}%) < Morning Threshold (65%)")
                     return None
             else:
                 # If no confidence is found (e.g. ranking job failed), we default to allowed
