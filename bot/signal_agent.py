@@ -106,7 +106,8 @@ class SignalAgent:
             "deep_health_reason": market_data.get("deep_health_reason", ""),
             "score": market_data.get("prediction_confidence", 0),
         }
-        lessons = "" # Placeholder for now
+        avg_price = market_data.get("avg_price", 0.0)
+        lessons = ""  # Placeholder for now
 
         technical_signal = self.evaluate_bands(
             current_price, indicators.get("upper", 0), indicators.get("lower", 0)
@@ -130,7 +131,18 @@ class SignalAgent:
         else:
             final_action = "IDLE"
 
-        # 2. Fundamental Overlay (The conviction booster)
+        # 2. Strategic Exit Check (THE OVERRIDE)
+        # If we already hold the stock, we check for Profit Target or Stop Loss FIRST.
+        # This prevents the bot from "ignoring" a win just because the chart still looks good.
+        if avg_price > 0:
+            if self.should_exit(ticker, avg_price, current_price, sentiment):
+                p_change = (current_price - avg_price) / avg_price
+                final_action = "SELL"
+                conviction = 100  # Exit is mandatory
+                exit_type = "PROFIT_TARGET" if p_change >= 0.05 else "STOP_LOSS/SENTIMENT"
+                technical_signal = f"EXIT_{exit_type}" # Update for the log line
+
+        # 3. Fundamental Overlay (The conviction booster for BUYs)
         if fundamentals and final_action == "BUY":
             f_score = fundamentals.get("score", 0)
             if f_score > 70:
@@ -140,7 +152,7 @@ class SignalAgent:
                 final_action = "IDLE"
                 conviction = 0
 
-        # 3. Conviction Enhancement via 'Lessons Learned' (Internal AI refinement)
+        # 4. Conviction Enhancement via 'Lessons Learned'
         if lessons and "caution" in lessons.lower() and final_action == "BUY":
             conviction -= 10
 

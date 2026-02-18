@@ -23,7 +23,13 @@ When the bot evaluates a stock (e.g., NVDA), it follows this step-by-step logic:
 *   **Check**: Are the price swings too wild? (Band Width > 25%)
 *   **Action**: If yes, the bot **SITS OUT**. It avoids "catching a falling knife" or buying into extreme chaos.
 
-### Step B: Technical Baseline
+### Step B: The Priority Override (Exit Rules)
+**Rule**: If you already own the stock, the bot checks your Profit/Loss **before** looking at the charts.
+*   **The Profit Target (+5%)**: If the stock is up 5%, the bot **SELLS IMMEDIATELY**. It does not care if the technical data suggests it could go higher. The priority is returning the gain to your mortgage offset.
+*   **The Stop Loss (-2.5%)**: If the stock drops 2.5%, the bot exits to protect your capital.
+*   **The Narrative Crash**: If news sentiment drops below **-0.4**, the bot exits even if the technical price looks fine.
+
+### Step C: Technical Baseline
 *   **IF** Price <= Lower Bollinger Band: **Baseline = BUY**.
 *   **IF** Price >= Upper Bollinger Band: **Baseline = SELL**.
 *   **OTHERWISE**: **Baseline = HOLD**.
