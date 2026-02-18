@@ -5,7 +5,6 @@ from vertexai.generative_models import GenerativeModel, HarmCategory, HarmBlockT
 
 logger = logging.getLogger(__name__)
 
-
 class SentimentAnalyzer:
     def __init__(self, project_id: str, location: str = "us-central1"):
         self.project_id = project_id
@@ -66,10 +65,15 @@ class SentimentAnalyzer:
                 HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_ONLY_HIGH,
             }
 
-            response = self.model.generate_content(
-                prompt,
-                safety_settings=safety_settings,
-                generation_config={"response_mime_type": "application/json"},
+            import asyncio
+            response = await asyncio.wait_for(
+                asyncio.to_thread(
+                    self.model.generate_content,
+                    prompt,
+                    safety_settings=safety_settings,
+                    generation_config={"response_mime_type": "application/json"},
+                ),
+                timeout=30,
             )
 
             result_text = response.text.strip()

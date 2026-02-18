@@ -2,7 +2,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
 class PortfolioManager:
     def __init__(self, bq_client, table_id):
         self.client = bq_client
@@ -38,7 +37,7 @@ class PortfolioManager:
         try:
             # 1. Ensure Global Cash ('USD')
             query = f"SELECT asset_name FROM `{self.table_id}` WHERE asset_name = 'USD'"
-            results = list(self.client.query(query).result())
+            results = list(self.client.query(query).result(timeout=10))
 
             if not results:
                 logger.info("💰 Seeding GLOBAL CASH POOL (USD) with $50,000")
@@ -46,12 +45,12 @@ class PortfolioManager:
                 INSERT INTO `{self.table_id}` (asset_name, holdings, cash_balance, avg_price, last_updated)
                 VALUES ('USD', 0.0, 100000.0, 0.0, CURRENT_TIMESTAMP())
                 """
-                self.client.query(dml).result()
+                self.client.query(dml).result(timeout=10)
 
             # 2. Ensure Ticker Entry (if not USD)
             if ticker != "USD":
                 query = f"SELECT asset_name FROM `{self.table_id}` WHERE asset_name = '{ticker}'"
-                results = list(self.client.query(query).result())
+                results = list(self.client.query(query).result(timeout=10))
 
                 if not results:
                     logger.info(f"🌱 Seeding ledger for {ticker} (0 Holdings)")
@@ -59,7 +58,7 @@ class PortfolioManager:
                     INSERT INTO `{self.table_id}` (asset_name, holdings, cash_balance, avg_price, last_updated)
                     VALUES ('{ticker}', 0.0, 0.0, 0.0, CURRENT_TIMESTAMP())
                     """
-                    self.client.query(dml).result()
+                    self.client.query(dml).result(timeout=10)
 
         except Exception as e:
             logger.error(f"Failed to ensure portfolio state for {ticker}: {e}")
@@ -67,7 +66,7 @@ class PortfolioManager:
     def get_cash_balance(self):
         """Fetches the global cash balance (USD)."""
         query = f"SELECT cash_balance FROM `{self.table_id}` WHERE asset_name = 'USD' LIMIT 1"
-        results = list(self.client.query(query).result())
+        results = list(self.client.query(query).result(timeout=10))
         return results[0].cash_balance if results else 0.0
 
     def update_ledger(self, ticker, cash_delta, holdings_delta, price, action):
@@ -111,7 +110,7 @@ class PortfolioManager:
                 last_updated = CURRENT_TIMESTAMP()
             WHERE asset_name = '{ticker}'
             """
-            self.client.query(asset_dml).result()
+            self.client.query(asset_dml).result(timeout=10)
 
             # B. Update Cash Pool (USD)
             # cash_delta is negative for BUY, positive for SELL
@@ -121,7 +120,7 @@ class PortfolioManager:
                 last_updated = CURRENT_TIMESTAMP()
             WHERE asset_name = 'USD'
             """
-            self.client.query(cash_dml).result()
+            self.client.query(cash_dml).result(timeout=10)
 
             logger.info(
                 f"Ledger Sync: {ticker} | Holdings: {new_holdings} | Avg: ${new_avg:.2f} | Cash Delta: ${cash_delta:.2f}"

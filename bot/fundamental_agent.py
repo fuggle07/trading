@@ -11,10 +11,10 @@ logger = logging.getLogger("FundamentalAgent")
 
 PROJECT_ID = os.getenv("PROJECT_ID") or os.getenv("GOOGLE_CLOUD_PROJECT")
 
-
 class FundamentalAgent:
-    def __init__(self):
+    def __init__(self, finnhub_client=None):
         self.api_key = os.getenv("ALPHA_VANTAGE_KEY")
+        self.finnhub_client = finnhub_client
         self.bq_client = bigquery.Client(project=PROJECT_ID) if PROJECT_ID else None
 
         if not self.api_key:
@@ -29,33 +29,69 @@ class FundamentalAgent:
     async def get_fundamentals(self, ticker: str):
         """
         Fetches basic fundamental data: PE Ratio, EPS, Sector.
+        Falls back to Finnhub if Alpha Vantage fails.
         """
-        if not self.fd:
-            return None
+        data = None
+        # 1. Try Alpha Vantage (Detailed Overview)
+        if self.fd:
+            try:
+                import asyncio
 
-        try:
-            # Fetch Company Overview
-            overview, _ = self.fd.get_company_overview(symbol=ticker)
+                # Use a timeout to prevent hanging on slow/blocked API calls
+                overview, _ = await asyncio.wait_for(
+                    asyncio.to_thread(self.fd.get_company_overview, symbol=ticker),
+                    timeout=10,
+                )
 
-            if not overview:
-                logger.warning(f"⚠️ No fundamental data found for {ticker}")
-                return None
+                if (
+                    isinstance(overview, str)
+                    and "Alpha Vantage! Please consider" in overview
+                ):
+                    logger.error(f"❌ Alpha Vantage Rate Limit Hit (Overview): {ticker}")
+                elif overview and isinstance(overview, dict) and "Symbol" in overview:
+                    data = {
+                        "pe_ratio": float(overview.get("PERatio", 0) or 0),
+                        "eps": float(overview.get("EPS", 0) or 0),
+                        "sector": overview.get("Sector", "Unknown"),
+                        "industry": overview.get("Industry", "Unknown"),
+                        "market_cap": int(overview.get("MarketCapitalization", 0) or 0),
+                    }
+                    logger.info(
+                        f"📊 {ticker} Fundamentals (AlphaVantage): PE={data['pe_ratio']}, EPS={data['eps']}"
+                    )
+            except asyncio.TimeoutError:
+                logger.error(f"⏳ Alpha Vantage Timeout for {ticker}")
+            except Exception as e:
+                logger.error(f"⚠️ Alpha Vantage Overview Error for {ticker}: {e}")
 
-            data = {
-                "pe_ratio": float(overview.get("PERatio", 0) or 0),
-                "eps": float(overview.get("EPS", 0) or 0),
-                "sector": overview.get("Sector", "Unknown"),
-                "industry": overview.get("Industry", "Unknown"),
-                "market_cap": int(overview.get("MarketCapitalization", 0) or 0),
-            }
-            logger.info(
-                f"📊 {ticker} Fundamentals: PE={data['pe_ratio']}, EPS={data['eps']}"
-            )
-            return data
+        # 2. Fallback to Finnhub (Basic Financials)
+        if not data and self.finnhub_client:
+            try:
+                import asyncio
 
-        except Exception as e:
-            logger.error(f"❌ Failed to fetch fundamentals for {ticker}: {e}")
-            return None
+                logger.info(f"📡 Falling back to Finnhub for {ticker} fundamentals...")
+                basic_fin = await asyncio.to_thread(
+                    self.finnhub_client.company_basic_financials, ticker, "all"
+                )
+                metric = basic_fin.get("metric", {})
+                if metric:
+                    data = {
+                        "pe_ratio": float(metric.get("peExclExtraTTM", 0) or 0),
+                        "eps": float(metric.get("epsExclExtraItemsTTM", 0) or 0),
+                        "sector": "Unknown (Finnhub Fallback)",
+                        "industry": "Unknown (Finnhub Fallback)",
+                        "market_cap": int(metric.get("marketCapitalization", 0) or 0)
+                        * 1_000_000,  # Finnhub is in Millions
+                    }
+                    logger.info(
+                        f"📊 {ticker} Fundamentals (Finnhub): PE={data['pe_ratio']}, EPS={data['eps']}"
+                    )
+                else:
+                    logger.warning(f"⚠️ Finnhub also has no fundamental data for {ticker}")
+            except Exception as e:
+                logger.error(f"❌ Finnhub Fallback failed for {ticker}: {e}")
+
+        return data
 
     def _get_cached_evaluation(self, ticker: str):
         """Checks BigQuery for today's evaluation of this ticker."""
@@ -144,12 +180,11 @@ class FundamentalAgent:
 
         try:
             logger.info(f"📡 Fetching deep financials for {ticker}...")
-            # to_thread if the library is blocking. wrap calls if needed.
-            # FundamentalData is synchronous, so we should wrap these
             import asyncio
 
-            income_q, _ = await asyncio.to_thread(
-                self.fd.get_income_statement_quarterly, symbol=ticker
+            income_q, _ = await asyncio.wait_for(
+                asyncio.to_thread(self.fd.get_income_statement_quarterly, symbol=ticker),
+                timeout=15,
             )
             if (
                 isinstance(income_q, str)
@@ -158,8 +193,9 @@ class FundamentalAgent:
                 logger.error(f"❌ Alpha Vantage Rate Limit Hit (Income Q): {income_q}")
                 return None
 
-            balance_a, _ = await asyncio.to_thread(
-                self.fd.get_balance_sheet_annual, symbol=ticker
+            balance_a, _ = await asyncio.wait_for(
+                asyncio.to_thread(self.fd.get_balance_sheet_annual, symbol=ticker),
+                timeout=15,
             )
             if (
                 isinstance(balance_a, str)
@@ -170,10 +206,14 @@ class FundamentalAgent:
                 )
                 return None
 
-            cash_a, _ = await asyncio.to_thread(
-                self.fd.get_cash_flow_annual, symbol=ticker
+            cash_a, _ = await asyncio.wait_for(
+                asyncio.to_thread(self.fd.get_cash_flow_annual, symbol=ticker),
+                timeout=15,
             )
             return {"income_q": income_q, "balance_a": balance_a, "cash_a": cash_a}
+        except asyncio.TimeoutError:
+            logger.error(f"⏳ Deep Health Fetch Timeout for {ticker}")
+            return None
         except Exception as e:
             logger.error(f"❌ Failed to fetch financial statements for {ticker}: {e}")
             return None

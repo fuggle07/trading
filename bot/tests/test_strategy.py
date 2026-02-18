@@ -14,7 +14,6 @@ def test_sell_logic_trigger():
     assert holdings == 0
     assert cash_gained == 45000.0
 
-
 def test_buy_logic_capital_check():
     sentiment = 0.8  # Strong edge
     cash = 100.0  # Insufficient funds

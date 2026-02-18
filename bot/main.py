@@ -21,13 +21,11 @@ app.url_map.strict_slashes = False
 # Retrieve the key
 FINNHUB_KEY = os.environ.get("EXCHANGE_API_KEY")
 
-
 def check_api_key():
     """Validates that the API key is present."""
     if not FINNHUB_KEY or len(FINNHUB_KEY) < 10:
         return False
     return True
-
 
 # Initialize Clients
 finnhub_client = finnhub.Client(api_key=FINNHUB_KEY) if FINNHUB_KEY else None
@@ -50,7 +48,17 @@ tax_adjusted_hurdle = raw_mortgage_rate * (1 - 0.35)
 print(f"🏦 Mortgage Rate: {raw_mortgage_rate:.2%}")
 print(f"📉 Tax-Adjusted Hurdle: {tax_adjusted_hurdle:.2%}")
 
-signal_agent = SignalAgent(hurdle_rate=tax_adjusted_hurdle)
+# Handle Volatility Sensitivity
+base_vol_threshold = 0.25
+vol_sensitivity = float(os.environ.get("VOLATILITY_SENSITIVITY", 1.0))
+final_vol_threshold = base_vol_threshold * vol_sensitivity
+
+print(f"🌊 Volatility Sensitivity: {vol_sensitivity:.1f}")
+print(f"🛡️  Final Volatility Threshold: {final_vol_threshold:.1%}")
+
+signal_agent = SignalAgent(
+    hurdle_rate=tax_adjusted_hurdle, vol_threshold=final_vol_threshold
+)
 portfolio_manager = PortfolioManager(bq_client, portfolio_table_id)
 execution_manager = ExecutionManager(portfolio_manager)
 fundamental_agent = FundamentalAgent()
@@ -62,15 +70,12 @@ from alpaca.data.historical import StockHistoricalDataClient
 from alpaca.data.requests import StockBarsRequest
 from alpaca.data.timeframe import TimeFrame
 
-
 def _get_ny_time():
     return datetime.now(pytz.timezone("America/New_York"))
-
 
 # Retrieve Alpaca Keys
 ALPACA_KEY = os.environ.get("ALPACA_API_KEY")
 ALPACA_SECRET = os.environ.get("ALPACA_API_SECRET")
-
 
 async def fetch_historical_data(ticker):
     """Fetches daily candles for the last 60 days using Alpaca."""
@@ -133,8 +138,12 @@ async def fetch_historical_data(ticker):
             print(f"❌ Alpaca Error for {ticker}: {e}")
             return None
 
-    return await loop.run_in_executor(None, get_candles)
-
+    import asyncio
+    try:
+        return await asyncio.wait_for(loop.run_in_executor(None, get_candles), timeout=20)
+    except asyncio.TimeoutError:
+        print(f"⏳ Alpaca Timeout for {ticker}")
+        return None
 
 def calculate_technical_indicators(df):
     """Calculates SMA-20, SMA-50, and Bollinger Bands."""
@@ -166,9 +175,7 @@ def calculate_technical_indicators(df):
         "timestamp": latest["t"],
     }
 
-
 # --- 3. THE AUDIT ENGINE ---
-
 
 def fetch_sentiment(ticker):
     """
@@ -225,253 +232,204 @@ def fetch_sentiment(ticker):
         print(f"⚠️  Sentiment fetch failed for {ticker}: {e}")
         return 0.0
 
-
 # --- 3. THE AUDIT ENGINE ---
 
-
 async def run_audit():
-    results = []
-    tickers_env = os.environ.get("BASE_TICKERS", "NVDA,AAPL")
+    """
+    Refactored Audit Pipeline:
+    Phase 1: Intelligence Gathering (Parallel Data Fetch)
+    Phase 2: Portfolio Analysis & Conviction Swapping
+    Phase 3: Execution (SELLs first, then BUYs)
+    """
+    tickers_env = os.environ.get("BASE_TICKERS", "NVDA,AAPL,TSLA,MSFT,AMD")
     tickers = [t.strip() for t in tickers_env.split(",") if t.strip()]
-    print(f"🔍 DEBUG: Bot is attempting to audit tickers: {tickers}")
+    print(f"🔍 Starting Multi-Phase Audit for: {tickers}")
 
-    # Track latest prices for portfolio valuation
+    # --- Phase 1: Intelligence Gathering ---
+    ticker_intel = {}
     current_prices = {}
 
     for ticker in tickers:
-        print(f"👉 Processing {ticker}...")
-
-        # 0. Ensure Portfolio State (Seed if new)
+        print(f"   📡 Gathering Intel for {ticker}...")
         try:
-            # We run this synchronously to ensure state relies on it
-            # In production, cache this check
-            await asyncio.to_thread(portfolio_manager.ensure_portfolio_state, ticker)
-        except Exception as e:
-            print(f"⚠️ Portfolio Init Warning: {e}")
+            # Parallel fetch for a single ticker to save time
+            quote_task = asyncio.to_thread(finnhub_client.quote, ticker) if finnhub_client else None
+            sentiment_task = asyncio.to_thread(fetch_sentiment, ticker)
+            fundamental_task = fundamental_agent.evaluate_health(ticker)
+            deep_health_task = fundamental_agent.evaluate_deep_health(ticker)
+            history_task = fetch_historical_data(ticker)
+            confidence_task = get_latest_confidence(ticker)
 
-        # 1. Fetch Data (Parallel-ish)
-        # We need Current Price (Quote) + Sentiment + History (Candles) + Fundamentals
-        quote_task = (
-            asyncio.to_thread(finnhub_client.quote, ticker) if finnhub_client else None
-        )
-        sentiment_task = asyncio.to_thread(fetch_sentiment, ticker)
-        fundamental_task = fundamental_agent.evaluate_health(ticker)
-        deep_health_task = fundamental_agent.evaluate_deep_health(ticker)
-        history_task = fetch_historical_data(ticker)
-
-        # Execute
-        quote_res = await quote_task if quote_task else None
-        sentiment_score = await sentiment_task
-        is_healthy, health_reason = await fundamental_task
-        is_deep_healthy, deep_health_reason = await deep_health_task
-        df = await history_task
-
-        current_price = 0.0
-
-        # 2. Process Quote (The Baseline)
-        if quote_res and "c" in quote_res:
-            current_price = float(quote_res["c"])
-            current_prices[ticker] = current_price  # Store for valuation
-
-            # 2.5 Log to BigQuery (Watchlist)
-            # Ensures data is captured even if technical analysis fails (e.g. 403 error)
-            log_watchlist_data(
-                bq_client, table_id, ticker, current_price, sentiment_score
+            # Execute gather with error handling
+            intel_results = await asyncio.gather(
+                quote_task, sentiment_task, fundamental_task, deep_health_task, history_task, confidence_task,
+                return_exceptions=True
             )
 
-            # 3. Calculate Technical Indicators
-            indicators = calculate_technical_indicators(df)
+            # Unpack safely
+            quote_res = intel_results[0] if not isinstance(intel_results[0], Exception) else None
+            sentiment_score = intel_results[1] if not isinstance(intel_results[1], Exception) else 0.0
+            health = intel_results[2] if not isinstance(intel_results[2], Exception) else (False, "Health fetch failed")
+            deep_health = intel_results[3] if not isinstance(intel_results[3], Exception) else (False, "Deep health fetch failed")
+            df = intel_results[4] if not isinstance(intel_results[4], Exception) else None
+            confidence = intel_results[5] if not isinstance(intel_results[5], Exception) else 0
 
-            if indicators:
-                # 3. Fetch Portfolio Exposure (The Context)
-                val_data = portfolio_manager.calculate_total_equity(current_prices)
-                total_equity = val_data["total_equity"]
-                total_exposure = (
-                    val_data["total_market_value"] / total_equity
-                    if total_equity > 0
-                    else 0.0
-                )
-                is_low_exposure = total_exposure < 0.25
+            if quote_res and isinstance(quote_res, dict) and "c" in quote_res:
+                price = float(quote_res["c"])
+                current_prices[ticker] = price
+                indicators = calculate_technical_indicators(df)
 
-                # 4. Generate Signal
-                market_data = {
-                    "ticker": ticker,
-                    "current_price": current_price,
-                    "sma_20": indicators["sma_20"],
-                    "sma_50": indicators["sma_50"],
-                    "bb_upper": indicators["bb_upper"],
-                    "bb_lower": indicators["bb_lower"],
-                    "sentiment_score": sentiment_score,
-                    "is_healthy": is_healthy,
-                    "health_reason": health_reason,
-                    "is_deep_healthy": is_deep_healthy,
-                    "deep_health_reason": deep_health_reason,
-                    "avg_price": 0.0,
-                    "prediction_confidence": await get_latest_confidence(ticker),
-                    "is_low_exposure": is_low_exposure,
+                ticker_intel[ticker] = {
+                    "price": price,
+                    "sentiment": float(sentiment_score or 0.0),
+                    "is_healthy": bool(health[0]),
+                    "health_reason": str(health[1]),
+                    "is_deep_healthy": bool(deep_health[0]),
+                    "deep_health_reason": str(deep_health[1]),
+                    "confidence": int(confidence or 0),
+                    "indicators": indicators
                 }
+                # Log to Watchlist (Persistence)
+                log_watchlist_data(bq_client, table_id, ticker, price, sentiment_score)
+        except Exception as e:
+            print(f"      ⚠️ Failed to gather intel for {ticker}: {e}")
 
-                # Dry-Run / Audit-Only Logic: Respect TRADING_ENABLED flag
-                trading_enabled = (
-                    os.environ.get("TRADING_ENABLED", "true").lower() == "true"
-                )
+        await asyncio.sleep(0.5) # Rate limit spread
 
-                # Intelligent Default: If market is closed, we default to DRY RUN for audits
-                is_market_open = signal_agent.is_market_open()
-                effective_trading_enabled = trading_enabled and is_market_open
+    # --- Phase 2: Portfolio Analysis & Conviction Swapping ---
+    print("   ⚖️ Analyzing Portfolio Relative Strength...")
+    val_data = portfolio_manager.calculate_total_equity(current_prices)
+    total_equity = val_data.get("total_equity", 0.0)
 
-                # If trading is disabled or market is closed, we force evaluation for analysis
-                force_eval = not effective_trading_enabled
+    # Identify Held vs Non-Held for Swapping
+    held_tickers = {item["ticker"]: item for item in val_data.get("breakdown", []) if item.get("market_value", 0) > 0}
+    non_held_tickers = [t for t in ticker_intel if t not in held_tickers]
 
-                signal_dict = signal_agent.evaluate_strategy(
-                    market_data, force_eval=force_eval
-                )
-                action = signal_dict["action"] if signal_dict else "HOLD"
-                signal_reason = signal_dict["reason"] if signal_dict else None
+    # Generate Initial Signals
+    signals = {}
+    for ticker, intel in ticker_intel.items():
+        indicators = intel.get("indicators")
+        if indicators:
+            total_market_val = val_data.get("total_market_value", 0.0)
+            exposure = total_market_val / total_equity if total_equity > 0 else 0.0
 
-                # Augment reason if it's an automatic dry run
-                if action != "HOLD" and not is_market_open:
-                    signal_reason = f"{signal_reason or ''} [AFTER_HOURS_AUDIT]".strip()
+            market_data = {
+                "ticker": ticker,
+                "current_price": intel["price"],
+                "sma_20": indicators["sma_20"],
+                "sma_50": indicators["sma_50"],
+                "bb_upper": indicators["bb_upper"],
+                "bb_lower": indicators["bb_lower"],
+                "sentiment_score": intel["sentiment"],
+                "is_healthy": intel["is_healthy"],
+                "health_reason": intel["health_reason"],
+                "is_deep_healthy": intel["is_deep_healthy"],
+                "deep_health_reason": intel["deep_health_reason"],
+                "avg_price": held_tickers.get(ticker, {}).get("avg_price", 0.0),
+                "prediction_confidence": intel["confidence"],
+                "is_low_exposure": exposure < 0.25
+            }
 
-                print(f"   📊 {ticker}: Signal: {action} (Reason: {signal_reason})")
+            sig = signal_agent.evaluate_strategy(market_data, force_eval=True)
+            if sig:
+                signals[ticker] = sig
 
-                # 5. Hierarchical Allocation Logic
-                exec_result = {}
-                status = "tracking_only"
+    # REBALANCING LOGIC: The Conviction Swap
+    weakest_link = None
+    for t in held_tickers:
+        intel = ticker_intel.get(t)
+        if intel:
+            conf = intel.get("confidence", 0)
+            if conf < 50:
+                if weakest_link is None or conf < ticker_intel[weakest_link].get("confidence", 0):
+                    weakest_link = t
 
-                if action == "BUY":
-                    # Check if trading is allowed
-                    if not effective_trading_enabled:
-                        mode_label = (
-                            "TRADING_DISABLED" if not trading_enabled else "AFTER_HOURS"
-                        )
-                        print(f"   🛡️ DRY_RUN ({mode_label}): Intent: BUY {ticker}")
-                        status = f"dry_run_buy_{mode_label.lower()}"
-                    else:
-                        # 1. Check Concentration Cap (25%)
-                        current_ticker_val = 0.0
-                        for item in val_data["breakdown"]:
-                            if item["ticker"] == ticker:
-                                current_ticker_val = item["market_value"]
-                                break
+    rising_star = None
+    for t in non_held_tickers:
+        intel = ticker_intel.get(t)
+        if intel:
+            conf = intel.get("confidence", 0)
+            if conf > 80:
+                 if rising_star is None or conf > ticker_intel[rising_star].get("confidence", 0):
+                     rising_star = t
 
-                        concentration = (
-                            current_ticker_val / total_equity
-                            if total_equity > 0
-                            else 0.0
-                        )
-                        if concentration >= 0.25:
-                            print(
-                                f"   🚫 {ticker}: Cap Reached ({concentration:.1%}). Skipping BUY."
-                            )
-                            status = "cap_reached"
-                        else:
-                            # 2. Final Multiplier Allocation
-                            base_unit = total_equity * 0.05  # Start with 5% base unit
+    if weakest_link and rising_star:
+        weakest_conf = ticker_intel[weakest_link].get("confidence", 0)
+        star_conf = ticker_intel[rising_star].get("confidence", 0)
 
-                            if is_low_exposure:
-                                print(
-                                    f"   🚀 Aggressive Mode: Low Exposure ({total_exposure:.1%}) | Doubling Unit."
-                                )
-                                base_unit *= 2
+        print(f"   🔄 CONVICTION_SWAP: Rotating out of {weakest_link} (Conf: {weakest_conf}%) into {rising_star} (Conf: {star_conf}%)")
+        signals[weakest_link] = {"action": "SELL", "reason": "CONVICTION_SWAP", "price": ticker_intel[weakest_link]["price"]}
+        if rising_star not in signals:
+            signals[rising_star] = {"action": "BUY", "reason": "CONVICTION_ROTATION", "price": ticker_intel[rising_star]["price"]}
 
-                            multiplier = 1.0 + max(0, float(sentiment_score or 0))
-                            allocation = base_unit * multiplier
+    # --- Phase 3: Coordinated Execution ---
+    print("   🚀 Executing Coordinated Trades...")
+    execution_results = []
 
-                            # Hard Cap at 25% of Equity (Total Position)
-                            room_left = (total_equity * 0.25) - current_ticker_val
-                            allocation = min(allocation, room_left)
+    trading_enabled = os.environ.get("TRADING_ENABLED", "true").lower() == "true"
+    is_market_open = signal_agent.is_market_open()
+    effective_enabled = trading_enabled and is_market_open
 
-                            # Enforce global cash limit
-                            current_global_cash = portfolio_manager.get_cash_balance()
-                            allocation = min(allocation, current_global_cash)
-
-                            if allocation > 0:
-                                exec_result = execution_manager.place_order(
-                                    ticker=ticker,
-                                    action="BUY",
-                                    quantity=0,
-                                    price=current_price,
-                                    cash_available=allocation,
-                                )
-                                status = (
-                                    f"executed_{exec_result.get('status', 'UNKNOWN')}"
-                                )
-                            else:
-                                status = "allocation_zero"
-
-                elif action == "SELL":
-                    if not effective_trading_enabled:
-                        mode_label = (
-                            "TRADING_DISABLED" if not trading_enabled else "AFTER_HOURS"
-                        )
-                        print(f"   🛡️ DRY_RUN ({mode_label}): Intent: SELL {ticker}")
-                        status = f"dry_run_sell_{mode_label.lower()}"
-                    else:
-                        exec_result = execution_manager.place_order(
-                            ticker=ticker,
-                            action="SELL",
-                            quantity=0,  # Sell all
-                            price=current_price,
-                        )
-                        status = f"executed_{exec_result.get('status', 'UNKNOWN')}"
-
-                results.append(
-                    {
-                        "ticker": ticker,
-                        "price": current_price,
-                        "signal": action,
-                        "status": status,
-                        "details": exec_result,
-                    }
-                )
+    # 1. Execute SELLs First
+    for ticker, sig in signals.items():
+        if sig.get("action") == "SELL":
+            reason = sig.get("reason", "Strategy Signal")
+            if not effective_enabled:
+                print(f"      🛡️ DRY_RUN: Intent SELL {ticker} ({reason})")
+                status = "dry_run_sell"
             else:
-                print("      ⚠️  Insufficient history for indicators.")
-                results.append(
-                    {
-                        "ticker": ticker,
-                        "price": current_price,
-                        "status": "tracking_only",
-                    }
-                )
-        else:
-            print("      ⚠️  No historical data (Strategy Skipped).")
-            results.append(
-                {"ticker": ticker, "price": current_price, "status": "tracking_only"}
-            )
+                exec_res = execution_manager.place_order(ticker, "SELL", 0, sig["price"], reason=reason)
+                status = f"executed_{exec_res.get('status', 'FAIL')}"
 
-        await asyncio.sleep(1.1)  # Rate limit friendly
+            execution_results.append({"ticker": ticker, "signal": "SELL", "status": status, "reason": reason})
 
-    # --- END OF CYCLE: PERFORMANCE LOGGING ---
-    print("🏁 Cycle Complete. Calculating Total Equity...")
+    # 2. Execute BUYs
+    for ticker, sig in signals.items():
+        if sig.get("action") == "BUY":
+            reason = sig.get("reason", "Strategy Signal")
+            if not effective_enabled:
+                print(f"      🛡️ DRY_RUN: Intent BUY {ticker} ({reason})")
+                status = "dry_run_buy"
+            else:
+                cash_pool = portfolio_manager.get_cash_balance()
+                room_to_buy = total_equity * 0.25 - held_tickers.get(ticker, {}).get("market_value", 0.0)
+
+                base_unit = total_equity * 0.05
+                intel = ticker_intel.get(ticker, {})
+                sentiment = float(intel.get("sentiment", 0.0))
+                multiplier = 1.0 + max(0.0, sentiment)
+                allocation = min(base_unit * multiplier, room_to_buy, cash_pool)
+
+                if allocation > 100:
+                    exec_res = execution_manager.place_order(ticker, "BUY", 0, sig["price"], cash_available=allocation, reason=reason)
+                    status = f"executed_{exec_res.get('status', 'FAIL')}"
+                else:
+                    status = "skipped_insufficient_funds"
+
+            execution_results.append({"ticker": ticker, "signal": "BUY", "status": status, "reason": reason})
+
+    # Performance Logging
     try:
         from telemetry import log_performance
-
-        performance_table = f"{PROJECT_ID}.trading_data.performance_logs"
-
-        metrics = portfolio_manager.calculate_total_equity(current_prices)
-        log_performance(bq_client, performance_table, metrics)
-
-        # Append equity to results for API response
-        results.append({"type": "performance_summary", "data": metrics})
-
+        final_conv_prices = {t: intel["price"] for t, intel in ticker_intel.items()}
+        perf_metrics = portfolio_manager.calculate_total_equity(final_conv_prices)
+        log_performance(bq_client, f"{PROJECT_ID}.trading_data.performance_logs", perf_metrics)
+        execution_results.append({"type": "performance_summary", "data": perf_metrics})
     except Exception as e:
-        print(f"❌ Performance Calculation Failed: {e}")
+        print(f"      ❌ Perf Log Fail: {e}")
 
-    return results
-
+    return execution_results
 
 from typing import List, Dict, Optional
-
 
 async def get_latest_confidence(ticker: str) -> Optional[int]:
     """Fetches the latest prediction confidence for a ticker from BQ."""
     query = f"""
-        SELECT confidence 
-        FROM `{PROJECT_ID}.trading_data.ticker_rankings` 
-        WHERE ticker = '{ticker}' 
+        SELECT confidence
+        FROM `{PROJECT_ID}.trading_data.ticker_rankings`
+        WHERE ticker = '{ticker}'
         AND DATE(timestamp) = CURRENT_DATE('America/New_York')
-        ORDER BY timestamp DESC 
+        ORDER BY timestamp DESC
         LIMIT 1
     """
     try:
@@ -484,7 +442,6 @@ async def get_latest_confidence(ticker: str) -> Optional[int]:
         print(f"⚠️ Error fetching confidence for {ticker}: {e}")
     return None
 
-
 @app.route("/rank-tickers", methods=["POST"])
 async def run_ranker_endpoint():
     """Trigger the morning ticker ranking job."""
@@ -495,9 +452,7 @@ async def run_ranker_endpoint():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
-
 # --- 4. FLASK ROUTES ---
-
 
 @app.route("/health")
 def health():
@@ -507,7 +462,6 @@ def health():
         ),
         200,
     )
-
 
 @app.route("/run-audit", methods=["POST"])
 async def run_audit_endpoint():
@@ -539,7 +493,6 @@ async def run_audit_endpoint():
 
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
-
 
 # --- 5. LOCAL RUNNER ---
 if __name__ == "__main__":

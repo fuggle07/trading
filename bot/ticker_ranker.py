@@ -9,7 +9,6 @@ from sentiment_analyzer import SentimentAnalyzer
 
 logger = logging.getLogger("TickerRanker")
 
-
 class TickerRanker:
     def __init__(self, project_id: str, bq_client: bigquery.Client):
         self.project_id = project_id
@@ -37,8 +36,11 @@ class TickerRanker:
             if not client:
                 return []
 
-            news = await asyncio.to_thread(
-                client.company_news, ticker, _from=start_date, to=end_date
+            news = await asyncio.wait_for(
+                asyncio.to_thread(
+                    client.company_news, ticker, _from=start_date, to=end_date
+                ),
+                timeout=15,
             )
 
             if isinstance(news, str) and "limit reached" in news.lower():
@@ -69,9 +71,9 @@ class TickerRanker:
 
         prompt = f"""
         Analyze the following overnight news headlines for {ticker}:
-        
+
         {news_text}
-        
+
         Provide:
         1. Aggregate Sentiment Score (-1.0 to 1.0).
         2. Prediction Confidence Score (0 to 100): How clearly these headlines suggest a price movement (up or down).
@@ -84,7 +86,11 @@ class TickerRanker:
         """
 
         try:
-            response = self.sentiment_analyzer.model.generate_content(prompt)
+            import asyncio
+            response = await asyncio.wait_for(
+                asyncio.to_thread(self.sentiment_analyzer.model.generate_content, prompt),
+                timeout=30,
+            )
             text = response.text.strip()
 
             lines = text.split("\n")

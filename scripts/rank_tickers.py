@@ -19,7 +19,6 @@ TICKERS = ["NVDA", "AAPL", "TSLA", "MSFT", "AMD"]
 FINNHUB_KEY = os.environ.get("FINNHUB_KEY")
 PROJECT_ID = os.environ.get("PROJECT_ID", "aberfeldie-node")  # Default or from env
 
-
 class TickerRanker:
     def __init__(self):
         self.sentiment_analyzer = SentimentAnalyzer(project_id=PROJECT_ID)
@@ -80,9 +79,9 @@ class TickerRanker:
         # We'll use a specific prompt to get structured data
         prompt = f"""
         Analyze the following overnight news headlines for {ticker}:
-        
+
         {news_text}
-        
+
         Provide:
         1. Aggregate Sentiment Score (-1.0 to 1.0).
         2. Prediction Confidence Score (0 to 100): How clearly these headlines suggest a price movement (up or down).
@@ -159,11 +158,9 @@ class TickerRanker:
             )
         print("\n")
 
-
 async def main():
     ranker = TickerRanker()
     await ranker.rank_all_tickers()
-
 
 if __name__ == "__main__":
     asyncio.run(main())

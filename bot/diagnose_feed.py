@@ -4,7 +4,6 @@ import time
 import datetime
 import pandas as pd
 
-
 def diagnose():
     api_key = os.environ.get("EXCHANGE_API_KEY")
     if not api_key:
@@ -60,7 +59,6 @@ def diagnose():
 
     except Exception as e:
         print(f"🔥 Exception: {e}")
-
 
 if __name__ == "__main__":
     diagnose()

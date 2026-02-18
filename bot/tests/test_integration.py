@@ -3,7 +3,6 @@ import httpx
 from unittest.mock import patch, MagicMock
 from portfolio_manager import PortfolioManager
 
-
 # This test requires pytest-asyncio to be installed
 @pytest.mark.asyncio
 async def test_service_connectivity_dry_run():
@@ -42,7 +41,6 @@ async def test_service_connectivity_dry_run():
                     assert -1.0 <= data["score"] <= 1.0
             except httpx.ConnectError:
                 pytest.skip("Sentiment service offline - skipping integration check")
-
 
 def test_ledger_sql_logic_integrity():
     """

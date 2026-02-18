@@ -9,7 +9,6 @@ from alpaca.trading.enums import OrderSide, TimeInForce
 # Configure logging
 logger = logging.getLogger("execution-manager")
 
-
 class ExecutionManager:
     """
     Handles order execution, validation against portfolio, and logging.
@@ -49,13 +48,12 @@ class ExecutionManager:
         else:
             logger.warning("PROJECT_ID not found. BigQuery logging disabled.")
 
-    def place_order(self, ticker, action, quantity, price, cash_available=0.0):
+    def place_order(self, ticker, action, quantity, price, cash_available=0.0, reason="Strategy Signal"):
         """
         Executes an order if funds/holdings allow, then logs it.
         Now supports Unified Cash Pool via 'cash_available' parameter.
         Executes real paper trades on Alpaca if configured.
         """
-        reason = "Strategy Signal"  # Simple default
 
         logger.info(
             f"PROCESSING {action} on {ticker} @ {price} | Cash Alloc: ${cash_available:.2f}"
@@ -201,7 +199,7 @@ class ExecutionManager:
             # Actually, `executions` table is likely auto-created or defined in TF.
             # Let's inspect IF we need to update TF.
 
-            errors = self.bq_client.insert_rows_json(self.table_id, [data])
+            errors = self.bq_client.insert_rows_json(self.table_id, [data], timeout=5)
             if errors:
                 logger.error(f"BigQuery Insert Errors: {errors}")
             else:

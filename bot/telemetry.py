@@ -5,7 +5,6 @@ import json
 from datetime import datetime
 import pytz
 
-
 # 1. STRUCTURED LOGGING CONFIGURATION
 class CloudLoggingFormatter(logging.Formatter):
     def format(self, record):
@@ -19,7 +18,6 @@ class CloudLoggingFormatter(logging.Formatter):
         }
         return json.dumps(log_entry)
 
-
 # Setup the master logger to use stdout (Cloud Run standard)
 logger = logging.getLogger("master-log")
 logger.setLevel(logging.INFO)
@@ -29,16 +27,13 @@ logger.addHandler(handler)
 
 # 2. MASTER LOGGING INTERFACE
 
-
 def log_audit(level, message, extra=None):
     # This format is automatically parsed by Google Cloud Logging
     entry = {"severity": level, "message": message, "extra": extra or {}}
     print(json.dumps(entry))
     sys.stdout.flush()  # Force the log out immediately
 
-
 # 3. BIGQUERY TELEMETRY
-
 
 def log_watchlist_data(client, table_id, ticker, price, sentiment=None):
     """
@@ -74,7 +69,6 @@ def log_watchlist_data(client, table_id, ticker, price, sentiment=None):
             raise RuntimeError(f"Sync failed: {errors}")
     except Exception as e:
         print(f"🔥 Critical Telemetry Failure: {e}")
-
 
 def log_performance(client, table_id, metrics):
     """

@@ -3,7 +3,6 @@ from typing import Optional, Dict
 from datetime import datetime
 import pytz
 
-
 class SignalAgent:
     """
     The decision-making engine with built-in Volatility Filtering and Holiday Awareness.
@@ -12,7 +11,7 @@ class SignalAgent:
     def __init__(
         self,
         risk_profile: float = 0.02,
-        vol_threshold: float = 0.05,
+        vol_threshold: float = 0.25,
         hurdle_rate: float = 0.0,
     ):
         self.risk_per_trade = Decimal(str(risk_profile))
@@ -75,9 +74,10 @@ class SignalAgent:
 
         # 2. Volatility Filter (The Gatekeeper)
         is_stable, vol_pct = self._check_volatility(market_data)
+        ticker = market_data.get("ticker", "Unknown")
         if not is_stable:
             # We log this but return None to skip the trade
-            print(f"Skipping trade: Volatility too high ({vol_pct:.2%})")
+            print(f"Skipping {ticker}: Volatility too high ({vol_pct:.2%})")
             return None
 
         # 3. Strategy Logic (SMA Crossover)
@@ -184,6 +184,8 @@ class SignalAgent:
                     f"⚠️ Warning: No prediction confidence found for {market_data.get('ticker')}. Proceeding without filter."
                 )
 
+        # No-op: main.py handles the coordination of conviction swaps,
+        # but we acknowledge it here for consistency in signal reasons.
         return signal
 
     def _check_volatility(self, market_data: Dict) -> tuple[bool, Decimal]:

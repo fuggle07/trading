@@ -17,7 +17,6 @@ def test_exit_logic_execution():
     assert current_holdings == 0
     assert current_cash == 41000.0
 
-
 # Simple test to verify BUY logic respects capital
 def test_buy_logic_insufficient_funds():
     sentiment_score = 0.6  # High edge

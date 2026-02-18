@@ -86,7 +86,6 @@ Footnotes:
 Thanks to the many outside volunteers who have worked under Guido's
 direction to make these releases possible.
 
-
 B. TERMS AND CONDITIONS FOR ACCESSING OR OTHERWISE USING PYTHON
 ===============================================================
 
@@ -138,7 +137,6 @@ products or services of Licensee, or any third party.
 agrees to be bound by the terms and conditions of this License
 Agreement.
 
-
 BEOPEN.COM LICENSE AGREEMENT FOR PYTHON 2.0
 -------------------------------------------
 
@@ -187,7 +185,6 @@ permissions granted on that web page.
 7. By copying, installing or otherwise using the software, Licensee
 agrees to be bound by the terms and conditions of this License
 Agreement.
-
 
 CNRI LICENSE AGREEMENT FOR PYTHON 1.6.1
 ---------------------------------------
@@ -258,7 +255,6 @@ installing or otherwise using Python 1.6.1, Licensee agrees to be
 bound by the terms and conditions of this License Agreement.
 
         ACCEPT
-
 
 CWI LICENSE AGREEMENT FOR PYTHON 0.9.0 THROUGH 1.2
 --------------------------------------------------
