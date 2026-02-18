@@ -24,6 +24,14 @@ if ! gcloud components list --filter="id=beta AND state.name=Installed" --format
   gcloud components install beta --quiet
 fi
 
-# We use --format=json and jq to cleanly extract the message without extra whitespace.
+# 1. Fetch recent logs first (Immediate Feedback)
+echo "📜 Fetching last 10 logs..."
+gcloud logging read "$FILTER" --project "$PROJECT_ID" --limit=10 --order=asc --format=json | \
+  jq -r '.[] | .textPayload // .jsonPayload.message // empty'
+
+echo "🔴 Switching to LIVE TAIL..."
+
+# 2. Stream live logs (Unbuffered)
+export PYTHONUNBUFFERED=1
 gcloud beta logging tail "$FILTER" --project "$PROJECT_ID" --format=json | \
   jq -r --unbuffered '.textPayload // .jsonPayload.message // empty'
