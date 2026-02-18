@@ -430,26 +430,39 @@ async def run_audit():
                 ):
                     rising_star = t
 
-    if weakest_link and rising_star:
-        weakest_conf = ticker_intel[weakest_link].get("confidence", 0)
+    if rising_star:
         star_conf = ticker_intel[rising_star].get("confidence", 0)
-
-        log_decision(
-            rising_star,
-            "SWAP",
-            f"Rotating out of {weakest_link} ({weakest_conf}%) into {rising_star} ({star_conf}%)",
-        )
-        signals[weakest_link] = {
-            "action": "SELL",
-            "reason": "CONVICTION_SWAP",
-            "price": ticker_intel[weakest_link]["price"],
-        }
-        if rising_star not in signals:
-            signals[rising_star] = {
-                "action": "BUY",
-                "reason": "CONVICTION_ROTATION",
-                "price": ticker_intel[rising_star]["price"],
+        if weakest_link:
+            weakest_conf = ticker_intel[weakest_link].get("confidence", 0)
+            log_decision(
+                rising_star,
+                "SWAP",
+                f"Rotating out of {weakest_link} ({weakest_conf}%) into {rising_star} ({star_conf}%)",
+            )
+            signals[weakest_link] = {
+                "action": "SELL",
+                "reason": "CONVICTION_SWAP",
+                "price": ticker_intel[weakest_link]["price"],
             }
+            if rising_star not in signals or signals[rising_star]["action"] != "BUY":
+                signals[rising_star] = {
+                    "action": "BUY",
+                    "reason": "CONVICTION_ROTATION",
+                    "price": ticker_intel[rising_star]["price"],
+                }
+        elif exposure < 0.25:
+            # Deployment Logic: If we have cash, buy the best thing available
+            if rising_star not in signals or signals[rising_star]["action"] != "BUY":
+                log_decision(
+                    rising_star,
+                    "BUY",
+                    f"Initial Deployment: High Conviction Rising Star ({star_conf}%)",
+                )
+                signals[rising_star] = {
+                    "action": "BUY",
+                    "reason": "INITIAL_DEPLOYMENT",
+                    "price": ticker_intel[rising_star]["price"],
+                }
 
     # --- Phase 3: Coordinated Execution ---
     print("🚀 Executing Coordinated Trades...")

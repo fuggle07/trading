@@ -107,6 +107,7 @@ class SignalAgent:
             "score": market_data.get("prediction_confidence", 0),
         }
         avg_price = market_data.get("avg_price", 0.0)
+        is_low_exposure = market_data.get("is_low_exposure", False)
         lessons = ""  # Placeholder for now
 
         technical_signal = self.evaluate_bands(
@@ -130,6 +131,15 @@ class SignalAgent:
             conviction = 0
         else:
             final_action = "IDLE"
+            # ENHANCEMENT: Low Exposure Aggression
+            # If we are in cash, we don't wait for price to hit the bottom band
+            # if the narrative (sentiment) and health (fundamentals) are elite.
+            if is_low_exposure and sentiment > 0.6:
+                f_score = fundamentals.get("score", 0)
+                if f_score > 70:
+                    final_action = "BUY"
+                    conviction = 70  # Aggressive entry conviction
+                    technical_signal = "HOLD_AGGRESSIVE_ENTRY"
 
         # 2. Strategic Exit Check (THE OVERRIDE)
         # If we already hold the stock, we check for Profit Target or Stop Loss FIRST.
