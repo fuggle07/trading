@@ -830,9 +830,9 @@ resource "google_billing_budget" "budget_alert" {
   billing_account = var.billing_account
   display_name    = "Trading Bot Monthly Budget"
 
-  budget_filter {
-    projects = ["projects/${var.project_id}"]
-  }
+  # budget_filter {
+  #   projects = ["projects/${var.project_id}"]
+  # }
 
   amount {
     specified_amount {
