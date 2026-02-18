@@ -61,7 +61,7 @@ signal_agent = SignalAgent(
 )
 portfolio_manager = PortfolioManager(bq_client, portfolio_table_id)
 execution_manager = ExecutionManager(portfolio_manager)
-fundamental_agent = FundamentalAgent()
+fundamental_agent = FundamentalAgent(finnhub_client=finnhub_client)
 ticker_ranker = TickerRanker(PROJECT_ID, bq_client)
 
 # --- 2. CORE UTILITIES ---

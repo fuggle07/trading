@@ -38,9 +38,10 @@ class FundamentalAgent:
                 import asyncio
 
                 # Use a timeout to prevent hanging on slow/blocked API calls
+                # Increased to 15s for "noisy" tickers like PLTR
                 overview, _ = await asyncio.wait_for(
                     asyncio.to_thread(self.fd.get_company_overview, symbol=ticker),
-                    timeout=10,
+                    timeout=15,
                 )
 
                 if (
@@ -182,9 +183,10 @@ class FundamentalAgent:
             logger.info(f"📡 Fetching deep financials for {ticker}...")
             import asyncio
 
+            # Increased to 20s for deep financials
             income_q, _ = await asyncio.wait_for(
                 asyncio.to_thread(self.fd.get_income_statement_quarterly, symbol=ticker),
-                timeout=15,
+                timeout=20,
             )
             if (
                 isinstance(income_q, str)
@@ -234,7 +236,26 @@ class FundamentalAgent:
 
         stats = await self.get_financial_statements(ticker)
         if not stats or not stats.get("balance_a") or not stats.get("income_q"):
-            is_deep, d_reason = True, "No Statement Data (Skipped)"
+            # Deep Fallback to Finnhub if AV Statement fetch fails
+            if self.finnhub_client:
+                logger.info(f"📡 AV Statement Fail. Attempting Finnhub deep fallback for {ticker}...")
+                basic_fin = await asyncio.to_thread(
+                    self.finnhub_client.company_basic_financials, ticker, "all"
+                )
+                metric = basic_fin.get("metric", {})
+                if metric:
+                    current_ratio = float(metric.get("currentRatio", 0.8) or 0.8)
+                    de_ratio = float(metric.get("totalDebt/totalEquityQuarterly", 1.0) or 1.0)
+                    if current_ratio < 0.8:
+                        is_deep, d_reason = False, f"Liquidity Crisis (CR {current_ratio:.2f} - Finnhub)"
+                    elif de_ratio > 300: # Finnhub D/E is often expressed as percentage or raw
+                        is_deep, d_reason = False, f"High Leverage (D/E {de_ratio:.2f} - Finnhub)"
+                    else:
+                        is_deep, d_reason = True, f"Deep Health OK (Finnhub Metrics: CR {current_ratio:.2f})"
+                else:
+                    is_deep, d_reason = True, "No Data (Fallback Exhausted)"
+            else:
+                is_deep, d_reason = True, "No Statement Data (Skipped)"
         else:
             try:
                 reports = stats["balance_a"].get("annualReports", [])
