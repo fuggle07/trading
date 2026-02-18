@@ -41,6 +41,6 @@ export PYTHONUNBUFFERED=1
 if [[ "$OUTPUT_MODE" == "json" ]]; then
   gcloud beta logging tail "$FILTER" --project "$PROJECT_ID" --format=json
 else
-  gcloud beta logging tail "$FILTER" --project "$PROJECT_ID" --format=json | \
-    jq -r --unbuffered '.textPayload // .jsonPayload.message // empty'
+  # Use native gcloud formatting to avoid pipe buffering issues
+  gcloud beta logging tail "$FILTER" --project "$PROJECT_ID" --format="value(textPayload,jsonPayload.message)"
 fi
