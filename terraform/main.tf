@@ -827,7 +827,7 @@ resource "google_monitoring_alert_policy" "bot_failure" {
 
 # C. Budget Alert ($10.00)
 resource "google_billing_budget" "budget_alert" {
-  billing_account = var.billing_account
+  billing_account = "billingAccounts/${var.billing_account}"
   display_name    = "Trading Bot Monthly Budget"
 
   # budget_filter {
