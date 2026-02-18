@@ -589,7 +589,7 @@ async def get_latest_confidence(ticker: str) -> Optional[int]:
         SELECT confidence
         FROM `{PROJECT_ID}.trading_data.ticker_rankings`
         WHERE ticker = '{ticker}'
-        AND DATE(timestamp) = CURRENT_DATE('America/New_York')
+        AND timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 24 HOUR)
         ORDER BY timestamp DESC
         LIMIT 1
     """
