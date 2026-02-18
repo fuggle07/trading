@@ -585,6 +585,7 @@ from typing import Optional
 
 async def get_latest_confidence(ticker: str) -> Optional[int]:
     """Fetches the latest prediction confidence for a ticker from BQ."""
+    print(f"🔍 DEBUG: Running get_latest_confidence v2 for {ticker}")
     query = f"""
         SELECT confidence
         FROM `{PROJECT_ID}.trading_data.ticker_rankings`

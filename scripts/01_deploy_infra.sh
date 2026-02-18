@@ -43,7 +43,7 @@ fi
 ls -la Dockerfile
 
 # Explicitly use the dot as source first, and specify the file
-gcloud builds submit . --tag us-central1-docker.pkg.dev/utopian-calling-429014-r9/trading-node-repo/trading-bot:latest
+gcloud builds submit . --no-cache --tag us-central1-docker.pkg.dev/utopian-calling-429014-r9/trading-node-repo/trading-bot:latest
 
 # 5. Infrastructure Deployment
 echo "📂 Navigating to: $TERRAFORM_DIR"
