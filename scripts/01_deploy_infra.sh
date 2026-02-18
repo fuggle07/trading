@@ -33,7 +33,16 @@ echo "🐳 Building and Pushing Docker Container..."
 # We need to be in the root of the repo
 cd "$SCRIPT_DIR/.."
 echo "📂 Current Directory: $(pwd)"
+
+# CRITICAL FIX: Remove the stale Dockerfile inside bot/ which flattens the structure
+if [ -f "bot/Dockerfile" ]; then
+    echo "🗑️ Removing stale bot/Dockerfile to avoid build confusion..."
+    rm bot/Dockerfile
+fi
+
 ls -la Dockerfile
+
+# Explicitly use the dot as source first, and specify the file
 
 # Explicitly use the dot as source first, and specify the file
 gcloud builds submit . \
