@@ -6,6 +6,7 @@ from flask import Flask, jsonify
 from datetime import datetime, timezone, timedelta
 from telemetry import log_watchlist_data, log_decision
 import pytz
+import traceback
 from google.cloud import bigquery
 from signal_agent import SignalAgent
 from execution_manager import ExecutionManager
@@ -141,7 +142,6 @@ async def fetch_historical_data(ticker):
             )
 
             print(f"[{ticker}] 📊 Alpaca Data Fetched: {len(df)} rows")
-            print(f"[{ticker}] 📊 Alpaca Data Fetched: {len(df)} rows")
             return df_norm
 
         except Exception as e:
@@ -165,7 +165,6 @@ def calculate_technical_indicators(df):
         print("⚠️ calculate_technical_indicators received None dataframe")
         return None
     
-    print(f"📊 Technical data length: {len(df)} rows")
     if len(df) < 50:
         print(f"⚠️ Insufficient technical data: {len(df)} rows < 50 required")
         return None
@@ -672,6 +671,7 @@ async def debug_alpaca_endpoint(ticker):
         return jsonify({"status": "complete", "log": log}), 200
         
     except Exception as e:
+        traceback.print_exc()
         return jsonify({"status": "fatal", "error": str(e), "log": log}), 500
 
 
