@@ -148,8 +148,6 @@ async def fetch_historical_data(ticker):
             print(f"❌ Alpaca Error for {ticker}: {e}")
             return None
 
-    import asyncio
-
     try:
         return await asyncio.wait_for(
             loop.run_in_executor(None, get_candles), timeout=20
