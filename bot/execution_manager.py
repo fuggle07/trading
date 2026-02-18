@@ -219,10 +219,10 @@ class ExecutionManager:
 
             errors = self.bq_client.insert_rows_json(self.table_id, [data], timeout=5)
             if errors:
-                logger.error(f"BigQuery Insert Errors: {errors}")
+                logger.error(f"[{data.get('ticker', 'Unknown')}] BigQuery Insert Errors: {errors}")
             else:
                 logger.info(
                     f"[{data['ticker']}] Logged execution {data['execution_id']} to {self.table_id}"
                 )
         except Exception as e:
-            logger.warning(f"Failed to log to BigQuery ({self.table_id}): {e}")
+            logger.warning(f"[{data.get('ticker', 'Unknown')}] Failed to log to BigQuery ({self.table_id}): {e}")

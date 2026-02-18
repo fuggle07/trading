@@ -114,7 +114,7 @@ class FeedbackAgent:
                 return text.split("LESSON:")[1].strip()
             return None
         except Exception as e:
-            logger.error(f"⚠️ Hindsight Critique failed for {ticker}: {e}")
+            logger.error(f"[{ticker}] ⚠️ Hindsight Critique failed for {ticker}: {e}")
             return None
 
     def _log_insight_to_bq(self, ticker: str, lesson: str):
@@ -127,9 +127,9 @@ class FeedbackAgent:
         }
         try:
             self.bq_client.insert_rows_json(self.insights_table, [row])
-            logger.info(f"💾 Logged lesson for {ticker}: {lesson}")
+            logger.info(f"[{ticker}] 💾 Logged lesson for {ticker}: {lesson}")
         except Exception as e:
-            logger.error(f"❌ Failed to log insight for {ticker}: {e}")
+            logger.error(f"[{ticker}] ❌ Failed to log insight for {ticker}: {e}")
 
     async def get_recent_lessons(self, limit=5) -> str:
         """Fetches top lessons to inject into prompts."""

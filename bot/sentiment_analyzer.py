@@ -92,10 +92,10 @@ class SentimentAnalyzer:
             reasoning = data.get("reasoning", "No reasoning provided.")
 
             logger.info(
-                f"🧠 Gemini Analysis for {ticker}: Score={score} | Reason: {reasoning}"
+                f"[{ticker}] 🧠 Gemini Analysis: Score={score} | Reason: {reasoning}"
             )
             return score
 
         except Exception as e:
-            logger.error(f"⚠️ Gemini Analysis Failed for {ticker}: {e}")
+            logger.error(f"[{ticker}] ⚠️ Gemini Analysis Failed: {e}")
             return 0.0

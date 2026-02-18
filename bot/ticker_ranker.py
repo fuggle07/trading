@@ -47,12 +47,12 @@ class TickerRanker:
             )
 
             if isinstance(news, str) and "limit reached" in news.lower():
-                logger.warning(f"⚠️ Finnhub Rate Limit hit for {ticker}")
+                logger.warning(f"[{ticker}] ⚠️ Finnhub Rate Limit hit for {ticker}")
                 return []
 
             return news
         except Exception as e:
-            logger.error(f"Error fetching news for {ticker}: {e}")
+            logger.error(f"[{ticker}] Error fetching news for {ticker}: {e}")
             return []
 
     async def analyze_ticker(self, ticker: str, lessons: str = "") -> Dict:
@@ -126,7 +126,7 @@ class TickerRanker:
                 "reason": reason,
             }
         except Exception as e:
-            logger.error(f"Error analyzing {ticker} with Vertex AI: {e}")
+            logger.error(f"[{ticker}] Error analyzing {ticker} with Vertex AI: {e}")
             return {
                 "ticker": ticker,
                 "sentiment": 0.0,

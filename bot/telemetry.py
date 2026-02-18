@@ -115,9 +115,9 @@ def log_decision(ticker, action, reason, details=None):
     message = f"[DECISION] {emoji} {action} {ticker}: {reason}"
     
     # console output for tailing
-    print(f"\n[{ticker}] {message}")
+    print(f"[{ticker}] {message}")
     if details:
-        print(f"           Details: {details}")
+        print(f"[{ticker}] Details: {details}")
     
     # Structured log for Cloud Logging
     log_payload = {

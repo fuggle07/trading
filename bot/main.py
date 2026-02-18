@@ -265,7 +265,7 @@ async def run_audit():
     current_prices = {}
 
     for ticker in tickers:
-        print(f"[{ticker}]    📡 Gathering Intel for {ticker}...")
+        print(f"[{ticker}] 📡 Gathering Intel for {ticker}...")
         try:
             # Parallel fetch for a single ticker to save time
             quote_task = (
@@ -341,7 +341,7 @@ async def run_audit():
         await asyncio.sleep(0.5)  # Rate limit spread
 
     # --- Phase 2: Portfolio Analysis & Conviction Swapping ---
-    print("   ⚖️ Analyzing Portfolio Relative Strength...")
+    print("⚖️ Analyzing Portfolio Relative Strength...")
     val_data = portfolio_manager.calculate_total_equity(current_prices)
     total_equity = val_data.get("total_equity", 0.0)
 
@@ -427,7 +427,7 @@ async def run_audit():
             }
 
     # --- Phase 3: Coordinated Execution ---
-    print("   🚀 Executing Coordinated Trades...")
+    print("🚀 Executing Coordinated Trades...")
     execution_results = []
 
     trading_enabled = os.environ.get("TRADING_ENABLED", "true").lower() == "true"
@@ -511,7 +511,7 @@ async def run_audit():
         )
         execution_results.append({"type": "performance_summary", "data": perf_metrics})
     except Exception as e:
-        print(f"      ❌ Perf Log Fail: {e}")
+        print(f"❌ Perf Log Fail: {e}")
 
     return execution_results
 

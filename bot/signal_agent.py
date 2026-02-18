@@ -205,7 +205,7 @@ class SignalAgent:
             else:
                 # If no confidence is found (e.g. ranking job failed), we default to allowed
                 print(
-                    f"⚠️ Warning: No prediction confidence found for {market_data.get('ticker')}. Proceeding without filter."
+                    f"[{market_data.get('ticker')}] ⚠️ Warning: No prediction confidence found. Proceeding without filter."
                 )
 
         # No-op: main.py handles the coordination of conviction swaps,
