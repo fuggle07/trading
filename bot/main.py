@@ -597,8 +597,9 @@ async def get_latest_confidence(ticker: str) -> Optional[int]:
     try:
         query_job = bq_client.query(query)
         results = query_job.result()
+        print(f"DEBUG: Query executed for {ticker}. Rows: {results.total_rows}")
         for row in results:
-            # print(f"DEBUG: Found confidence for {ticker}: {row.confidence}")
+            print(f"DEBUG: Found confidence for {ticker}: {row.confidence}")
             return row.confidence
         
         print(f"⚠️ No confidence data found for {ticker} in last 24h")
