@@ -11,8 +11,11 @@ echo "Press Ctrl+C to stop."
 
 # We use gcloud logging tail which is more stable than the beta run command.
 # Captures BOTH textPayload and structured jsonPayload.message
-# IMPORTANT: If you pipe this, use 'grep --line-buffered' to avoid output delays.
-# Avoid using 'tail' or 'head' on the end of a live stream.
+# Filter for logs that actually have content to display (avoiding empty lines)
+FILTER="resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"$SERVICE_NAME\" AND (textPayload:* OR jsonPayload.message:*)"
+
+echo "📡 Tailing logs for $SERVICE_NAME..."
+echo "💡 Tip: Use 'live_logs.sh | grep DECISION' to isolate trading actions."
 
 # Check arguments for output mode
 OUTPUT_MODE="text"
@@ -23,7 +26,13 @@ else
   echo "📝 Text Mode: Formatting logs (Use --json for raw output)..."
 fi
 
-# 1. Fetch recent logs message
+# Check if "beta" component is installed (required for logging tail)
+if ! gcloud components list --filter="id=beta AND state.name=Installed" --format="value(id)" | grep -q beta; then
+  echo "📦 Installing required 'beta' component for gcloud..."
+  gcloud components install beta --quiet
+fi
+
+# 1. Fetch recent logs first (Immediate Feedback)
 echo "📜 Fetching last 10 logs..."
 
 if [[ "$OUTPUT_MODE" == "json" ]]; then
@@ -36,11 +45,13 @@ fi
 echo "🔴 Switching to LIVE TAIL..."
 
 # 2. Stream live logs (Unbuffered)
+echo "🔍 Debug Mode: Raw JSON output (to rule out jq buffering)..."
 export PYTHONUNBUFFERED=1
 
 if [[ "$OUTPUT_MODE" == "json" ]]; then
   gcloud beta logging tail "$FILTER" --project "$PROJECT_ID" --format=json
 else
-  # Use native gcloud formatting to avoid pipe buffering issues
-  gcloud beta logging tail "$FILTER" --project "$PROJECT_ID" --format="value(textPayload,jsonPayload.message)"
+  # Use Go-template to coalesce fields cleanly without internal tabs or external pipes
+  gcloud beta logging tail "$FILTER" --project "$PROJECT_ID" \
+  --format='template({{if .textPayload}}{{.textPayload}}{{else}}{{.jsonPayload.message}}{{end}})'
 fi
