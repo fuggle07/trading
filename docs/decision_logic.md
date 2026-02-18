@@ -42,6 +42,13 @@ When the bot evaluates a stock (e.g., NVDA), it follows this step-by-step logic:
 *   **Condition**: If the **Fundamental Score** is **lower than 40/100**.
 *   **Action**: **BUY IS CANCELLED**. No matter how cheap the stock is or how good the news sounds, if the "underlying health" is failing, the bot will not deploy capital.
 
+### Step E: Low Exposure Aggression (The "Cash Deployment" Rule)
+*   **Condition**: If the portfolio is **> 75% in cash** (Low Exposure).
+*   **Rule Change**: The bot becomes more aggressive. It will **BUY** even if the Technical Baseline is **HOLD** (price in the middle of the bands), provided that:
+    1.  **Sentiment** is elite (> 0.6).
+    2.  **Fundamentals** are elite (> 70).
+*   **Signal Name**: This appears in logs as `HOLD_AGGRESSIVE_ENTRY`.
+
 ---
 
 ## 3. Position Management (When to Exit)
@@ -59,7 +66,8 @@ The bot doesn't just wait for Bollinger Bands to hit the top to sell. It will fo
 This is the "Auditor" logic. If the bot is fully invested but finds a better opportunity:
 *   **Weakest Link**: Any current holding with a Conviction Score **< 50%**.
 *   **Rising Star**: Any non-held stock with a Conviction Score **> 80%**.
-*   **The Swap**: The bot will liquidate the "Weakest Link" to fund the "Rising Star," ensuring your $100,000 is always working in the highest-conviction area.
+*   **The Swap**: The bot will liquidate the "Weakest Link" to fund the "Rising Star."
+*   **Initial Deployment**: If no "Weakest Link" exists (e.g., you are 100% in cash), the bot will immediately buy the **Rising Star** to put your capital to work.
 
 ---
 
