@@ -40,15 +40,16 @@ RUN groupadd -r botuser && useradd -r -g botuser botuser
 # Copy ONLY the virtual env from the builder
 COPY --from=builder /opt/venv /opt/venv
 
-# Copy app code (excluding tests and __pycache__ via .dockerignore)
-# We further ensure we don't bring in junk by specifying the directory
-COPY --chown=botuser:botuser bot/ .
+# Copy app code (keeping the bot/ package structure)
+COPY --chown=botuser:botuser bot/ bot/
+COPY --chown=botuser:botuser .env .env
 
 # Ensure we don't have tests in the production image if .dockerignore was missed
-RUN rm -rf tests/ __pycache__/
+RUN rm -rf bot/tests/ bot/__pycache__/
 
 # Switch to non-root user
 USER botuser
 
 # Gunicorn for production
-CMD ["gunicorn", "--bind", ":8080", "--workers", "1", "--threads", "8", "--timeout", "0", "main:app"]
+# We run from /app, and the module is bot.main:app
+CMD ["gunicorn", "--bind", ":8080", "--workers", "1", "--threads", "8", "--timeout", "0", "bot.main:app"]
