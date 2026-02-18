@@ -142,7 +142,6 @@ async def fetch_historical_data(ticker):
             )
 
             print(f"[{ticker}] 📊 Alpaca Data Fetched: {len(df)} rows")
-            print(f"[{ticker}] 📊 Alpaca Data Fetched: {len(df)} rows")
             return df_norm
 
         except Exception as e:
@@ -160,14 +159,15 @@ async def fetch_historical_data(ticker):
         return None
 
 
-def calculate_technical_indicators(df):
+def calculate_technical_indicators(df, ticker="Unknown"):
     """Calculates SMA-20, SMA-50, and Bollinger Bands."""
     if df is None:
-        print("⚠️ calculate_technical_indicators received None dataframe")
         return None
     
     if len(df) < 50:
-        print(f"⚠️ Insufficient technical data: {len(df)} rows < 50 required")
+        print(
+            f"⚠️  [{ticker}] Insufficient technical data: {len(df)} rows < 50 required"
+        )
         return None
 
     # Calculate SMAs
@@ -330,7 +330,7 @@ async def run_audit():
             if quote_res and isinstance(quote_res, dict) and "c" in quote_res:
                 price = float(quote_res["c"])
                 current_prices[ticker] = price
-                indicators = calculate_technical_indicators(df)
+                indicators = calculate_technical_indicators(df, ticker)
 
                 ticker_intel[ticker] = {
                     "price": price,
@@ -391,11 +391,11 @@ async def run_audit():
             if sig:
                 signals[ticker] = sig
         else:
-            log_decision(
-                ticker,
-                "SKIP",
-                "Missing Technical Data (Indicators unavailable)",
-            )
+                log_decision(
+                    ticker,
+                    "SKIP",
+                    f"Missing Technical Data (Indicators unavailable - partial results: {len(intel_results[4]) if isinstance(intel_results[4], pd.DataFrame) else 'None'})",
+                )
 
     # REBALANCING LOGIC: The Conviction Swap
     weakest_link = None

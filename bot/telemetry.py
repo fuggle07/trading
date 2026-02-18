@@ -114,11 +114,6 @@ def log_decision(ticker, action, reason, details=None):
     emoji = "🚀" if action == "BUY" else "🛑" if action == "SELL" else "⏭️"
     message = f"[DECISION] {emoji} {action} {ticker}: {reason}"
     
-    # console output for tailing
-    print(f"[{ticker}] {message}")
-    if details:
-        print(f"[{ticker}] Details: {details}")
-    
     # Structured log for Cloud Logging
     log_payload = {
         "severity": "INFO",
