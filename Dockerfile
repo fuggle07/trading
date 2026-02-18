@@ -53,3 +53,4 @@ USER botuser
 # Gunicorn for production
 # We run from /app, and the module is bot.main:app
 CMD ["gunicorn", "--bind", ":8080", "--workers", "1", "--threads", "8", "--timeout", "0", "bot.main:app"]
+
