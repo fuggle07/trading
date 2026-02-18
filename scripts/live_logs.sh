@@ -51,7 +51,6 @@ export PYTHONUNBUFFERED=1
 if [[ "$OUTPUT_MODE" == "json" ]]; then
   gcloud beta logging tail "$FILTER" --project "$PROJECT_ID" --format=json
 else
-  # Use Go-template to coalesce fields cleanly without internal tabs or external pipes
-  gcloud beta logging tail "$FILTER" --project "$PROJECT_ID" \
-  --format='template({{if .textPayload}}{{.textPayload}}{{else}}{{.jsonPayload.message}}{{end}})'
+  # Use simple value format which automatically handles nulls (cleaner than complex templates)
+  gcloud beta logging tail "$FILTER" --project "$PROJECT_ID" --format="value(textPayload,jsonPayload.message)"
 fi
