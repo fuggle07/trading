@@ -42,7 +42,6 @@ COPY --from=builder /opt/venv /opt/venv
 
 # Copy app code (keeping the bot/ package structure)
 COPY --chown=botuser:botuser bot/ bot/
-COPY --chown=botuser:botuser .env .env
 
 # Ensure we don't have tests in the production image if .dockerignore was missed
 RUN rm -rf bot/tests/ bot/__pycache__/

@@ -17,7 +17,7 @@ To maintain the node, use the standardized `setup_node.sh` orchestrator. It hand
 
 ### Deployment Command
 ```bash
-./setup_node.sh
+./scripts/01_deploy_infra.sh
 ```
 
 ---
