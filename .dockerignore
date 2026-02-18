@@ -1,0 +1,22 @@
+# Exclude development and environment bloat
+.git
+.github
+.vscode
+venv/
+.venv/
+bot/tests/
+bot/__pycache__/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.tfstate*
+.terraform/
+secrets.sh
+env.yaml
+.env
+mac.txt
+# Exclude local test scripts
+test_av_statements.py
+test_bot.sh
+test_finnhub.py
+check_secret.py

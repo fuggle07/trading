@@ -34,19 +34,43 @@ class SignalAgent:
             "2026-12-25",  # Christmas Day
         ]
 
-    def _is_market_holiday(self):
-        """Checks if today is a scheduled market holiday in New York time."""
+    def is_market_open(self):
+        """
+        Determines if the US stock market is currently open.
+        Checks: Weekends, Holidays, and Trading Hours (9:30 AM - 4:00 PM ET).
+        """
         ny_tz = pytz.timezone("America/New_York")
-        today_str = datetime.now(ny_tz).strftime("%Y-%m-%d")
-        return today_str in self.market_holidays
+        now = datetime.now(ny_tz)
 
-    def evaluate_strategy(self, market_data: Dict) -> Optional[Dict]:
+        # 1. Weekend Check (Saturday=5, Sunday=6)
+        if now.weekday() >= 5:
+            return False
+
+        # 2. Holiday Check
+        today_str = now.strftime("%Y-%m-%d")
+        if today_str in self.market_holidays:
+            return False
+
+        # 3. Market Hours (9:30 AM - 4:00 PM ET)
+        current_time = now.time()
+        market_open = now.replace(hour=9, minute=30, second=0, microsecond=0).time()
+        market_close = now.replace(hour=16, minute=0, second=0, microsecond=0).time()
+
+        if current_time < market_open or current_time >= market_close:
+            return False
+
+        return True
+
+    def evaluate_strategy(
+        self, market_data: Dict, force_eval: bool = False
+    ) -> Optional[Dict]:
         """
         Evaluates signals only if the market is open and volatility is within safe bounds.
+        Can be forced to evaluate (Dry-Run) even if market is closed.
         """
-        # 1. Holiday Filter
-        if self._is_market_holiday():
-            print("Skipping: Market is closed for holiday today.")
+        # 1. Market Status Filter
+        if not force_eval and not self.is_market_open():
+            print("Skipping: Market is closed (Weekend, Holiday, or After-Hours).")
             return None
 
         # 2. Volatility Filter (The Gatekeeper)

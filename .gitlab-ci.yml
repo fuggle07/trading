@@ -1,0 +1,37 @@
+stages:
+  - lint
+  - test
+  - build
+
+variables:
+  PYTHON_IMAGE: python:3.12-slim
+
+# 1. Lint - PEP 8 check using Black
+lint_python:
+  stage: lint
+  image: $PYTHON_IMAGE
+  script:
+    - pip install black
+    - black --check bot/ scripts/*.py
+
+# 2. Test - Run Python Unit Tests
+unit_tests:
+  stage: test
+  image: $PYTHON_IMAGE
+  before_script:
+    - pip install -r bot/requirements-dev.txt || pip install pytest pandas finnhub google-cloud-bigquery alpaca-py flask pytz vertexai
+  script:
+    - export PYTHONPATH=$PYTHONPATH:$(pwd)/bot
+    - pytest bot/tests
+
+# 3. Build - Verify Docker Build
+docker_build:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker build -t trading-bot ./bot
+  only:
+    - main
+    - merge_requests

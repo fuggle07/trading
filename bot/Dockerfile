@@ -12,18 +12,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies into a wheels directory or venv
+# Install dependencies into a virtual env
 COPY requirements.txt .
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install --upgrade pip && pip install -r requirements.txt
+
+# Use --no-compile to save space as we don't need bytecode in the image
+RUN pip install --upgrade pip && \
+    pip install --no-compile -r requirements.txt
 
 
 # --- STAGE 2: Runner ---
 FROM python:3.12-slim AS runner
 
 # Standard Python env vars
-ENV PYTHONUNBUFFERED=1 \
+# PYTHONDONTWRITEBYTECODE=1 prevents .pyc creation at runtime (kept from builder)
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
     PYTHONPATH="/app" \
     PATH="/opt/venv/bin:$PATH"
 
@@ -35,8 +40,12 @@ RUN groupadd -r botuser && useradd -r -g botuser botuser
 # Copy ONLY the virtual env from the builder
 COPY --from=builder /opt/venv /opt/venv
 
-# Copy app code with ownership set during the copy
+# Copy app code (excluding tests and __pycache__ via .dockerignore)
+# We further ensure we don't bring in junk by specifying the directory
 COPY --chown=botuser:botuser bot/ .
+
+# Ensure we don't have tests in the production image if .dockerignore was missed
+RUN rm -rf tests/ __pycache__/
 
 # Switch to non-root user
 USER botuser

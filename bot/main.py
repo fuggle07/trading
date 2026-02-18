@@ -311,9 +311,27 @@ async def run_audit():
                     "is_low_exposure": is_low_exposure,
                 }
 
-                signal_dict = signal_agent.evaluate_strategy(market_data)
+                # Dry-Run / Audit-Only Logic: Respect TRADING_ENABLED flag
+                trading_enabled = (
+                    os.environ.get("TRADING_ENABLED", "true").lower() == "true"
+                )
+
+                # Intelligent Default: If market is closed, we default to DRY RUN for audits
+                is_market_open = signal_agent.is_market_open()
+                effective_trading_enabled = trading_enabled and is_market_open
+
+                # If trading is disabled or market is closed, we force evaluation for analysis
+                force_eval = not effective_trading_enabled
+
+                signal_dict = signal_agent.evaluate_strategy(
+                    market_data, force_eval=force_eval
+                )
                 action = signal_dict["action"] if signal_dict else "HOLD"
                 signal_reason = signal_dict["reason"] if signal_dict else None
+
+                # Augment reason if it's an automatic dry run
+                if action != "HOLD" and not is_market_open:
+                    signal_reason = f"{signal_reason or ''} [AFTER_HOURS_AUDIT]".strip()
 
                 print(f"   📊 {ticker}: Signal: {action} (Reason: {signal_reason})")
 
@@ -322,62 +340,81 @@ async def run_audit():
                 status = "tracking_only"
 
                 if action == "BUY":
-                    # 1. Check Concentration Cap (25%)
-                    current_ticker_val = 0.0
-                    for item in val_data["breakdown"]:
-                        if item["ticker"] == ticker:
-                            current_ticker_val = item["market_value"]
-                            break
-
-                    concentration = (
-                        current_ticker_val / total_equity if total_equity > 0 else 0.0
-                    )
-                    if concentration >= 0.25:
-                        print(
-                            f"   🚫 {ticker}: Cap Reached ({concentration:.1%}). Skipping BUY."
+                    # Check if trading is allowed
+                    if not effective_trading_enabled:
+                        mode_label = (
+                            "TRADING_DISABLED" if not trading_enabled else "AFTER_HOURS"
                         )
-                        status = "cap_reached"
+                        print(f"   🛡️ DRY_RUN ({mode_label}): Intent: BUY {ticker}")
+                        status = f"dry_run_buy_{mode_label.lower()}"
                     else:
-                        # 2. Final Multiplier Allocation
-                        base_unit = total_equity * 0.05  # Start with 5% base unit
+                        # 1. Check Concentration Cap (25%)
+                        current_ticker_val = 0.0
+                        for item in val_data["breakdown"]:
+                            if item["ticker"] == ticker:
+                                current_ticker_val = item["market_value"]
+                                break
 
-                        if is_low_exposure:
+                        concentration = (
+                            current_ticker_val / total_equity
+                            if total_equity > 0
+                            else 0.0
+                        )
+                        if concentration >= 0.25:
                             print(
-                                f"   🚀 Aggressive Mode: Low Exposure ({total_exposure:.1%}) | Doubling Unit."
+                                f"   🚫 {ticker}: Cap Reached ({concentration:.1%}). Skipping BUY."
                             )
-                            base_unit *= 2
-
-                        multiplier = 1.0 + max(0, float(sentiment_score or 0))
-                        allocation = base_unit * multiplier
-
-                        # Hard Cap at 25% of Equity (Total Position)
-                        room_left = (total_equity * 0.25) - current_ticker_val
-                        allocation = min(allocation, room_left)
-
-                        # Enforce global cash limit
-                        current_global_cash = portfolio_manager.get_cash_balance()
-                        allocation = min(allocation, current_global_cash)
-
-                        if allocation > 0:
-                            exec_result = execution_manager.place_order(
-                                ticker=ticker,
-                                action="BUY",
-                                quantity=0,
-                                price=current_price,
-                                cash_available=allocation,
-                            )
-                            status = f"executed_{exec_result.get('status', 'UNKNOWN')}"
+                            status = "cap_reached"
                         else:
-                            status = "allocation_zero"
+                            # 2. Final Multiplier Allocation
+                            base_unit = total_equity * 0.05  # Start with 5% base unit
+
+                            if is_low_exposure:
+                                print(
+                                    f"   🚀 Aggressive Mode: Low Exposure ({total_exposure:.1%}) | Doubling Unit."
+                                )
+                                base_unit *= 2
+
+                            multiplier = 1.0 + max(0, float(sentiment_score or 0))
+                            allocation = base_unit * multiplier
+
+                            # Hard Cap at 25% of Equity (Total Position)
+                            room_left = (total_equity * 0.25) - current_ticker_val
+                            allocation = min(allocation, room_left)
+
+                            # Enforce global cash limit
+                            current_global_cash = portfolio_manager.get_cash_balance()
+                            allocation = min(allocation, current_global_cash)
+
+                            if allocation > 0:
+                                exec_result = execution_manager.place_order(
+                                    ticker=ticker,
+                                    action="BUY",
+                                    quantity=0,
+                                    price=current_price,
+                                    cash_available=allocation,
+                                )
+                                status = (
+                                    f"executed_{exec_result.get('status', 'UNKNOWN')}"
+                                )
+                            else:
+                                status = "allocation_zero"
 
                 elif action == "SELL":
-                    exec_result = execution_manager.place_order(
-                        ticker=ticker,
-                        action="SELL",
-                        quantity=0,  # Sell all
-                        price=current_price,
-                    )
-                    status = f"executed_{exec_result.get('status', 'UNKNOWN')}"
+                    if not effective_trading_enabled:
+                        mode_label = (
+                            "TRADING_DISABLED" if not trading_enabled else "AFTER_HOURS"
+                        )
+                        print(f"   🛡️ DRY_RUN ({mode_label}): Intent: SELL {ticker}")
+                        status = f"dry_run_sell_{mode_label.lower()}"
+                    else:
+                        exec_result = execution_manager.place_order(
+                            ticker=ticker,
+                            action="SELL",
+                            quantity=0,  # Sell all
+                            price=current_price,
+                        )
+                        status = f"executed_{exec_result.get('status', 'UNKNOWN')}"
 
                 results.append(
                     {
