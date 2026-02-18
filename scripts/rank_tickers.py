@@ -2,8 +2,12 @@
 import os
 import asyncio
 import logging
+from dotenv import load_dotenv
 from google.cloud import bigquery
 from bot.ticker_ranker import TickerRanker
+
+# Load environment variables
+load_dotenv()
 
 # Configure Logging
 logging.basicConfig(level=logging.INFO)
