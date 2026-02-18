@@ -53,7 +53,14 @@ echo "🔄 Initializing Terraform Providers..."
 terraform init
 
 echo "🚀 Applying Infrastructure Blueprint..."
-# Note: This will now create the unified BigQuery schema with FX and Hurdle fields.
-terraform apply -auto-approve
+# Get Project ID from gcloud if not set
+if [ -z "$PROJECT_ID" ]; then
+    PROJECT_ID=$(gcloud config get-value project)
+fi
+
+# We force a revision update by passing a new timestamp
+terraform apply -auto-approve \
+    -var="project_id=$PROJECT_ID" \
+    -var="deploy_time=$(date +%s)"
 
 echo "✅ INFRASTRUCTURE READY: Project shells and analytics tier provisioned."

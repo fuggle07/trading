@@ -456,7 +456,17 @@ async def run_audit():
                 }
         elif exposure < 0.25:
             # Deployment Logic: If we have cash, buy the best thing available
-            if rising_star not in signals or signals[rising_star]["action"] != "BUY":
+            # BUT: Respect volatility and hygiene checks
+            existing_sig = signals.get(rising_star, {})
+            existing_action = existing_sig.get("action")
+            invalid_reasons = ["VOLATILE_IGNORE", "SELL", "SKIP"]
+            
+            # Check if the signal explicitly forbids trading
+            is_valid_candidate = True
+            if existing_sig.get("signal") in ["VOLATILE_IGNORE", "SELL"]:
+                 is_valid_candidate = False
+            
+            if is_valid_candidate and (rising_star not in signals or signals[rising_star]["action"] != "BUY"):
                 log_decision(
                     rising_star,
                     "BUY",
@@ -544,7 +554,7 @@ async def run_audit():
 
     # Performance Logging
     try:
-        from telemetry import log_performance
+        from bot.telemetry import log_performance
 
         final_conv_prices = {t: intel["price"] for t, intel in ticker_intel.items()}
         perf_metrics = portfolio_manager.calculate_total_equity(final_conv_prices)
