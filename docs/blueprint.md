@@ -16,25 +16,25 @@ The system is a cloud-native, event-driven trading bot designed to:
 ```mermaid
 graph TD
     subgraph "External APIs"
-        Alpaca[Alpaca API<br>(Market Data & Execution)]
-        Finnhub[Finnhub API<br>(News Sentiment)]
-        Alpha[Alpha Vantage<br>(Fundamental Data)]
-        Vertex[Vertex AI<br>(Gemini 2.0 Flash)]
+        Alpaca["Alpaca API<br>(Market Data & Execution)"]
+        Finnhub["Finnhub API<br>(News Sentiment)"]
+        Alpha["Alpha Vantage<br>(Fundamental Data)"]
+        Vertex["Vertex AI<br>(Gemini 2.0 Flash)"]
     end
 
     subgraph "Cloud Run Service (The Bot)"
-        Main[main.py<br>(Orchestrator)]
-        Signal[SignalAgent<br>(Strategy Logic)]
-        Exec[ExecutionManager<br>(Order Routing)]
-        Sent[SentimentAnalyzer<br>(AI Analysis)]
-        Fund[FundamentalAgent<br>(Value Analysis)]
+        Main["main.py<br>(Orchestrator)"]
+        Signal["SignalAgent<br>(Strategy Logic)"]
+        Exec["ExecutionManager<br>(Order Routing)"]
+        Sent["SentimentAnalyzer<br>(AI Analysis)"]
+        Fund["FundamentalAgent<br>(Value Analysis)"]
     end
 
     subgraph "Google Cloud Data"
-        BQ_Exec[(BigQuery<br>executions)]
-        BQ_Port[(BigQuery<br>portfolio)]
-        BQ_Logs[(BigQuery<br>watchlist_logs)]
-        BQ_Perf[(BigQuery<br>performance_logs)]
+        BQ_Exec[("BigQuery<br>executions")]
+        BQ_Port[("BigQuery<br>portfolio")]
+        BQ_Logs[("BigQuery<br>watchlist_logs")]
+        BQ_Perf[("BigQuery<br>performance_logs")]
     end
 
     %% Data Flow
