@@ -142,6 +142,7 @@ async def fetch_historical_data(ticker):
             )
 
             print(f"[{ticker}] 📊 Alpaca Data Fetched: {len(df)} rows")
+            print(f"[{ticker}] 📊 Alpaca Data Fetched: {len(df)} rows")
             return df_norm
 
         except Exception as e:
