@@ -341,6 +341,7 @@ async def run_audit():
                     "deep_health_reason": str(deep_health[1]),
                     "confidence": int(confidence or 0),
                     "indicators": indicators,
+                    "history_res": intel_results[4],  # Store raw result for Phase 2 diagnostics
                 }
                 # Log to Watchlist (Persistence)
                 log_watchlist_data(bq_client, table_id, ticker, price, sentiment_score)
@@ -392,14 +393,15 @@ async def run_audit():
                 signals[ticker] = sig
         else:
             # Identify why indicators are missing
-            # intel_results[4] is the history_task result
-            history_res = intel_results[4]
+            history_res = intel.get("history_res")
             if isinstance(history_res, Exception):
                 reason_msg = f"Alpaca API Error: {type(history_res).__name__}"
             elif history_res is None:
                 reason_msg = "Alpaca returned None (Check API Keys/Feed)"
             else:
-                reason_msg = f"Insufficient history ({len(history_res)} rows)"
+                # If we get here and indicators is None, it's likely calculate_technical_indicators returned None
+                rows = len(history_res) if history_res is not None else 0
+                reason_msg = f"Insufficient history ({rows} rows)"
 
             log_decision(
                 ticker,
