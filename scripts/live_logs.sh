@@ -26,8 +26,8 @@ fi
 
 # 1. Fetch recent logs first (Immediate Feedback)
 echo "📜 Fetching last 10 logs..."
-gcloud logging read "$FILTER" --project "$PROJECT_ID" --limit=10 --order=asc --format=json | \
-  jq -r '.[] | .textPayload // .jsonPayload.message // empty'
+gcloud logging read "$FILTER" --project "$PROJECT_ID" --limit=10 --order=desc --format=json | \
+  jq -r 'reverse | .[] | .textPayload // .jsonPayload.message // empty'
 
 echo "🔴 Switching to LIVE TAIL..."
 
