@@ -32,6 +32,6 @@ gcloud logging read "$FILTER" --project "$PROJECT_ID" --limit=10 --order=desc --
 echo "🔴 Switching to LIVE TAIL..."
 
 # 2. Stream live logs (Unbuffered)
+echo "🔍 Debug Mode: Raw JSON output (to rule out jq buffering)..."
 export PYTHONUNBUFFERED=1
-gcloud beta logging tail "$FILTER" --project "$PROJECT_ID" --format=json | \
-  jq -r --unbuffered '.textPayload // .jsonPayload.message // empty'
+gcloud beta logging tail "$FILTER" --project "$PROJECT_ID" --format=json
