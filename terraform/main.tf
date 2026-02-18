@@ -799,10 +799,10 @@ resource "google_monitoring_alert_policy" "bot_failure" {
   conditions {
     display_name = "Cloud Run 5xx Errors"
     condition_threshold {
-      filter          = "resource.type = \"cloud_run_revision\" AND resource.labels.service_name = \"trading-audit-agent\" AND metric.type = \"run.googleapis.com/request_count\" AND metric.label.response_code_class = \"5xx\""
+      filter          = "resource.type = \"cloud_run_revision\" AND resource.labels.service_name = \"${google_cloud_run_v2_service.trading_bot.name}\" AND metric.type = \"run.googleapis.com/request_count\" AND metric.labels.response_code_class = \"5xx\""
       duration        = "60s"
       comparison      = "COMPARISON_GT"
-      threshold_value = 0
+      threshold_value = 0 # Any 5xx error triggers it
 
       aggregations {
         alignment_period   = "60s"
@@ -813,6 +813,39 @@ resource "google_monitoring_alert_policy" "bot_failure" {
 
   documentation {
     content = "The trading bot is returning 5xx errors. Check Cloud Run logs immediately for crashes or exceptions."
+  }
+}
+
+# C. Budget Alert ($10.00)
+resource "google_billing_budget" "budget_alert" {
+  billing_account = var.billing_account
+  display_name    = "Trading Bot Monthly Budget"
+
+  budget_filter {
+    projects = ["projects/${var.project_id}"]
+  }
+
+  amount {
+    specified_amount {
+      currency_code = "USD"
+      units         = "10"
+    }
+  }
+
+  threshold_rules {
+    threshold_percent = 0.5
+  }
+  threshold_rules {
+    threshold_percent = 0.9
+  }
+  threshold_rules {
+    threshold_percent = 1.0
+  }
+
+  all_updates_rule {
+    monitoring_notification_channels = [
+      google_monitoring_notification_channel.email_me.id
+    ]
   }
 }
 output "dashboard_url" {
