@@ -1,7 +1,9 @@
 # main.tf - Unified Aberfeldie Node Blueprint (v3.4)
 provider "google" {
-  project = var.project_id
-  region  = "us-central1"
+  project               = var.project_id
+  region                = "us-central1"
+  user_project_override = true
+  billing_project       = var.project_id
 }
 
 variable "project_id" {
