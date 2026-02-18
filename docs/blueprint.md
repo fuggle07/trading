@@ -75,7 +75,7 @@ graph TD
 - **Logic**: Hybrid Technical + Fundamental(Sentiment).
 - **Strategy Pipeline**:
     1.  **Holiday Filter**: Skips processing if the market is closed.
-    2.  **Volatility Gate**: Skips trading if price volatility (Bollinger Band width) > threshold (Default 25%).
+    2.  **Volatility Gate**: Skips trading if price volatility (Bollinger Band width) > threshold (Default 35%).
     3.  **Technical Signal**:
         - **Bollinger Bands**: 
             - BUY if `Price <= Lower Band`.

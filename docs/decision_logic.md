@@ -20,7 +20,7 @@ The bot gathers four primary data points for every ticker in its watchlist:
 When the bot evaluates a stock (e.g., NVDA), it follows this step-by-step logic:
 
 ### Step A: The Volatility Filter
-*   **Check**: Are the price swings too wild? (Band Width > 25%)
+*   **Check**: Are the price swings too wild? (Band Width > 35%)
 *   **Action**: If yes, the bot **SITS OUT**. It avoids "catching a falling knife" or buying into extreme chaos.
 
 ### Step B: The Priority Override (Exit Rules)

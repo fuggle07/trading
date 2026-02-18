@@ -655,7 +655,7 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                     filter = "metric.type=\"logging.googleapis.com/user/trading/paper_equity\""
                     aggregation = {
                       alignmentPeriod  = "60s"
-                      perSeriesAligner = "ALIGN_MEAN"
+                      perSeriesAligner = "ALIGN_PERCENTILE_50"
                     }
                   }
                 }
@@ -675,7 +675,7 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                   timeSeriesQuery = {
                     timeSeriesFilter = {
                       filter = "metric.type=\"logging.googleapis.com/user/trading/total_cash\""
-                      aggregation = { alignmentPeriod = "60s", perSeriesAligner = "ALIGN_MEAN" }
+                      aggregation = { alignmentPeriod = "60s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                     }
                   }
                   targetAxis = "Y1"
@@ -686,7 +686,7 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                   timeSeriesQuery = {
                     timeSeriesFilter = {
                       filter = "metric.type=\"logging.googleapis.com/user/trading/market_value\""
-                      aggregation = { alignmentPeriod = "60s", perSeriesAligner = "ALIGN_MEAN" }
+                      aggregation = { alignmentPeriod = "60s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                     }
                   }
                   targetAxis = "Y1"
@@ -708,7 +708,7 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                 timeSeriesQuery = {
                   timeSeriesFilter = {
                     filter = "metric.type=\"logging.googleapis.com/user/trading/exposure_pct\""
-                    aggregation = { alignmentPeriod = "60s", perSeriesAligner = "ALIGN_MEAN" }
+                    aggregation = { alignmentPeriod = "60s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                   }
                 }
               }]
@@ -728,7 +728,7 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                     filter = "metric.type=\"logging.googleapis.com/user/trading/prediction_confidence\""
                     aggregation = {
                       alignmentPeriod  = "600s"
-                      perSeriesAligner = "ALIGN_MEAN"
+                      perSeriesAligner = "ALIGN_PERCENTILE_50"
                       groupByFields    = ["metric.label.ticker"]
                     }
                   }
