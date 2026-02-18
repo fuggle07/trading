@@ -9,6 +9,7 @@ from alpaca.trading.enums import OrderSide, TimeInForce
 # Configure logging
 logger = logging.getLogger("execution-manager")
 
+
 class ExecutionManager:
     """
     Handles order execution, validation against portfolio, and logging.
@@ -48,7 +49,15 @@ class ExecutionManager:
         else:
             logger.warning("PROJECT_ID not found. BigQuery logging disabled.")
 
-    def place_order(self, ticker, action, quantity, price, cash_available=0.0, reason="Strategy Signal"):
+    def place_order(
+        self,
+        ticker,
+        action,
+        quantity,
+        price,
+        cash_available=0.0,
+        reason="Strategy Signal",
+    ):
         """
         Executes an order if funds/holdings allow, then logs it.
         Now supports Unified Cash Pool via 'cash_available' parameter.
@@ -132,7 +141,9 @@ class ExecutionManager:
                     time_in_force=TimeInForce.DAY,
                 )
 
-                logger.info(f"[{ticker}] 🚀 Submitting Alpaca Order: {side} {quantity} {ticker}")
+                logger.info(
+                    f"[{ticker}] 🚀 Submitting Alpaca Order: {side} {quantity} {ticker}"
+                )
                 order = self.trading_client.submit_order(order_data)
                 alpaca_order_id = str(order.id)
                 logger.info(

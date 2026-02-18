@@ -6,8 +6,10 @@ from typing import List, Dict
 from google.cloud import bigquery
 import finnhub
 from sentiment_analyzer import SentimentAnalyzer
+from feedback_agent import FeedbackAgent
 
 logger = logging.getLogger("TickerRanker")
+
 
 class TickerRanker:
     def __init__(self, project_id: str, bq_client: bigquery.Client):
@@ -19,6 +21,7 @@ class TickerRanker:
             finnhub.Client(api_key=self.finnhub_key) if self.finnhub_key else None
         )
         self.table_id = f"{project_id}.trading_data.ticker_rankings"
+        self.feedback_agent = FeedbackAgent(project_id=project_id, bq_client=bq_client)
 
     async def fetch_overnight_news(self, ticker: str) -> List[Dict]:
         """Fetch news from the last 24 hours."""
@@ -52,7 +55,7 @@ class TickerRanker:
             logger.error(f"Error fetching news for {ticker}: {e}")
             return []
 
-    async def analyze_ticker(self, ticker: str) -> Dict:
+    async def analyze_ticker(self, ticker: str, lessons: str = "") -> Dict:
         """Analyze overnight news and get confidence score from Gemini."""
         news_list = list(await self.fetch_overnight_news(ticker))
         volume = len(news_list)
@@ -71,6 +74,7 @@ class TickerRanker:
 
         prompt = f"""
         Analyze the following overnight news headlines for {ticker}:
+        {lessons}
 
         {news_text}
 
@@ -87,8 +91,11 @@ class TickerRanker:
 
         try:
             import asyncio
+
             response = await asyncio.wait_for(
-                asyncio.to_thread(self.sentiment_analyzer.model.generate_content, prompt),
+                asyncio.to_thread(
+                    self.sentiment_analyzer.model.generate_content, prompt
+                ),
                 timeout=30,
             )
             text = response.text.strip()
@@ -152,7 +159,13 @@ class TickerRanker:
     async def rank_and_log(self, tickers: List[str]):
         """Rank tickers and log to BigQuery."""
         logger.info(f"Starting ticker ranking for {tickers}")
-        tasks = [self.analyze_ticker(t) for t in tickers]
+
+        # Fetch Hard-Learned Lessons
+        lessons = await self.feedback_agent.get_recent_lessons(limit=3)
+        if lessons:
+            logger.info("🧠 Injecting lessons from memory into Gemini...")
+
+        tasks = [self.analyze_ticker(t, lessons) for t in tickers]
         results = await asyncio.gather(*tasks)
         self.log_ranking_to_bq(results)
         return results

@@ -5,6 +5,7 @@ from vertexai.generative_models import GenerativeModel, HarmCategory, HarmBlockT
 
 logger = logging.getLogger(__name__)
 
+
 class SentimentAnalyzer:
     def __init__(self, project_id: str, location: str = "us-central1"):
         self.project_id = project_id
@@ -21,7 +22,9 @@ class SentimentAnalyzer:
         except Exception as e:
             logger.error(f"❌ Failed to initialize Vertex AI: {e}")
 
-    async def analyze_news(self, ticker: str, news_items: list) -> float:
+    async def analyze_news(
+        self, ticker: str, news_items: list, lessons: str = ""
+    ) -> float:
         """
         Analyzes a list of news items and returns a sentiment score from -1.0 to 1.0.
         Returns 0.0 if analysis fails or no news provided.
@@ -30,7 +33,6 @@ class SentimentAnalyzer:
             return 0.0
 
         # Limit to top 5 news items to fit context window efficiently and stay relevant
-        # Assuming news_items are sorted by relevance/recency
         top_news = news_items[:5]
 
         news_text = "\n\n".join(
@@ -43,6 +45,7 @@ class SentimentAnalyzer:
         prompt = f"""
         You are a financial sentiment analysis expert.
         Analyze the following news headlines and summaries for the stock '{ticker}'.
+        {lessons}
 
         News Data:
         {news_text}
@@ -66,6 +69,7 @@ class SentimentAnalyzer:
             }
 
             import asyncio
+
             response = await asyncio.wait_for(
                 asyncio.to_thread(
                     self.model.generate_content,

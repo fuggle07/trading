@@ -327,6 +327,21 @@ resource "google_bigquery_table" "fundamental_cache" {
 EOF
 }
 
+resource "google_bigquery_table" "learning_insights" {
+  dataset_id          = google_bigquery_dataset.trading_data.dataset_id
+  table_id            = "learning_insights"
+  deletion_protection = false
+
+  schema = <<EOF
+[
+  { "name": "timestamp", "type": "TIMESTAMP", "mode": "REQUIRED" },
+  { "name": "ticker", "type": "STRING", "mode": "REQUIRED" },
+  { "name": "lesson", "type": "STRING", "mode": "REQUIRED" },
+  { "name": "category", "type": "STRING", "mode": "NULLABLE", "description": "e.g., 'Macro Ignore', 'Over-reaction', 'Sector Correlation'" }
+]
+EOF
+}
+
 # 2. Harden IAM for the Bot
 # The bot now needs to run Queries (Job User) and Update data (Data Editor)
 resource "google_project_iam_member" "bot_bq_job_user" {
@@ -443,6 +458,23 @@ resource "google_cloud_scheduler_job" "audit_trigger" {
   }
 }
 
+resource "google_cloud_scheduler_job" "hindsight_trigger" {
+  name             = "trading-hindsight-reflection"
+  description      = "Post-market hindsight reflection (6:00 PM ET)"
+  schedule         = "0 18 * * 1-5"
+  time_zone        = "America/New_York"
+  attempt_deadline = "320s"
+
+  http_target {
+    http_method = "POST"
+    uri         = "${google_cloud_run_v2_service.trading_bot.uri}/run-hindsight"
+
+    oidc_token {
+      service_account_email = google_service_account.bot_sa.email
+      audience              = google_cloud_run_v2_service.trading_bot.uri
+    }
+  }
+}
 resource "google_logging_metric" "paper_equity" {
   name   = "trading/paper_equity"
   filter = "resource.type=\"cloud_run_revision\" AND jsonPayload.message=~\"Logged Performance\""
