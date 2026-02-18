@@ -24,16 +24,20 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TERRAFORM_DIR="$SCRIPT_DIR/../terraform"
 
+# 4. Build & Push Container
+echo "🐳 Building and Pushing Docker Container..."
+# Get the Project ID from the environment or tfvars if possible, or assume explicit
+# Since this is a script, we can rely on gcloud config or pass it in.
+# For simplicity in this environment, we use 'gcloud builds submit' which handles the build and push to GCR/GAR.
+
+# We need to be in the root of the repo
+cd "$SCRIPT_DIR/.."
+gcloud builds submit --tag us-central1-docker.pkg.dev/utopian-calling-429014-r9/trading-node-repo/trading-bot:latest .
+
+# 5. Infrastructure Deployment
 echo "📂 Navigating to: $TERRAFORM_DIR"
 cd "$TERRAFORM_DIR" || { echo "❌ ERROR: Terraform directory not found at $TERRAFORM_DIR"; exit 1; }
 
-# 3. Validation Gate
-if [ ! -f "main.tf" ]; then
- echo "❌ ERROR: main.tf not found in $(pwd). Deployment aborted."
- exit 1
-fi
-
-# 4. Initialization & Execution
 echo "🔄 Initializing Terraform Providers..."
 terraform init
 
