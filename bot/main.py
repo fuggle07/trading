@@ -458,13 +458,25 @@ async def run_audit():
             # Deployment Logic: If we have cash, buy the best thing available
             # BUT: Respect volatility and hygiene checks
             existing_sig = signals.get(rising_star, {})
-            existing_action = existing_sig.get("action")
-            invalid_reasons = ["VOLATILE_IGNORE", "SELL", "SKIP"]
+            existing_action = existing_sig.get("action", "IDLE")
             
+            # Extract technical signal from meta if available
+            meta = existing_sig.get("meta", {})
+            tech_signal = meta.get("technical", "UNKNOWN")
+
             # Check if the signal explicitly forbids trading
             is_valid_candidate = True
-            if existing_sig.get("signal") in ["VOLATILE_IGNORE", "SELL"]:
+            
+            # Reject if:
+            # 1. Action is explicitly SELL
+            # 2. Technical signal is VOLATILE_IGNORE
+            # 3. Action is IDLE (meaning no buy signal was generated normally)
+            if existing_action == "SELL" or tech_signal == "VOLATILE_IGNORE":
                  is_valid_candidate = False
+            
+            # We also generally shouldn't override IDLE unless we are VERY sure, 
+            # but 'Initial Deployment' is meant to be aggressive. 
+            # However, if it was IDLE because of volatility, tech_signal would catch it.
             
             if is_valid_candidate and (rising_star not in signals or signals[rising_star]["action"] != "BUY"):
                 log_decision(
