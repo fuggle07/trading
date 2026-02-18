@@ -25,7 +25,5 @@ if ! gcloud components list --filter="id=beta AND state.name=Installed" --format
 fi
 
 # We use --format=json and jq to cleanly extract the message without extra whitespace.
-# Suppress python warnings from gcloud SDK (pkg_resources deprecation, proto escape sequences)
-export PYTHONWARNINGS="ignore"
 gcloud beta logging tail "$FILTER" --project "$PROJECT_ID" --format=json | \
   jq -r --unbuffered '.textPayload // .jsonPayload.message // empty'
