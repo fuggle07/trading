@@ -1,6 +1,6 @@
 # Aberfeldie Trading Node: Nasdaq Concurrent Auditor
 
-An autonomous, agentic trading node deployed on Google Cloud Platform, designed to manage **$100,000 USD** of capital while auditing performance against a **6.0% mortgage offset hurdle**.
+An autonomous, agentic trading node deployed on Google Cloud Platform, designed to manage **$100,000 USD** of capital while auditing performance against a **5.2% mortgage offset hurdle**.
 
 ---
 
@@ -12,7 +12,7 @@ The Aberfeldie Node is a high-frequency audit agent that monitors Nasdaq market 
 * **Hurdle Telemetry**: Real-time calculation of opportunity cost (6.0% home loan interest).
 * **AI Conviction**: Deep news analysis via Gemini 2.0 Flash with score/confidence filtering.
 * **Portfolio Rebalancing**: Coordinated "Conviction Swaps" to rotate capital among laggards and stars.
-* **Tax Guardrails**: Automated 35% CGT buffer calculation for Australian tax compliance.
+* **Tax Efficiency**: Automated 35% interest deductibility calculation for tax-optimized hurdle benchmarking.
 * **Agentic Execution**: Flask-based logic engine running on Cloud Run v2 with Alpaca Paper Trading.
 
 ---

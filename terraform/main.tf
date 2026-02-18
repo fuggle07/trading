@@ -11,9 +11,9 @@ variable "project_id" {
   description = "The GCP Project ID"
 }
 variable "mortgage_rate" {
-  description = "The annual mortgage interest rate (e.g., 0.06 for 6%)"
+  description = "The annual mortgage interest rate (e.g., 0.52 for 5.2%)"
   type        = number
-  default     = 0.0514 # NAB actual 20260129
+  default     = 0.052 # NAB actual
 }
 
 # 1. SECRET MANAGEMENT TIER

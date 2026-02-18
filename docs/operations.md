@@ -52,9 +52,9 @@ export ALPHA_VANTAGE_KEY="your_key"
 The system operates under strict financial performance hurdles:
 
 *   **Capital Pool**: **$100,000 USD** (Paper Trading / Simulation).
-*   **Hurdle Rate**: **6.0%** Annualized (Home Loan Offset Benchmark).
+*   **Hurdle Rate**: **5.2%** Annualized (Home Loan Offset Benchmark).
     *   The bot must outperform this rate to justify its deployed capital.
-*   **Tax Buffer**: **35%** of realized gains are conceptually set aside for CGT.
+*   **Tax Deductibility**: **35%** deductibility of interest on capital, lowering the effective hurdle.
 
 ---
 

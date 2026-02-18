@@ -1,8 +1,8 @@
+import os
 from google.cloud import bigquery
-
 # Hardcoded for safety/simplicity in this context, or load from env
-PROJECT_ID = "utopian-calling-429014-r9"
-DATASET_ID = "trading_data" # Corrected from 'trading_processed'
+PROJECT_ID = os.environ.get("PROJECT_ID", "utopian-calling-429014-r9")
+DATASET_ID = "trading_data"
 TABLE_ID = "portfolio"
 
 def reset_portfolio():
@@ -27,9 +27,9 @@ def reset_portfolio():
         # New: Seed the Global Cash Pool
         seed_query = f"""
         INSERT INTO `{table_ref}` (asset_name, holdings, cash_balance, avg_price, last_updated)
-        VALUES ('USD', 0.0, 50000.0, 0.0, CURRENT_TIMESTAMP())
+        VALUES ('USD', 0.0, 100000.0, 0.0, CURRENT_TIMESTAMP())
         """
-        print("🌱 Seeding Global Cash Pool (USD) with $50,000...")
+        print("🌱 Seeding Global Cash Pool (USD) with $100,000...")
         client.query(seed_query, location="us-central1").result()
 
         print("✅ SUCCESS: Global Cash Pool Initialized.")
