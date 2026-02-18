@@ -17,15 +17,20 @@ class TickerRanker:
         self.bq_client = bq_client
         self.sentiment_analyzer = SentimentAnalyzer(project_id=project_id)
         self.finnhub_key = os.environ.get("EXCHANGE_API_KEY")
-        self.finnhub_client = (
-            finnhub.Client(api_key=self.finnhub_key) if self.finnhub_key else None
-        )
+        if self.finnhub_key:
+            logger.info(f"✅ Finnhub Key loaded: {self.finnhub_key[:4]}...")
+            self.finnhub_client = finnhub.Client(api_key=self.finnhub_key)
+        else:
+            logger.warning("❌ Finnhub Key NOT found in environment.")
+            self.finnhub_client = None
+
         self.table_id = f"{project_id}.trading_data.ticker_rankings"
         self.feedback_agent = FeedbackAgent(project_id=project_id, bq_client=bq_client)
 
     async def fetch_overnight_news(self, ticker: str) -> List[Dict]:
         """Fetch news from the last 24 hours."""
         if not self.finnhub_client:
+            logger.warning(f"[{ticker}] Skipping news fetch (No Finnhub Client)")
             return []
 
         now = datetime.now(timezone.utc)
@@ -34,11 +39,10 @@ class TickerRanker:
         try:
             start_date = yesterday.strftime("%Y-%m-%d")
             end_date = now.strftime("%Y-%m-%d")
+            
+            logger.info(f"[{ticker}] Fetching news from {start_date} to {end_date}")
 
             client = self.finnhub_client
-            if not client:
-                return []
-
             news = await asyncio.wait_for(
                 asyncio.to_thread(
                     client.company_news, ticker, _from=start_date, to=end_date
@@ -47,12 +51,13 @@ class TickerRanker:
             )
 
             if isinstance(news, str) and "limit reached" in news.lower():
-                logger.warning(f"[{ticker}] ⚠️ Finnhub Rate Limit hit for {ticker}")
+                logger.warning(f"[{ticker}] ⚠️ Finnhub Rate Limit hit")
                 return []
-
+            
+            logger.info(f"[{ticker}] Found {len(news)} news items.")
             return news
         except Exception as e:
-            logger.error(f"[{ticker}] Error fetching news for {ticker}: {e}")
+            logger.error(f"[{ticker}] Error fetching news: {e}")
             return []
 
     async def analyze_ticker(self, ticker: str, lessons: str = "") -> Dict:
