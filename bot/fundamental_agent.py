@@ -5,9 +5,8 @@ import os
 import json
 from datetime import datetime
 
-# Configure Logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("FundamentalAgent")
+from datetime import datetime
+from telemetry import logger
 
 PROJECT_ID = os.getenv("PROJECT_ID") or os.getenv("GOOGLE_CLOUD_PROJECT")
 

@@ -3,7 +3,7 @@ import logging
 import vertexai
 from vertexai.generative_models import GenerativeModel, HarmCategory, HarmBlockThreshold
 
-logger = logging.getLogger(__name__)
+from telemetry import logger
 
 
 class SentimentAnalyzer:

@@ -18,4 +18,6 @@ FILTER="resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"
 
 echo "📡 Tailing logs for $SERVICE_NAME..."
 echo "💡 Tip: Use 'live_logs.sh | grep DECISION' to isolate trading actions."
-gcloud beta logging tail "$FILTER" --project "$PROJECT_ID" --format="value(textPayload,jsonPayload.message)"
+# We use --format=json and jq to cleanly extract the message without extra whitespace.
+gcloud beta logging tail "$FILTER" --project "$PROJECT_ID" --format=json | \
+  jq -r --unbuffered '.textPayload // .jsonPayload.message // empty'
