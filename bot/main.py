@@ -346,7 +346,7 @@ async def run_audit():
                 # Log to Watchlist (Persistence)
                 log_watchlist_data(bq_client, table_id, ticker, price, sentiment_score)
         except Exception as e:
-            print(f"[{ticker}]       ⚠️ Failed to gather intel for {ticker}: {e}")
+            print(f"[{ticker}] ⚠️ Failed to gather intel for {ticker}: {e}")
 
         await asyncio.sleep(0.5)  # Rate limit spread
 
@@ -454,41 +454,80 @@ async def run_audit():
                     "reason": "CONVICTION_ROTATION",
                     "price": ticker_intel[rising_star]["price"],
                 }
-        elif exposure < 0.25:
-            # Deployment Logic: If we have cash, buy the best thing available
-            # BUT: Respect volatility and hygiene checks
-            existing_sig = signals.get(rising_star, {})
-            existing_action = existing_sig.get("action", "IDLE")
-            
-            # Extract technical signal from meta if available
-            meta = existing_sig.get("meta", {})
-            tech_signal = meta.get("technical", "UNKNOWN")
+    elif exposure < 0.25:
+        # Deployment Logic: If we have cash, buy the best thing available
+        # BUT: Respect volatility and hygiene checks
+        existing_sig = signals.get(rising_star, {})
+        existing_action = existing_sig.get("action", "IDLE")
+        
+        # Extract technical signal from meta if available
+        meta = existing_sig.get("meta", {})
+        tech_signal = meta.get("technical", "UNKNOWN")
 
-            # Check if the signal explicitly forbids trading
-            is_valid_candidate = True
+        # Check if the signal explicitly forbids trading
+        is_valid_candidate = True
+        
+        # Reject if:
+        # 1. Action is explicitly SELL
+        # 2. Technical signal is VOLATILE_IGNORE
+        # 3. Action is IDLE (meaning no buy signal was generated normally)
+        if existing_action == "SELL" or tech_signal == "VOLATILE_IGNORE":
+                is_valid_candidate = False
+        
+        # We also generally shouldn't override IDLE unless we are VERY sure, 
+        # but 'Initial Deployment' is meant to be aggressive. 
+        # However, if it was IDLE because of volatility, tech_signal would catch it.
             
-            # Reject if:
-            # 1. Action is explicitly SELL
-            # 2. Technical signal is VOLATILE_IGNORE
-            # 3. Action is IDLE (meaning no buy signal was generated normally)
-            if existing_action == "SELL" or tech_signal == "VOLATILE_IGNORE":
-                 is_valid_candidate = False
+        if is_valid_candidate and (rising_star not in signals or signals[rising_star]["action"] != "BUY"):
+                # Check for volatility
+                if tech_signal == "VOLATILE_IGNORE":
+                    print(f"⚠️ Initial Deployment: Skipping {rising_star} due to high volatility despite high conviction.")
+                elif existing_action == "SELL":
+                    print(f"⚠️ Initial Deployment: Skipping {rising_star} due to SELL signal.")
+                else: 
+                    log_decision(
+                        rising_star,
+                        "BUY",
+                        f"Initial Deployment: High Conviction Rising Star ({star_conf}%)",
+                    )
+                    signals[rising_star] = {
+                        "action": "BUY",
+                        "reason": "INITIAL_DEPLOYMENT",
+                        "price": ticker_intel[rising_star]["price"],
+                    }
+
+    # Fallback Deployment: If we still have low exposure and no valid rising star was bought
+    # Find the *next best* available candidate (conf > 60) that isn't volatile/sell
+    if exposure < 0.25 and not any(s.get("reason") == "INITIAL_DEPLOYMENT" for s in signals.values()):
+        best_deploy_candidate = None
+        best_deploy_conf = 0
+
+        for t in non_held_tickers:
+            intel = ticker_intel.get(t)
+            if not intel: continue
             
-            # We also generally shouldn't override IDLE unless we are VERY sure, 
-            # but 'Initial Deployment' is meant to be aggressive. 
-            # However, if it was IDLE because of volatility, tech_signal would catch it.
-            
-            if is_valid_candidate and (rising_star not in signals or signals[rising_star]["action"] != "BUY"):
-                log_decision(
-                    rising_star,
-                    "BUY",
-                    f"Initial Deployment: High Conviction Rising Star ({star_conf}%)",
-                )
-                signals[rising_star] = {
-                    "action": "BUY",
-                    "reason": "INITIAL_DEPLOYMENT",
-                    "price": ticker_intel[rising_star]["price"],
-                }
+            conf = intel.get("confidence", 0)
+            sig = signals.get(t, {})
+            action = sig.get("action", "IDLE")
+            tech_sig = sig.get("meta", {}).get("technical", "UNKNOWN")
+
+            # Must be > 60 conf, not volatile, not sell
+            if conf > 60 and action != "SELL" and tech_sig != "VOLATILE_IGNORE":
+                if conf > best_deploy_conf:
+                    best_deploy_conf = conf
+                    best_deploy_candidate = t
+        
+        if best_deploy_candidate:
+            log_decision(
+                best_deploy_candidate,
+                "BUY",
+                f"Initial Deployment: Best Available Candidate ({best_deploy_conf}%)",
+            )
+            signals[best_deploy_candidate] = {
+                "action": "BUY",
+                "reason": "INITIAL_DEPLOYMENT",
+                "price": ticker_intel[best_deploy_candidate]["price"],
+            }
 
     # --- Phase 3: Coordinated Execution ---
     print("🚀 Executing Coordinated Trades...")

@@ -13,7 +13,7 @@ class SignalAgent:
     def __init__(
         self,
         risk_profile: float = 0.02,
-        vol_threshold: float = 0.25,
+        vol_threshold: float = 0.35,
         hurdle_rate: float = 0.015,
     ):
         self.risk_per_trade = Decimal(str(risk_profile))
@@ -188,7 +188,8 @@ class SignalAgent:
         }
 
         # Log it using the correct signature: (ticker, action, reason, details)
-        reason = f"{dry_run_prefix}Signal: {technical_signal} | Sent: {sentiment:.2f} | Conf: {conviction}"
+        ai_score = fundamentals.get("score", 0)
+        reason = f"{dry_run_prefix}Signal: {technical_signal} | Sent: {sentiment:.2f} | AI: {ai_score} | Conf: {conviction}"
         log_decision(ticker, final_action, reason, decision)
 
         return decision
