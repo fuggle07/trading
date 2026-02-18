@@ -18,6 +18,14 @@ FILTER="resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"
 
 echo "📡 Tailing logs for $SERVICE_NAME..."
 echo "💡 Tip: Use 'live_logs.sh | grep DECISION' to isolate trading actions."
+# Check if "beta" component is installed (required for logging tail)
+if ! gcloud components list --filter="id=beta AND state.name=Installed" --format="value(id)" | grep -q beta; then
+  echo "📦 Installing required 'beta' component for gcloud..."
+  gcloud components install beta --quiet
+fi
+
 # We use --format=json and jq to cleanly extract the message without extra whitespace.
+# Suppress python warnings from gcloud SDK (pkg_resources deprecation, proto escape sequences)
+export PYTHONWARNINGS="ignore"
 gcloud beta logging tail "$FILTER" --project "$PROJECT_ID" --format=json | \
   jq -r --unbuffered '.textPayload // .jsonPayload.message // empty'
