@@ -32,15 +32,8 @@ if ! gcloud components list --filter="id=beta AND state.name=Installed" --format
   gcloud components install beta --quiet
 fi
 
-# 1. Fetch recent logs first (Immediate Feedback)
-echo "📜 Fetching last 10 logs..."
-
-if [[ "$OUTPUT_MODE" == "json" ]]; then
-  gcloud logging read "$FILTER" --project "$PROJECT_ID" --limit=10 --order=desc --format=json | jq 'reverse | .[]'
-else
-  gcloud logging read "$FILTER" --project "$PROJECT_ID" --limit=10 --order=desc --format=json | \
-    jq -r 'reverse | .[] | .textPayload // .jsonPayload.message // empty'
-fi
+# 1. Fetch recent logs message
+# (Disabled as requested)
 
 echo "🔴 Switching to LIVE TAIL..."
 
@@ -51,6 +44,6 @@ export PYTHONUNBUFFERED=1
 if [[ "$OUTPUT_MODE" == "json" ]]; then
   gcloud beta logging tail "$FILTER" --project "$PROJECT_ID" --format=json
 else
-  # Use simple value format which automatically handles nulls (cleaner than complex templates)
-  gcloud beta logging tail "$FILTER" --project "$PROJECT_ID" --format="value(textPayload,jsonPayload.message)"
+  # Use simple value format and remove internal tabs to avoid indentation issues
+  gcloud beta logging tail "$FILTER" --project "$PROJECT_ID" --format="value(textPayload,jsonPayload.message)" | sed 's/\t//g'
 fi
