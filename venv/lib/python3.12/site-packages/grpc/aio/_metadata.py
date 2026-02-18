@@ -14,13 +14,13 @@
 """Implementation of the metadata abstraction for gRPC Asyncio Python."""
 from collections import OrderedDict
 from collections import abc
-from typing import Any, Iterator, List, Optional, Tuple, Union
+from typing import Any, Iterator, List, Tuple, Union
 
 MetadataKey = str
 MetadataValue = Union[str, bytes]
 
 
-class Metadata(abc.Collection):  # noqa: PLW1641
+class Metadata(abc.Mapping):
     """Metadata abstraction for the asynchronous calls and interceptors.
 
     The metadata is a mapping from str -> List[str]
@@ -61,8 +61,7 @@ class Metadata(abc.Collection):  # noqa: PLW1641
         try:
             return self._metadata[key][0]
         except (ValueError, IndexError) as e:
-            error_msg = f"{key!r}"
-            raise KeyError(error_msg) from e
+            raise KeyError("{0!r}".format(key)) from e
 
     def __setitem__(self, key: MetadataKey, value: MetadataValue) -> None:
         """Calling metadata[<key>] = <value>
@@ -90,23 +89,6 @@ class Metadata(abc.Collection):  # noqa: PLW1641
             for value in values:
                 yield (key, value)
 
-    def keys(self) -> abc.KeysView:
-        return abc.KeysView(self)
-
-    def values(self) -> abc.ValuesView:
-        return abc.ValuesView(self)
-
-    def items(self) -> abc.ItemsView:
-        return abc.ItemsView(self)
-
-    def get(
-        self, key: MetadataKey, default: MetadataValue = None
-    ) -> Optional[MetadataValue]:
-        try:
-            return self[key]
-        except KeyError:
-            return default
-
     def get_all(self, key: MetadataKey) -> List[MetadataValue]:
         """For compatibility with other Metadata abstraction objects (like in Java),
         this would return all items under the desired <key>.
@@ -119,7 +101,7 @@ class Metadata(abc.Collection):  # noqa: PLW1641
     def __contains__(self, key: MetadataKey) -> bool:
         return key in self._metadata
 
-    def __eq__(self, other: object) -> bool:
+    def __eq__(self, other: Any) -> bool:
         if isinstance(other, self.__class__):
             return self._metadata == other._metadata
         if isinstance(other, tuple):

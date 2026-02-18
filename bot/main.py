@@ -4,17 +4,17 @@ import finnhub
 import pandas as pd
 from flask import Flask, jsonify
 from datetime import datetime, timezone, timedelta
-from telemetry import log_watchlist_data, log_decision
+from bot.telemetry import log_watchlist_data, log_decision
 import pytz
 import traceback
 from google.cloud import bigquery
-from signal_agent import SignalAgent
-from execution_manager import ExecutionManager
-from portfolio_manager import PortfolioManager
-from sentiment_analyzer import SentimentAnalyzer
-from fundamental_agent import FundamentalAgent
-from ticker_ranker import TickerRanker
-from feedback_agent import FeedbackAgent
+from bot.signal_agent import SignalAgent
+from bot.execution_manager import ExecutionManager
+from bot.portfolio_manager import PortfolioManager
+from bot.sentiment_analyzer import SentimentAnalyzer
+from bot.fundamental_agent import FundamentalAgent
+from bot.ticker_ranker import TickerRanker
+from bot.feedback_agent import FeedbackAgent
 
 # --- 1. INITIALIZATION ---
 app = Flask(__name__)
@@ -32,13 +32,15 @@ def check_api_key():
 
 
 # Initialize Clients
-finnhub_client = finnhub.Client(api_key=FINNHUB_KEY) if FINNHUB_KEY else None
-
-# Initialize BigQuery Client
-PROJECT_ID = os.environ.get("PROJECT_ID", "trading-12345")
+# Actual Project ID: utopian-calling-429014-r9
+PROJECT_ID = os.environ.get("PROJECT_ID", "utopian-calling-429014-r9")
 bq_client = bigquery.Client(project=PROJECT_ID)
 table_id = f"{PROJECT_ID}.trading_data.watchlist_logs"
 portfolio_table_id = f"{PROJECT_ID}.trading_data.portfolio"
+
+# Finnhub Client (Now checking EXCHANGE_API_KEY)
+FINNHUB_KEY = os.environ.get("EXCHANGE_API_KEY") or os.environ.get("FINNHUB_KEY")
+finnhub_client = finnhub.Client(api_key=FINNHUB_KEY) if FINNHUB_KEY else None
 
 # Initialize AI Sentiment Analyzer
 sentiment_analyzer = SentimentAnalyzer(PROJECT_ID)
@@ -352,6 +354,8 @@ async def run_audit():
     print("⚖️ Analyzing Portfolio Relative Strength...")
     val_data = portfolio_manager.calculate_total_equity(current_prices)
     total_equity = val_data.get("total_equity", 0.0)
+    total_market_value = val_data.get("total_market_value", 0.0)
+    exposure = total_market_value / total_equity if total_equity > 0 else 0.0
 
     # Identify Held vs Non-Held for Swapping
     held_tickers = {

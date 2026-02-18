@@ -2,7 +2,7 @@ import json
 import vertexai
 from vertexai.generative_models import GenerativeModel, HarmCategory, HarmBlockThreshold
 
-from telemetry import logger
+from bot.telemetry import logger
 
 
 class SentimentAnalyzer:

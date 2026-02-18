@@ -2,7 +2,7 @@ from decimal import Decimal
 from typing import Optional, Dict
 from datetime import datetime
 import pytz
-from telemetry import log_decision
+from bot.telemetry import log_decision
 
 
 class SignalAgent:

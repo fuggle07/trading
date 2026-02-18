@@ -3,7 +3,7 @@ from google.cloud import bigquery
 import os
 from datetime import datetime
 
-from telemetry import logger
+from bot.telemetry import logger
 
 PROJECT_ID = os.getenv("PROJECT_ID") or os.getenv("GOOGLE_CLOUD_PROJECT")
 

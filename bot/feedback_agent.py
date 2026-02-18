@@ -2,7 +2,7 @@ import logging
 from datetime import datetime, timezone
 from typing import List, Dict
 from google.cloud import bigquery
-from sentiment_analyzer import SentimentAnalyzer
+from bot.sentiment_analyzer import SentimentAnalyzer
 
 logger = logging.getLogger("FeedbackAgent")
 

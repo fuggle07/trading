@@ -5,8 +5,8 @@ from datetime import datetime, timedelta, timezone
 from typing import List, Dict
 from google.cloud import bigquery
 import finnhub
-from sentiment_analyzer import SentimentAnalyzer
-from feedback_agent import FeedbackAgent
+from bot.sentiment_analyzer import SentimentAnalyzer
+from bot.feedback_agent import FeedbackAgent
 
 logger = logging.getLogger("TickerRanker")
 
