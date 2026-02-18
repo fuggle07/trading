@@ -3,6 +3,7 @@ env.yaml
 secrets.json
 *.tfstate
 __pycache__/
+venv/
 .venv/
 terraform/.terraform/
 *.tfstate.backup
