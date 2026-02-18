@@ -854,6 +854,8 @@ resource "google_billing_budget" "budget_alert" {
       google_monitoring_notification_channel.email_me.id
     ]
   }
+
+  depends_on = [google_project_service.billing_budgets]
 }
 output "dashboard_url" {
   value       = "https://console.cloud.google.com/monitoring/dashboards/custom/${element(split("/", google_monitoring_dashboard.nasdaq_bot_dashboard.id), 3)}?project=${var.project_id}"
