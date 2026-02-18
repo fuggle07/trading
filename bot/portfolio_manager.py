@@ -2,6 +2,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class PortfolioManager:
     def __init__(self, bq_client, table_id):
         self.client = bq_client

@@ -55,8 +55,8 @@ EOF
 }
 
 resource "google_bigquery_table" "watchlist_logs" {
-  dataset_id = google_bigquery_dataset.trading_data.dataset_id
-  table_id   = "watchlist_logs"
+  dataset_id          = google_bigquery_dataset.trading_data.dataset_id
+  table_id            = "watchlist_logs"
   deletion_protection = false
 
   schema = <<EOF
@@ -83,17 +83,17 @@ resource "google_service_account" "bot_sa" {
 
 # Enable Vertex AI API for Gemini
 resource "google_project_service" "aiplatform" {
-  project = var.project_id
-  service = "aiplatform.googleapis.com"
+  project            = var.project_id
+  service            = "aiplatform.googleapis.com"
   disable_on_destroy = false
 }
 
 resource "google_cloud_run_v2_service" "trading_bot" {
-  name     = "trading-audit-agent"
-  location = "us-central1"
-  ingress  = "INGRESS_TRAFFIC_ALL"
+  name                = "trading-audit-agent"
+  location            = "us-central1"
+  ingress             = "INGRESS_TRAFFIC_ALL"
   deletion_protection = false
-  depends_on = [google_secret_manager_secret_version.initial_versions]
+  depends_on          = [google_secret_manager_secret_version.initial_versions]
 
   template {
     # 1. KEEP THE BOT ALIVE 24/7
@@ -168,7 +168,7 @@ resource "google_cloud_run_v2_service" "trading_bot" {
       }
       env {
         name = "ALPHA_VANTAGE_KEY"
-         value_source {
+        value_source {
           secret_key_ref {
             secret  = "ALPHA_VANTAGE_KEY"
             version = "latest"
@@ -181,7 +181,7 @@ resource "google_cloud_run_v2_service" "trading_bot" {
       }
       env {
         name  = "BASE_TICKERS"
-        value = "NVDA,AAPL,TSLA,MSFT,AMD"
+        value = "NVDA,AAPL,TSLA,MSFT,AMD,PLTR,COIN"
       }
       env {
         name  = "DEPLOY_TIME"
@@ -193,10 +193,10 @@ resource "google_cloud_run_v2_service" "trading_bot" {
 
 # 3. SECRET ACCESS (Re-confirming for completeness)
 resource "google_secret_manager_secret_iam_member" "secret_access" {
-  for_each  = toset(["FINNHUB_KEY", "IBKR_KEY", "APIFY_TOKEN", "ALPACA_API_KEY", "ALPACA_API_SECRET", "ALPHA_VANTAGE_KEY"])
-  secret_id = each.key
-  role      = "roles/secretmanager.secretAccessor"
-  member    = "serviceAccount:${google_service_account.bot_sa.email}"
+  for_each   = toset(["FINNHUB_KEY", "IBKR_KEY", "APIFY_TOKEN", "ALPACA_API_KEY", "ALPACA_API_SECRET", "ALPHA_VANTAGE_KEY"])
+  secret_id  = each.key
+  role       = "roles/secretmanager.secretAccessor"
+  member     = "serviceAccount:${google_service_account.bot_sa.email}"
   depends_on = [google_secret_manager_secret.secrets]
 }
 
@@ -237,8 +237,8 @@ output "service_url" {
 
 # 1. Create the Portfolio Table
 resource "google_bigquery_table" "portfolio" {
-  dataset_id = google_bigquery_dataset.trading_data.dataset_id
-  table_id   = "portfolio"
+  dataset_id          = google_bigquery_dataset.trading_data.dataset_id
+  table_id            = "portfolio"
   deletion_protection = false # Set to true for production high-res safety
 
   schema = <<EOF
@@ -274,8 +274,8 @@ EOF
 }
 
 resource "google_bigquery_table" "executions" {
-  dataset_id = google_bigquery_dataset.trading_data.dataset_id
-  table_id   = "executions"
+  dataset_id          = google_bigquery_dataset.trading_data.dataset_id
+  table_id            = "executions"
   deletion_protection = false
 
   schema = <<EOF
@@ -293,8 +293,8 @@ EOF
 }
 
 resource "google_bigquery_table" "ticker_rankings" {
-  dataset_id = google_bigquery_dataset.trading_data.dataset_id
-  table_id   = "ticker_rankings"
+  dataset_id          = google_bigquery_dataset.trading_data.dataset_id
+  table_id            = "ticker_rankings"
   deletion_protection = false
 
   schema = <<EOF
@@ -309,8 +309,8 @@ EOF
 }
 
 resource "google_bigquery_table" "fundamental_cache" {
-  dataset_id = google_bigquery_dataset.trading_data.dataset_id
-  table_id   = "fundamental_cache"
+  dataset_id          = google_bigquery_dataset.trading_data.dataset_id
+  table_id            = "fundamental_cache"
   deletion_protection = false
 
   schema = <<EOF
@@ -371,18 +371,18 @@ resource "google_bigquery_dataset_iam_member" "bot_bq_editor" {
 
 # Update the Dataset for Log Analytics
 resource "google_bigquery_dataset" "system_logs" {
-  dataset_id                  = "system_logs"
-  location                    = "us-central1"
-  description                 = "Aggregated master logs for the trading node"
+  dataset_id                 = "system_logs"
+  location                   = "us-central1"
+  description                = "Aggregated master logs for the trading node"
   delete_contents_on_destroy = false
 }
 
 # Update the Logging Bucket
 resource "google_logging_project_bucket_config" "audit_log_bucket" {
-    project        = var.project_id
-    location       = "us-central1"
-    retention_days = 365
-    bucket_id      = "system-audit-trail"
+  project        = var.project_id
+  location       = "us-central1"
+  retention_days = 365
+  bucket_id      = "system-audit-trail"
 }
 
 # Create the Master Log Sink
@@ -443,7 +443,7 @@ resource "google_cloud_scheduler_job" "audit_trigger" {
 
 # C. Log-Based Metrics (To bridge Logs -> Dashboard)
 resource "google_logging_metric" "paper_equity" {
-  name   = "trading/paper_equity"
+  name = "trading/paper_equity"
   # Updated filter to match the actual log message: "📈 Logged Performance: $..."
   # AND ensures the payload has the 'paper_equity' key we need.
   filter = "resource.type=\"cloud_run_revision\" AND jsonPayload.message=~\"Logged Performance\""
@@ -478,7 +478,7 @@ resource "google_logging_metric" "sentiment_score" {
     value_type  = "DISTRIBUTION"
     unit        = "1"
     labels {
-      key = "ticker"
+      key        = "ticker"
       value_type = "STRING"
     }
   }
@@ -516,10 +516,10 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                   timeSeriesFilter = {
                     filter = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"trading-audit-agent\" AND metric.type=\"run.googleapis.com/request_count\""
                     aggregation = {
-                      alignmentPeriod = "60s"
-                      perSeriesAligner = "ALIGN_RATE"
+                      alignmentPeriod    = "60s"
+                      perSeriesAligner   = "ALIGN_RATE"
                       crossSeriesReducer = "REDUCE_SUM"
-                      groupByFields = ["metric.label.response_code_class"]
+                      groupByFields      = ["metric.label.response_code_class"]
                     }
                   }
                 }
@@ -542,7 +542,7 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                   timeSeriesFilter = {
                     filter = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"trading-audit-agent\" AND metric.type=\"run.googleapis.com/request_latencies\""
                     aggregation = {
-                      alignmentPeriod = "60s"
+                      alignmentPeriod  = "60s"
                       perSeriesAligner = "ALIGN_PERCENTILE_99"
                     }
                   }
@@ -566,7 +566,7 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                   timeSeriesFilter = {
                     filter = "metric.type=\"logging.googleapis.com/user/trading/paper_equity\""
                     aggregation = {
-                      alignmentPeriod = "300s"
+                      alignmentPeriod  = "300s"
                       perSeriesAligner = "ALIGN_PERCENTILE_50"
                     }
                   }
@@ -590,9 +590,9 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                   timeSeriesFilter = {
                     filter = "metric.type=\"logging.googleapis.com/user/trading/sentiment_score\""
                     aggregation = {
-                      alignmentPeriod = "300s"
+                      alignmentPeriod  = "300s"
                       perSeriesAligner = "ALIGN_PERCENTILE_50"
-                      groupByFields = ["metric.label.ticker"]
+                      groupByFields    = ["metric.label.ticker"]
                     }
                   }
                 }
@@ -615,16 +615,16 @@ resource "google_monitoring_notification_channel" "email_me" {
 
 # B. Bot Failure Alert (Instead of Dead Man's Switch)
 resource "google_monitoring_alert_policy" "bot_failure" {
-  display_name = "CRITICAL: Aberfeldie Node Failure (5xx Errors)"
-  combiner     = "OR"
+  display_name          = "CRITICAL: Aberfeldie Node Failure (5xx Errors)"
+  combiner              = "OR"
   notification_channels = [google_monitoring_notification_channel.email_me.name]
 
   conditions {
     display_name = "Cloud Run 5xx Errors"
     condition_threshold {
-      filter     = "resource.type = \"cloud_run_revision\" AND resource.labels.service_name = \"trading-audit-agent\" AND metric.type = \"run.googleapis.com/request_count\" AND metric.label.response_code_class = \"5xx\""
-      duration   = "60s"
-      comparison = "COMPARISON_GT"
+      filter          = "resource.type = \"cloud_run_revision\" AND resource.labels.service_name = \"trading-audit-agent\" AND metric.type = \"run.googleapis.com/request_count\" AND metric.label.response_code_class = \"5xx\""
+      duration        = "60s"
+      comparison      = "COMPARISON_GT"
       threshold_value = 0
 
       aggregations {

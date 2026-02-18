@@ -5,6 +5,7 @@ PROJECT_ID = "utopian-calling-429014-r9"
 DATASET_ID = "trading_processed"
 TABLE_ID = "portfolio"
 
+
 def debug_portfolio():
     client = bigquery.Client(project=PROJECT_ID)
     table_ref = f"{PROJECT_ID}.{DATASET_ID}.{TABLE_ID}"
@@ -40,6 +41,7 @@ def debug_portfolio():
     print("-" * 80)
     print(f"TOTAL ROW COUNT: {len(results)}")
     print(f"TOTAL CASH SUM:  ${total_cash:,.2f}")
+
 
 if __name__ == "__main__":
     debug_portfolio()

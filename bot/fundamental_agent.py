@@ -11,11 +11,12 @@ logger = logging.getLogger("FundamentalAgent")
 
 PROJECT_ID = os.getenv("PROJECT_ID") or os.getenv("GOOGLE_CLOUD_PROJECT")
 
+
 class FundamentalAgent:
     def __init__(self):
         self.api_key = os.getenv("ALPHA_VANTAGE_KEY")
         self.bq_client = bigquery.Client(project=PROJECT_ID) if PROJECT_ID else None
-        
+
         if not self.api_key:
             logger.warning(
                 "⚠️ ALPHA_VANTAGE_KEY not found. Fundamental analysis disabled."
@@ -61,7 +62,7 @@ class FundamentalAgent:
         client = self.bq_client
         if not client:
             return None
-            
+
         query = f"""
             SELECT is_healthy, health_reason, is_deep_healthy, deep_health_reason
             FROM `{PROJECT_ID}.trading_data.fundamental_cache`
@@ -81,12 +82,14 @@ class FundamentalAgent:
             logger.error(f"⚠️ Cache lookup failed for {ticker}: {e}")
         return None
 
-    def _save_to_cache(self, ticker: str, is_healthy: bool, h_reason: str, is_deep: bool, d_reason: str):
+    def _save_to_cache(
+        self, ticker: str, is_healthy: bool, h_reason: str, is_deep: bool, d_reason: str
+    ):
         """Persists evaluation results to BigQuery."""
         client = self.bq_client
         if not client:
             return
-            
+
         rows_to_insert = [
             {
                 "timestamp": datetime.now().isoformat(),
@@ -94,7 +97,7 @@ class FundamentalAgent:
                 "is_healthy": is_healthy,
                 "health_reason": h_reason,
                 "is_deep_healthy": is_deep,
-                "deep_health_reason": d_reason
+                "deep_health_reason": d_reason,
             }
         ]
         try:
@@ -111,6 +114,7 @@ class FundamentalAgent:
         """
         # 1. Check Cache
         import asyncio
+
         cached = await asyncio.to_thread(self._get_cached_evaluation, ticker)
         if cached:
             logger.info(f"💾 Using cached health for {ticker}")
@@ -143,17 +147,32 @@ class FundamentalAgent:
             # to_thread if the library is blocking. wrap calls if needed.
             # FundamentalData is synchronous, so we should wrap these
             import asyncio
-            income_q, _ = await asyncio.to_thread(self.fd.get_income_statement_quarterly, symbol=ticker)
-            if isinstance(income_q, str) and "Alpha Vantage! Please consider" in income_q:
-                 logger.error(f"❌ Alpha Vantage Rate Limit Hit (Income Q): {income_q}")
-                 return None
-            
-            balance_a, _ = await asyncio.to_thread(self.fd.get_balance_sheet_annual, symbol=ticker)
-            if isinstance(balance_a, str) and "Alpha Vantage! Please consider" in balance_a:
-                 logger.error(f"❌ Alpha Vantage Rate Limit Hit (Balance A): {balance_a}")
-                 return None
-            
-            cash_a, _ = await asyncio.to_thread(self.fd.get_cash_flow_annual, symbol=ticker)
+
+            income_q, _ = await asyncio.to_thread(
+                self.fd.get_income_statement_quarterly, symbol=ticker
+            )
+            if (
+                isinstance(income_q, str)
+                and "Alpha Vantage! Please consider" in income_q
+            ):
+                logger.error(f"❌ Alpha Vantage Rate Limit Hit (Income Q): {income_q}")
+                return None
+
+            balance_a, _ = await asyncio.to_thread(
+                self.fd.get_balance_sheet_annual, symbol=ticker
+            )
+            if (
+                isinstance(balance_a, str)
+                and "Alpha Vantage! Please consider" in balance_a
+            ):
+                logger.error(
+                    f"❌ Alpha Vantage Rate Limit Hit (Balance A): {balance_a}"
+                )
+                return None
+
+            cash_a, _ = await asyncio.to_thread(
+                self.fd.get_cash_flow_annual, symbol=ticker
+            )
             return {"income_q": income_q, "balance_a": balance_a, "cash_a": cash_a}
         except Exception as e:
             logger.error(f"❌ Failed to fetch financial statements for {ticker}: {e}")
@@ -165,13 +184,14 @@ class FundamentalAgent:
         """
         # 1. Check Cache
         import asyncio
+
         cached = await asyncio.to_thread(self._get_cached_evaluation, ticker)
         if cached:
             return cached["is_deep_healthy"], cached["deep_health_reason"]
 
         # 2. Proceed to API
         is_healthy, h_reason = await self.evaluate_health(ticker)
-        
+
         stats = await self.get_financial_statements(ticker)
         if not stats or not stats.get("balance_a") or not stats.get("income_q"):
             is_deep, d_reason = True, "No Statement Data (Skipped)"
@@ -182,32 +202,58 @@ class FundamentalAgent:
                     is_deep, d_reason = True, "No Balance Sheet reports (Skipped)"
                 else:
                     recent_balance = reports[0]
-                    current_assets = float(recent_balance.get("totalCurrentAssets", 0) or 0)
-                    current_liabilities = float(recent_balance.get("totalCurrentLiabilities", 0) or 0)
-                    current_ratio = (current_assets / current_liabilities if current_liabilities > 0 else 1.0)
-                    total_liabilities = float(recent_balance.get("totalLiabilities", 0) or 0)
+                    current_assets = float(
+                        recent_balance.get("totalCurrentAssets", 0) or 0
+                    )
+                    current_liabilities = float(
+                        recent_balance.get("totalCurrentLiabilities", 0) or 0
+                    )
+                    current_ratio = (
+                        current_assets / current_liabilities
+                        if current_liabilities > 0
+                        else 1.0
+                    )
+                    total_liabilities = float(
+                        recent_balance.get("totalLiabilities", 0) or 0
+                    )
                     equity = float(recent_balance.get("totalShareholderEquity", 0) or 1)
                     de_ratio = total_liabilities / equity if equity != 0 else 0
                     q_reports = stats["income_q"].get("quarterlyReports", [])
                     if not q_reports:
-                        is_deep, d_reason = True, "No Income Statement reports (Skipped)"
+                        is_deep, d_reason = (
+                            True,
+                            "No Income Statement reports (Skipped)",
+                        )
                     else:
                         recent_income_q = q_reports[:4]
-                        net_incomes = [float(q.get("netIncome", 0) or 0) for q in recent_income_q]
+                        net_incomes = [
+                            float(q.get("netIncome", 0) or 0) for q in recent_income_q
+                        ]
                         is_profitable_trend = all(ni > 0 for ni in net_incomes)
 
                         if current_ratio < 0.8:
-                            is_deep, d_reason = False, f"Liquidity Crisis (CR {current_ratio:.2f})"
+                            is_deep, d_reason = (
+                                False,
+                                f"Liquidity Crisis (CR {current_ratio:.2f})",
+                            )
                         elif de_ratio > 3.0:
-                            is_deep, d_reason = False, f"High Leverage (D/E {de_ratio:.2f})"
+                            is_deep, d_reason = (
+                                False,
+                                f"High Leverage (D/E {de_ratio:.2f})",
+                            )
                         elif not is_profitable_trend:
                             is_deep, d_reason = False, "Unstable Earnings"
                         else:
-                            is_deep, d_reason = True, f"Deep Health OK (CR {current_ratio:.2f})"
+                            is_deep, d_reason = (
+                                True,
+                                f"Deep Health OK (CR {current_ratio:.2f})",
+                            )
             except Exception as e:
                 logger.error(f"⚠️ Error parsing financials for {ticker}: {e}")
                 is_deep, d_reason = True, "Parsing Error (Skipped)"
 
         # 3. Cache the final result of BOTH evaluations (async to thread since BQ client is sync)
-        await asyncio.to_thread(self._save_to_cache, ticker, is_healthy, h_reason, is_deep, d_reason)
+        await asyncio.to_thread(
+            self._save_to_cache, ticker, is_healthy, h_reason, is_deep, d_reason
+        )
         return is_deep, d_reason

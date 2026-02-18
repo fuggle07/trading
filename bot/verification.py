@@ -4,6 +4,7 @@ import time
 import finnhub
 from datetime import datetime, timedelta
 
+
 def get_hard_proof(ticker):
     """
     Surgical Verification of Insider Conviction & Disclosure Velocity.

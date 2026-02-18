@@ -5,6 +5,7 @@ from vertexai.generative_models import GenerativeModel, HarmCategory, HarmBlockT
 
 logger = logging.getLogger(__name__)
 
+
 class SentimentAnalyzer:
     def __init__(self, project_id: str, location: str = "us-central1"):
         self.project_id = project_id
@@ -15,9 +16,9 @@ class SentimentAnalyzer:
     def _init_vertex(self):
         try:
             vertexai.init(project=self.project_id, location=self.location)
-            # Using Gemini 1.5 Flash for speed and cost efficiency
-            self.model = GenerativeModel("gemini-1.5-flash")
-            logger.info("✨ Vertex AI (Gemini 1.5 Flash) initialized successfully.")
+            # Using Gemini 2.0 Flash for state-of-the-art speed and reasoning
+            self.model = GenerativeModel("gemini-2.0-flash")
+            logger.info("✨ Vertex AI (Gemini 2.0 Flash) initialized successfully.")
         except Exception as e:
             logger.error(f"❌ Failed to initialize Vertex AI: {e}")
 

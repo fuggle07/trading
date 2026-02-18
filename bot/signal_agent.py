@@ -3,12 +3,18 @@ from typing import Optional, Dict
 from datetime import datetime
 import pytz
 
+
 class SignalAgent:
     """
     The decision-making engine with built-in Volatility Filtering and Holiday Awareness.
     """
 
-    def __init__(self, risk_profile: float = 0.02, vol_threshold: float = 0.05, hurdle_rate: float = 0.0):
+    def __init__(
+        self,
+        risk_profile: float = 0.02,
+        vol_threshold: float = 0.05,
+        hurdle_rate: float = 0.0,
+    ):
         self.risk_per_trade = Decimal(str(risk_profile))
         # vol_threshold: 0.05 means if the bands are > 5% apart, we don't trade.
         self.vol_threshold = Decimal(str(vol_threshold))
@@ -80,20 +86,37 @@ class SignalAgent:
                 )
                 signal = {"action": "SELL", "price": price, "reason": "STOP_LOSS_HIT"}
 
+        # 3c. Sentiment Exit Override (The Black Swan Exit)
+        # If sentiment is catastrophically negative (< -0.6), we exit immediately.
+        sentiment = market_data.get("sentiment_score")
+        if sentiment is not None:
+            sentiment_dec = Decimal(str(sentiment))
+            if sentiment_dec < Decimal("-0.6"):
+                print(
+                    f"🚨 EXTREME BEARISH SENTIMENT: {sentiment_dec} < -0.6. Forcing EXIT."
+                )
+                signal = {
+                    "action": "SELL",
+                    "price": price,
+                    "reason": "EXTREME_BEARISH_SENTIMENT",
+                }
+
         # 4. Sentiment Filter (The Vibe Check) - Apply ONLY to BUYs
         # We want to be able to SELL even if sentiment is terrible (especially then!)
         if signal and signal["action"] == "BUY":
             sentiment = market_data.get("sentiment_score")
-            # Hurdle-Adjusted Sentiment Threshold:
-            # Base sentiment floor is -0.5 (very permissive).
-            # As the tax-adjusted hurdle rate increases, we require higher sentiment.
-            # Example: 3.5% hurdle adds +0.07 to the floor.
-            sentiment_floor = Decimal("-0.5") + (self.hurdle_rate * 2)
-            
+            # User Optimized Sentiment Threshold:
+            # - Conviction Mode: 0.2 (Exposure >= 25%)
+            # - Seeding Mode: 0.0 (Exposure < 25%)
+            is_low_exposure = market_data.get("is_low_exposure", False)
+            sentiment_floor = Decimal("0.0") if is_low_exposure else Decimal("0.2")
+
             if sentiment is not None:
                 sentiment_dec = Decimal(str(sentiment))
                 if sentiment_dec < sentiment_floor:
-                    print(f"Skipping BUY: Sentiment ({sentiment_dec:.2f}) < Hurdle-Adjusted Floor ({sentiment_floor:.2f})")
+                    print(
+                        f"Skipping BUY: Sentiment ({sentiment_dec:.2f}) < Hurdle-Adjusted Floor ({sentiment_floor:.2f})"
+                    )
                     return None
 
         # 5. Fundamental Filter (The Value Check) - Apply ONLY to BUYs
@@ -108,9 +131,9 @@ class SignalAgent:
                 return None
 
         # 6. Deep Filing Filter (The Solvency Check) - Apply ONLY to BUYs
-        if signal and signal['action'] == 'BUY':
-            is_deep_healthy = market_data.get('is_deep_healthy', True)
-            deep_reason = market_data.get('deep_health_reason', "Unknown")
+        if signal and signal["action"] == "BUY":
+            is_deep_healthy = market_data.get("is_deep_healthy", True)
+            deep_reason = market_data.get("deep_health_reason", "Unknown")
 
             if not is_deep_healthy:
                 print(f"Skipping BUY: Deep Filing Analysis Failed ({deep_reason})")
@@ -119,19 +142,23 @@ class SignalAgent:
         # 6. Prediction Confidence Filter (The Morning Conviction Check) - Apply to BUYs and SELLs
         # Safety: We NEVER suppress a STOP_LOSS_HIT exit.
         if (
-            signal 
-            and signal["action"] in ["BUY", "SELL"] 
+            signal
+            and signal["action"] in ["BUY", "SELL"]
             and signal.get("reason") != "STOP_LOSS_HIT"
         ):
             confidence = market_data.get("prediction_confidence")
             if confidence is not None:
                 confidence_val = int(confidence)
                 if confidence_val < 65:
-                    print(f"Skipping {signal['action']}: Confidence ({confidence_val}%) < Morning Threshold (65%)")
+                    print(
+                        f"Skipping {signal['action']}: Confidence ({confidence_val}%) < Morning Threshold (65%)"
+                    )
                     return None
             else:
                 # If no confidence is found (e.g. ranking job failed), we default to allowed
-                print(f"⚠️ Warning: No prediction confidence found for {market_data.get('ticker')}. Proceeding without filter.")
+                print(
+                    f"⚠️ Warning: No prediction confidence found for {market_data.get('ticker')}. Proceeding without filter."
+                )
 
         return signal
 

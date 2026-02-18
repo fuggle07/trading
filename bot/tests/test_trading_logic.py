@@ -1,4 +1,3 @@
-
 # Simple test to verify the SELL logic works when sentiment drops
 def test_exit_logic_execution():
     sentiment_score = 0.4  # Below the 0.5 threshold
@@ -17,6 +16,7 @@ def test_exit_logic_execution():
     assert action == "SELL"
     assert current_holdings == 0
     assert current_cash == 41000.0
+
 
 # Simple test to verify BUY logic respects capital
 def test_buy_logic_insufficient_funds():

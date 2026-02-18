@@ -9,6 +9,7 @@ from alpaca.trading.enums import OrderSide, TimeInForce
 # Configure logging
 logger = logging.getLogger("execution-manager")
 
+
 class ExecutionManager:
     """
     Handles order execution, validation against portfolio, and logging.
