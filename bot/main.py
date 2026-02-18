@@ -141,6 +141,7 @@ async def fetch_historical_data(ticker):
             )
 
             print(f"[{ticker}] 📊 Alpaca Data Fetched: {len(df)} rows")
+            print(f"[{ticker}] 📊 Alpaca Data Fetched: {len(df)} rows")
             return df_norm
 
         except Exception as e:
@@ -164,6 +165,7 @@ def calculate_technical_indicators(df):
         print("⚠️ calculate_technical_indicators received None dataframe")
         return None
     
+    print(f"📊 Technical data length: {len(df)} rows")
     if len(df) < 50:
         print(f"⚠️ Insufficient technical data: {len(df)} rows < 50 required")
         return None
@@ -620,6 +622,57 @@ async def run_audit_endpoint():
 
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route("/debug/alpaca/<ticker>")
+async def debug_alpaca_endpoint(ticker):
+    """Diagnose Alpaca Data connectivity issues on command."""
+    import logging
+    log = []
+    
+    key = os.environ.get("ALPACA_API_KEY", "")
+    secret = os.environ.get("ALPACA_API_SECRET", "")
+    
+    log.append(f"Key Prefix: {key[:4]}...")
+    log.append(f"Secret Length: {len(secret)}")
+    
+    if not key or not secret:
+        return jsonify({"status": "error", "log": log, "message": "Keys missing"}), 500
+        
+    try:
+        from alpaca.data.historical import StockHistoricalDataClient
+        from alpaca.data.requests import StockBarsRequest
+        from alpaca.data.timeframe import TimeFrame
+        
+        client = StockHistoricalDataClient(key, secret)
+        
+        end = datetime.now(timezone.utc)
+        start = end - timedelta(days=20) # Short window for speed
+        
+        # Test 1: IEX Feed
+        log.append("Attempting IEX feed...")
+        try:
+            req = StockBarsRequest(symbol_or_symbols=ticker, timeframe=TimeFrame.Day, start=start, end=end, feed="iex")
+            bars = client.get_stock_bars(req)
+            count = len(bars.data.get(ticker, [])) if bars.data else 0
+            log.append(f"IEX Result: {count} bars")
+        except Exception as e:
+            log.append(f"IEX Failed: {str(e)}")
+            
+        # Test 2: SIP Feed (if IEX failed or empty)
+        log.append("Attempting SIP feed...")
+        try:
+            req = StockBarsRequest(symbol_or_symbols=ticker, timeframe=TimeFrame.Day, start=start, end=end, feed="sip")
+            bars = client.get_stock_bars(req)
+            count = len(bars.data.get(ticker, [])) if bars.data else 0
+            log.append(f"SIP Result: {count} bars")
+        except Exception as e:
+            log.append(f"SIP Failed: {str(e)}")
+            
+        return jsonify({"status": "complete", "log": log}), 200
+        
+    except Exception as e:
+        return jsonify({"status": "fatal", "error": str(e), "log": log}), 500
 
 
 # --- 5. LOCAL RUNNER ---

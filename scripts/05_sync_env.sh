@@ -20,7 +20,7 @@ BASE_TICKERS="NVDA,AAPL,TSLA,MSFT,AMD"
 VIX_THRESHOLD_HIGH="30.0"
 VOLATILITY_SENSITIVITY="1.0"
 MORTGAGE_HURDLE_RATE="0.052" # 5.2%
-CAPITAL_USD="50000.0"        # Your potential offset withdrawal
+CAPITAL_USD="50000.0" # Your potential offset withdrawal
 MIN_EDGE_THRESHOLD="0.015" # 1.5% minimum predicted gain to override brokerage drag
 
 # 3. Construct/Update env.yaml
@@ -39,11 +39,11 @@ EOF
 # 4. Generate Local .env for Development
 # Uses a surgical sed command to convert YAML to ENV format for local testing.
 if [ -f "$ENV_YAML" ]; then
-    sed 's/: /=/g' "$ENV_YAML" | tr -d '"' > "$DOT_ENV"
-    echo "✅ Local .env generated for workstation testing."
+ sed 's/: /=/g' "$ENV_YAML" | tr -d '"' > "$DOT_ENV"
+ echo "✅ Local .env generated for workstation testing."
 else
-    echo "❌ ERROR: env.yaml could not be generated."
-    exit 1
+ echo "❌ ERROR: env.yaml could not be generated."
+ exit 1
 fi
 
 echo "--- ✨ ENVIRONMENT READY: Node is configured for tax and hurdle audits ---"

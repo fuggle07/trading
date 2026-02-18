@@ -16,10 +16,10 @@ zip -r function_source.zip agent.py requirements.txt
 # 3. Push to GCP Cloud Functions (2nd Gen)
 # Video: [Cloud Functions 2nd Gen Deployment](https://www.youtube.com/watch?v=5aOF-RIZS5c)
 gcloud functions deploy $FUNCTION_NAME \
-  --gen2 \
-  --runtime=python314 \
-  --region=$REGION \
-  --source=. \
-  --entry-point=$ENTRY_POINT \
-  --trigger-http \
-  --allow-unauthenticated # In production, use --no-allow-unauthenticated for safety
+ --gen2 \
+ --runtime=python314 \
+ --region=$REGION \
+ --source=. \
+ --entry-point=$ENTRY_POINT \
+ --trigger-http \
+ --allow-unauthenticated # In production, use --no-allow-unauthenticated for safety

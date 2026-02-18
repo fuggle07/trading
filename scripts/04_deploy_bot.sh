@@ -11,8 +11,8 @@ gcloud builds submit --tag gcr.io/$PROJECT_ID/trading-bot .
 rm Dockerfile
 
 gcloud run deploy trading-bot \
-  --image gcr.io/$PROJECT_ID/trading-bot \
-  --platform managed \
-  --region australia-southeast1 \
-  --allow-unauthenticated \
-  --set-env-vars="GOOGLE_CLOUD_PROJECT=$PROJECT_ID,MORTGAGE_RATE=$MORTGAGE_RATE"
+ --image gcr.io/$PROJECT_ID/trading-bot \
+ --platform managed \
+ --region australia-southeast1 \
+ --allow-unauthenticated \
+ --set-env-vars="GOOGLE_CLOUD_PROJECT=$PROJECT_ID,MORTGAGE_RATE=$MORTGAGE_RATE"
