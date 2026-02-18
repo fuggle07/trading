@@ -32,7 +32,14 @@ echo "🐳 Building and Pushing Docker Container..."
 
 # We need to be in the root of the repo
 cd "$SCRIPT_DIR/.."
-gcloud builds submit --tag us-central1-docker.pkg.dev/utopian-calling-429014-r9/trading-node-repo/trading-bot:latest .
+echo "📂 Current Directory: $(pwd)"
+ls -la Dockerfile
+
+# Explicitly use the dot as source first, and specify the file
+gcloud builds submit . \
+    --config=cloudbuild.yaml \
+    --substitutions=_TAG="us-central1-docker.pkg.dev/utopian-calling-429014-r9/trading-node-repo/trading-bot:latest" \
+    || gcloud builds submit . --tag us-central1-docker.pkg.dev/utopian-calling-429014-r9/trading-node-repo/trading-bot:latest
 
 # 5. Infrastructure Deployment
 echo "📂 Navigating to: $TERRAFORM_DIR"
