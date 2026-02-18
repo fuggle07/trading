@@ -531,7 +531,7 @@ async def run_audit():
     return execution_results
 
 
-from typing import List, Dict, Optional
+from typing import Optional
 
 
 async def get_latest_confidence(ticker: str) -> Optional[int]:
@@ -627,7 +627,6 @@ async def run_audit_endpoint():
 @app.route("/debug/alpaca/<ticker>")
 async def debug_alpaca_endpoint(ticker):
     """Diagnose Alpaca Data connectivity issues on command."""
-    import logging
     log = []
     
     key = os.environ.get("ALPACA_API_KEY", "")
