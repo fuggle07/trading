@@ -30,7 +30,6 @@ The bot relies on the following secrets, stored securely in **GCP Secret Manager
 | --- | --- | --- |
 | `FINNHUB_KEY` | Finnhub.io | News Sentiment & Filing Data |
 | `ALPACA_API_KEY` | Alpaca | Market Data & Order Execution |
-| `ALPACA_API_KEY` | Alpaca | Market Data & Order Execution |
 | `ALPACA_API_SECRET` | Alpaca | Market Data & Order Execution |
 | `ALPHA_VANTAGE_KEY` | Alpha Vantage | Fundamental Data (PE/EPS) |
 
@@ -38,7 +37,6 @@ The bot relies on the following secrets, stored securely in **GCP Secret Manager
 To update or inject new keys, ensure they are in your local `.env` file (or exported in your shell) and run:
 ```bash
 # Example:
-export ALPACA_API_KEY="your_key"
 export ALPACA_API_KEY="your_key"
 export ALPACA_API_SECRET="your_secret"
 export ALPHA_VANTAGE_KEY="your_key"

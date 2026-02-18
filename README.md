@@ -4,10 +4,10 @@ An autonomous, agentic trading node deployed on Google Cloud Platform, designed 
 
 ---
 
-## ## Project Overview
+## Project Overview
 The Aberfeldie Node is a high-frequency audit agent that monitors Nasdaq market opportunities. Its primary function is to determine if capital is more effectively deployed in live markets or returned to a high-interest Australian offset account.
 
-### ### Core Logic
+### Core Logic
 * **Intelligence Gathering**: Parallel polling of indicators, sentiment, and fundamental health.
 * **Hurdle Telemetry**: Real-time calculation of opportunity cost (6.0% home loan interest).
 * **AI Conviction**: Deep news analysis via Gemini 2.0 Flash with score/confidence filtering.
@@ -17,7 +17,7 @@ The Aberfeldie Node is a high-frequency audit agent that monitors Nasdaq market 
 
 ---
 
-## ## Tech Stack
+## Tech Stack
 * **Language**: Python 3.12 (Flask, Gunicorn, Asyncio)
 * **AI**: Vertex AI (Gemini 2.0 Flash)
 * **Infrastructure**: Terraform (IaC)
@@ -26,7 +26,7 @@ The Aberfeldie Node is a high-frequency audit agent that monitors Nasdaq market 
 
 ---
 
-## ## Quick Start (Deployment)
+## Quick Start (Deployment)
 From your workstation, execute the master orchestrator:
 
 ```bash

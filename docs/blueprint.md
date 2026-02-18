@@ -26,8 +26,6 @@ graph TD
         Main[main.py<br>(Orchestrator)]
         Signal[SignalAgent<br>(Strategy Logic)]
         Exec[ExecutionManager<br>(Order Routing)]
-        Port[PortfolioManager<br>(State & Ledger)]
-        Port[PortfolioManager<br>(State & Ledger)]
         Sent[SentimentAnalyzer<br>(AI Analysis)]
         Fund[FundamentalAgent<br>(Value Analysis)]
     end
@@ -77,14 +75,17 @@ graph TD
 - **Logic**: Hybrid Technical + Fundamental(Sentiment).
 - **Strategy Pipeline**:
     1.  **Holiday Filter**: Skips processing if the market is closed.
-    2.  **Volatility Gate**: Skips trading if price volatility > 15% (Safety).
+    2.  **Volatility Gate**: Skips trading if price volatility (Bollinger Band width) > threshold (Default 25%).
     3.  **Technical Signal**:
-        - **Golden Cross**: BUY if SMA-20 crosses *above* SMA-50.
-        - **Death Cross**: SELL if SMA-20 crosses *below* SMA-50.
+        - **Bollinger Bands**: 
+            - BUY if `Price <= Lower Band`.
+            - SELL if `Price >= Upper Band`.
     4.  **Sentiment Filter**:
-        - Rejects BUY signals if `Sentiment Score < -0.5` (Negative News).
-    5.  **Stop Loss**:
-        - **Hard Exit**: SELL if `Current Price < Avg Entry Price * 0.90` (10% Loss).
+        - Rejects BUY signals if `Sentiment Score < 0.4` (Caution).
+    5.  **Stop Loss / Profit Target**:
+        - **Profit Target**: SELL if `Profit >= 5%`.
+        - **Stop Loss**: SELL if `Loss >= 2.5%`.
+        - **Sentiment Exit**: SELL if `Sentiment < -0.4`.
 
 ### C. Execution Manager (`execution_manager.py`)
 - **Role**: The trader.
