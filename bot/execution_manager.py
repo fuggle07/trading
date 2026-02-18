@@ -117,6 +117,9 @@ class ExecutionManager:
             "FILLED"  # Default to filled for local log unless Alpaca fails
         )
 
+        # Calculate IBKR Fixed Commission for Simulation
+        commission = max(1.00, quantity * 0.005)
+
         if self.trading_client:
             try:
                 side = OrderSide.BUY if action == "BUY" else OrderSide.SELL
@@ -150,14 +153,17 @@ class ExecutionManager:
             try:
                 if action == "BUY":
                     cost = price * quantity
+                    # Deduct cost + IBKR Commission
                     self.portfolio_manager.update_ledger(
-                        ticker, -cost, quantity, price, action="BUY"
+                        ticker, -(cost + commission), quantity, price, action="BUY"
                     )
                 elif action == "SELL":
                     revenue = price * quantity
+                    # Add revenue - IBKR Commission
                     self.portfolio_manager.update_ledger(
-                        ticker, revenue, -quantity, price, action="SELL"
+                        ticker, revenue - commission, -quantity, price, action="SELL"
                     )
+                logger.info(f"[{ticker}] 💸 IBKR Commission Paid: ${commission:.2f}")
             except Exception as e:
                 logger.error(f"[{ticker}] Ledger Update Failed: {e}")
 
@@ -172,6 +178,7 @@ class ExecutionManager:
             "action": action,
             "price": price,
             "quantity": quantity,
+            "commission": commission,
             "reason": reason,
             "status": execution_status,
         }

@@ -391,12 +391,12 @@ async def run_audit():
                 multiplier = 1.0 + max(0.0, sentiment)
                 allocation = min(base_unit * multiplier, room_to_buy, cash_pool)
 
-                if allocation > 100:
+                if allocation >= 1000:
                     exec_res = execution_manager.place_order(ticker, "BUY", 0, sig["price"], cash_available=allocation, reason=reason)
                     status = f"executed_{exec_res.get('status', 'FAIL')}"
                     log_decision(ticker, "BUY", f"Execution Status: {status} | Alloc: ${allocation:.2f} | Reason: {reason}")
                 else:
-                    log_decision(ticker, "SKIP", f"Insufficient Allocation (${allocation:.2f} < $100) or Room to Buy.")
+                    log_decision(ticker, "SKIP", f"Insufficient Allocation (${allocation:.2f} < $1000) or Room to Buy.")
                     status = "skipped_insufficient_funds"
 
             execution_results.append({"ticker": ticker, "signal": "BUY", "status": status, "reason": reason})

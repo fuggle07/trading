@@ -13,7 +13,7 @@ class SignalAgent:
         self,
         risk_profile: float = 0.02,
         vol_threshold: float = 0.25,
-        hurdle_rate: float = 0.0,
+        hurdle_rate: float = 0.015,
     ):
         self.risk_per_trade = Decimal(str(risk_profile))
         # vol_threshold: 0.05 means if the bands are > 5% apart, we don't trade.

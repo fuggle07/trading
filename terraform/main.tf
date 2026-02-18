@@ -282,10 +282,12 @@ resource "google_bigquery_table" "executions" {
 [
   {"name": "execution_id", "type": "STRING", "mode": "REQUIRED"},
   {"name": "timestamp", "type": "TIMESTAMP", "mode": "REQUIRED"},
+  {"name": "alpaca_order_id", "type": "STRING", "mode": "NULLABLE"},
   {"name": "ticker", "type": "STRING", "mode": "REQUIRED"},
   {"name": "action", "type": "STRING", "mode": "REQUIRED"},
   {"name": "quantity", "type": "FLOAT", "mode": "REQUIRED"},
   {"name": "price", "type": "FLOAT", "mode": "REQUIRED"},
+  {"name": "commission", "type": "FLOAT", "mode": "NULLABLE"},
   {"name": "reason", "type": "STRING", "mode": "NULLABLE"},
   {"name": "status", "type": "STRING", "mode": "REQUIRED"}
 ]
