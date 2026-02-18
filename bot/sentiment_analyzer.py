@@ -21,7 +21,7 @@ class SentimentAnalyzer:
         except Exception as e:
             logger.error(f"❌ Failed to initialize Vertex AI: {e}")
 
-    def analyze_news(self, ticker: str, news_items: list) -> float:
+    async def analyze_news(self, ticker: str, news_items: list) -> float:
         """
         Analyzes a list of news items and returns a sentiment score from -1.0 to 1.0.
         Returns 0.0 if analysis fails or no news provided.

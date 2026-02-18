@@ -177,16 +177,13 @@ def calculate_technical_indicators(df):
 
 # --- 3. THE AUDIT ENGINE ---
 
-def fetch_sentiment(ticker):
+async def fetch_sentiment(ticker):
     """
-    Fetches news sentiment using Gemini 1.5 AI Analysis of real headlines.
-    Fallbacks to Finnhub's pre-calculated score if AI fails.
+    Hybrid Sentiment Engine:
+    1. Vertex AI (Gemini) Deep Analysis of headlines
+    2. Finnhub fallback for basic scores
     """
-    if not finnhub_client:
-        return None
-
     try:
-        # 1. Try AI Analysis of Company News
         sentiment_score = None
 
         # Get news from last 24 hours
@@ -195,41 +192,34 @@ def fetch_sentiment(ticker):
         _from = start_date.strftime("%Y-%m-%d")
         _to = end_date.strftime("%Y-%m-%d")
 
-        # Fetch headlines
-        news = finnhub_client.company_news(ticker, _from=_from, to=_to)
+        # Fetch headlines (Sync call -> Thread)
+        news = await asyncio.to_thread(finnhub_client.company_news, ticker, _from=_from, to=_to)
 
         if news:
             print(f"📰 Found {len(news)} news items for {ticker}. Asking Gemini...")
-            sentiment_score = sentiment_analyzer.analyze_news(ticker, news)
+            sentiment_score = await sentiment_analyzer.analyze_news(ticker, news)
 
-        # If Gemini returned a score (non-zero or even zero if explicitly neutral), usage it.
-        # But if analyze_news returns 0.0 it's ambiguous (neutral or failure).
-        # Let's assume if it returns non-zero it's a valid signal.
+        # If Gemini returned a score (non-zero), use it.
         if sentiment_score is not None and sentiment_score != 0.0:
             return sentiment_score
 
         # 2. Fallback to Finnhub's Generic Score
-        print(
-            f"⚠️  No strong AI signal for {ticker}. Falling back to Finnhub Sentiment."
-        )
+        print(f"⚠️  No strong AI signal for {ticker}. Falling back to Finnhub Sentiment.")
         try:
-            res = finnhub_client.news_sentiment(ticker)
+            res = await asyncio.to_thread(finnhub_client.news_sentiment, ticker)
             if res and "sentiment" in res:
                 bullish = res["sentiment"].get("bullishPercent", 0.5)
                 bearish = res["sentiment"].get("bearishPercent", 0.5)
                 return bullish - bearish
         except Exception as e:
             if "403" in str(e):
-                print(
-                    f"ℹ️  Finnhub Sentiment fallback skipped (Premium only) for {ticker}"
-                )
+                print(f"ℹ️  Finnhub Sentiment fallback skipped (Premium only) for {ticker}")
             else:
                 print(f"⚠️  Finnhub Sentiment fallback failed for {ticker}: {e}")
 
         return 0.0  # Neutral default
-
     except Exception as e:
-        print(f"⚠️  Sentiment fetch failed for {ticker}: {e}")
+        print(f"⚠️  Global fetch_sentiment error for {ticker}: {e}")
         return 0.0
 
 # --- 3. THE AUDIT ENGINE ---
@@ -254,7 +244,7 @@ async def run_audit():
         try:
             # Parallel fetch for a single ticker to save time
             quote_task = asyncio.to_thread(finnhub_client.quote, ticker) if finnhub_client else None
-            sentiment_task = asyncio.to_thread(fetch_sentiment, ticker)
+            sentiment_task = fetch_sentiment(ticker)
             fundamental_task = fundamental_agent.evaluate_health(ticker)
             deep_health_task = fundamental_agent.evaluate_deep_health(ticker)
             history_task = fetch_historical_data(ticker)
