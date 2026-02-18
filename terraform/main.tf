@@ -88,6 +88,13 @@ resource "google_project_service" "aiplatform" {
   disable_on_destroy = false
 }
 
+# Enable Billing Budgets API
+resource "google_project_service" "billing_budgets" {
+  project            = var.project_id
+  service            = "billingbudgets.googleapis.com"
+  disable_on_destroy = false
+}
+
 resource "google_cloud_run_v2_service" "trading_bot" {
   name                = "trading-audit-agent"
   location            = "us-central1"
