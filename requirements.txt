@@ -9,8 +9,8 @@ alpha_vantage==3.0.0
 alpaca-py==0.17.0
 
 # Data Science & Technical Indicators
-pandas==3.0.0
-numpy==2.4.2
+pandas==2.2.3
+numpy==1.26.4
 
 # Cloud & Observability
 google-cloud-logging==3.9.0
