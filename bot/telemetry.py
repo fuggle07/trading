@@ -35,20 +35,16 @@ def log_audit(level, message, extra=None):
 
 # 3. BIGQUERY TELEMETRY
 
-def log_watchlist_data(client, table_id, ticker, price, sentiment=None):
+def log_watchlist_data(client, table_id, ticker, price, sentiment=None, confidence=0):
     """
-    Ensures the JSON keys perfectly match the BigQuery schema:
-    - timestamp (TIMESTAMP)
-    - ticker (STRING)
-    - price (FLOAT)
-    - sentiment_score (FLOAT)
+    Ensures the JSON keys perfectly match the BigQuery schema.
     """
     row_to_insert = [
         {
             "timestamp": datetime.now(pytz.utc).isoformat(),
             "ticker": ticker,
             "price": float(price),
-            "sentiment_score": float(sentiment) if sentiment else 0.0,
+            "sentiment_score": float(sentiment) if sentiment is not None else 0.0,
         }
     ]
 
@@ -61,6 +57,7 @@ def log_watchlist_data(client, table_id, ticker, price, sentiment=None):
                 "ticker": ticker,
                 "price": float(price),
                 "sentiment_score": float(sentiment) if sentiment is not None else 0.0,
+                "prediction_confidence": int(confidence or 0),
                 "event": "WATCHLIST_LOG",
             }
             print(json.dumps(log_payload))
@@ -74,16 +71,20 @@ def log_performance(client, table_id, metrics):
     """
     Logs performance metrics (Total Equity) to BigQuery.
     """
+    total_equity = float(metrics.get("total_equity", 0.0))
+    total_cash = float(metrics.get("total_cash", 0.0))
+    total_market_value = float(metrics.get("total_market_value", 0.0))
+    exposure = total_market_value / total_equity if total_equity > 0 else 0.0
+
     row = {
         "timestamp": datetime.now(pytz.utc).isoformat(),
-        "paper_equity": float(metrics["total_equity"]),
-        # We can add more fields here later as per schema
-        "tax_buffer_usd": 0.0,  # Placeholder
-        "fx_rate_aud": 1.0,  # Placeholder
-        "daily_hurdle_aud": 0.0,  # Placeholder
-        "net_alpha_usd": 0.0,  # Placeholder
+        "paper_equity": total_equity,
+        "tax_buffer_usd": 0.0,
+        "fx_rate_aud": 1.0,
+        "daily_hurdle_aud": 0.0,
+        "net_alpha_usd": 0.0,
         "node_id": os.getenv("K_SERVICE", "local-bot"),
-        "recommendation": "HOLD",  # Placeholder
+        "recommendation": "HOLD",
     }
 
     try:
@@ -91,12 +92,13 @@ def log_performance(client, table_id, metrics):
         if errors:
             print(f"❌ Performance Log Error: {errors}")
         else:
-            # We must log strictly as JSON for Cloud Metrics to pick it up
-            # The filter looks for jsonPayload.message =~ "Logged Performance"
-            # It extracts 'paper_equity' from the top-level keys
+            # Structured Log for Metric Extraction
             log_payload = {
-                "message": f"📈 Logged Performance: ${metrics['total_equity']:.2f}",
-                "paper_equity": float(metrics["total_equity"]),
+                "message": f"📈 Logged Performance: ${total_equity:.2f}",
+                "paper_equity": total_equity,
+                "total_cash": total_cash,
+                "total_market_value": total_market_value,
+                "exposure_pct": exposure * 100.0,
                 "node_id": os.getenv("K_SERVICE", "local-bot"),
                 "event": "PERFORMANCE_LOG",
             }

@@ -441,20 +441,16 @@ resource "google_cloud_scheduler_job" "audit_trigger" {
   }
 }
 
-# C. Log-Based Metrics (To bridge Logs -> Dashboard)
 resource "google_logging_metric" "paper_equity" {
-  name = "trading/paper_equity"
-  # Updated filter to match the actual log message: "📈 Logged Performance: $..."
-  # AND ensures the payload has the 'paper_equity' key we need.
+  name   = "trading/paper_equity"
   filter = "resource.type=\"cloud_run_revision\" AND jsonPayload.message=~\"Logged Performance\""
   metric_descriptor {
     metric_kind = "DELTA"
     value_type  = "DISTRIBUTION"
     unit        = "1"
     labels {
-      key         = "node_id"
-      value_type  = "STRING"
-      description = "The Bot ID"
+      key        = "node_id"
+      value_type = "STRING"
     }
   }
   label_extractors = {
@@ -472,7 +468,7 @@ resource "google_logging_metric" "paper_equity" {
 
 resource "google_logging_metric" "sentiment_score" {
   name   = "trading/sentiment_score"
-  filter = "resource.type=\"cloud_run_revision\" AND jsonPayload.message=~\"Logged .* Sentiment\""
+  filter = "resource.type=\"cloud_run_revision\" AND jsonPayload.message=~\"Telemetry: Logged\""
   metric_descriptor {
     metric_kind = "DELTA"
     value_type  = "DISTRIBUTION"
@@ -495,6 +491,85 @@ resource "google_logging_metric" "sentiment_score" {
   }
 }
 
+resource "google_logging_metric" "total_cash" {
+  name   = "trading/total_cash"
+  filter = "resource.type=\"cloud_run_revision\" AND jsonPayload.message=~\"Logged Performance\""
+  metric_descriptor {
+    metric_kind = "DELTA"
+    value_type  = "DISTRIBUTION"
+    unit        = "1"
+  }
+  value_extractor = "EXTRACT(jsonPayload.total_cash)"
+  bucket_options {
+    exponential_buckets {
+      num_finite_buckets = 64
+      growth_factor      = 2
+      scale              = 0.01
+    }
+  }
+}
+
+resource "google_logging_metric" "market_value" {
+  name   = "trading/market_value"
+  filter = "resource.type=\"cloud_run_revision\" AND jsonPayload.message=~\"Logged Performance\""
+  metric_descriptor {
+    metric_kind = "DELTA"
+    value_type  = "DISTRIBUTION"
+    unit        = "1"
+  }
+  value_extractor = "EXTRACT(jsonPayload.total_market_value)"
+  bucket_options {
+    exponential_buckets {
+      num_finite_buckets = 64
+      growth_factor      = 2
+      scale              = 0.01
+    }
+  }
+}
+
+resource "google_logging_metric" "exposure_pct" {
+  name   = "trading/exposure_pct"
+  filter = "resource.type=\"cloud_run_revision\" AND jsonPayload.message=~\"Logged Performance\""
+  metric_descriptor {
+    metric_kind = "DELTA"
+    value_type  = "DISTRIBUTION"
+    unit        = "1"
+  }
+  value_extractor = "EXTRACT(jsonPayload.exposure_pct)"
+  bucket_options {
+    linear_buckets {
+      num_finite_buckets = 20
+      width              = 5.0
+      offset             = 0.0
+    }
+  }
+}
+
+resource "google_logging_metric" "prediction_confidence" {
+  name   = "trading/prediction_confidence"
+  filter = "resource.type=\"cloud_run_revision\" AND jsonPayload.message=~\"Telemetry: Logged\""
+  metric_descriptor {
+    metric_kind = "DELTA"
+    value_type  = "DISTRIBUTION"
+    unit        = "1"
+    labels {
+      key        = "ticker"
+      value_type = "STRING"
+    }
+  }
+  label_extractors = {
+    "ticker" = "EXTRACT(jsonPayload.ticker)"
+  }
+  value_extractor = "EXTRACT(jsonPayload.prediction_confidence)"
+  bucket_options {
+    linear_buckets {
+      num_finite_buckets = 10
+      width              = 10.0
+      offset             = 0.0
+    }
+  }
+}
+
 resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
   dashboard_json = jsonencode({
     displayName = "Aberfeldie Node: NASDAQ Monitor"
@@ -503,14 +578,11 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
       tiles = [
         # WIDGET 1: Cloud Run Success/Failure Rate
         {
-          width = 6, height = 4, xPos = 0, yPos = 0
+          width = 4, height = 4, xPos = 0, yPos = 0
           widget = {
             title = "Cloud Run: Request Status (2xx vs 4xx/5xx)"
             xyChart = {
-              chartOptions = {
-                mode = "COLOR"
-              }
-              timeshiftDuration = "0s"
+              chartOptions = { mode = "COLOR" }
               dataSets = [{
                 timeSeriesQuery = {
                   timeSeriesFilter = {
@@ -527,16 +599,130 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
             }
           }
         },
-        # WIDGET 2: Execution Latency
+        # WIDGET 2: Total Equity (Primary KPI)
         {
-          width = 6, height = 4, xPos = 6, yPos = 0
+          width = 8, height = 4, xPos = 4, yPos = 0
           widget = {
-            title = "Cloud Run: Latency (ms)"
+            title = "💰 Paper Equity ($)"
             xyChart = {
-              chartOptions = {
-                mode = "COLOR"
-              }
-              timeshiftDuration = "0s"
+              chartOptions = { mode = "COLOR" }
+              dataSets = [{
+                timeSeriesQuery = {
+                  timeSeriesFilter = {
+                    filter = "metric.type=\"logging.googleapis.com/user/trading/paper_equity\""
+                    aggregation = {
+                      alignmentPeriod  = "60s"
+                      perSeriesAligner = "ALIGN_MEAN"
+                    }
+                  }
+                }
+              }]
+            }
+          }
+        },
+        # WIDGET 3: Capital Allocation (Cash vs Market Value)
+        {
+          width = 6, height = 4, xPos = 0, yPos = 4
+          widget = {
+            title = "⚖️ Capital Allocation"
+            xyChart = {
+              chartOptions = { mode = "COLOR" }
+              dataSets = [
+                {
+                  timeSeriesQuery = {
+                    timeSeriesFilter = {
+                      filter = "metric.type=\"logging.googleapis.com/user/trading/total_cash\""
+                      aggregation = { alignmentPeriod = "60s", perSeriesAligner = "ALIGN_MEAN" }
+                    }
+                  }
+                  targetAxis = "Y1"
+                  plotType   = "STACKED_AREA"
+                  legendTemplate = "Cash"
+                },
+                {
+                  timeSeriesQuery = {
+                    timeSeriesFilter = {
+                      filter = "metric.type=\"logging.googleapis.com/user/trading/market_value\""
+                      aggregation = { alignmentPeriod = "60s", perSeriesAligner = "ALIGN_MEAN" }
+                    }
+                  }
+                  targetAxis = "Y1"
+                  plotType   = "STACKED_AREA"
+                  legendTemplate = "Assets Value"
+                }
+              ]
+            }
+          }
+        },
+        # WIDGET 4: Exposure Meter (%)
+        {
+          width = 6, height = 4, xPos = 6, yPos = 4
+          widget = {
+            title = "🚜 Portfolio Exposure (%)"
+            xyChart = {
+              chartOptions = { mode = "COLOR" }
+              dataSets = [{
+                timeSeriesQuery = {
+                  timeSeriesFilter = {
+                    filter = "metric.type=\"logging.googleapis.com/user/trading/exposure_pct\""
+                    aggregation = { alignmentPeriod = "60s", perSeriesAligner = "ALIGN_MEAN" }
+                  }
+                }
+              }]
+            }
+          }
+        },
+        # WIDGET 5: Conviction Breakdown (Confidence Heatmap)
+        {
+          width = 6, height = 4, xPos = 0, yPos = 8
+          widget = {
+            title = "🧠 AI Conviction (Confidence %)"
+            xyChart = {
+              chartOptions = { mode = "COLOR" }
+              dataSets = [{
+                timeSeriesQuery = {
+                  timeSeriesFilter = {
+                    filter = "metric.type=\"logging.googleapis.com/user/trading/prediction_confidence\""
+                    aggregation = {
+                      alignmentPeriod  = "600s"
+                      perSeriesAligner = "ALIGN_MEAN"
+                      groupByFields    = ["metric.label.ticker"]
+                    }
+                  }
+                }
+              }]
+            }
+          }
+        },
+        # WIDGET 6: Market Sentiment Heatmap
+        {
+          width = 6, height = 4, xPos = 6, yPos = 8
+          widget = {
+            title = "📰 Market Sentiment (-1 to +1)"
+            xyChart = {
+              chartOptions = { mode = "COLOR" }
+              dataSets = [{
+                timeSeriesQuery = {
+                  timeSeriesFilter = {
+                    filter = "metric.type=\"logging.googleapis.com/user/trading/sentiment_score\""
+                    aggregation = {
+                      alignmentPeriod  = "600s"
+                      perSeriesAligner = "ALIGN_MEAN"
+                      groupByFields    = ["metric.label.ticker"]
+                    }
+                  }
+                }
+              }]
+            }
+          }
+        },
+        # WIDGET 7: Latency (ms)
+        {
+          width = 12, height = 4, xPos = 0, yPos = 12
+          widget = {
+            title = "⏳ Execution Latency (ms)"
+            xyChart = {
+              chartOptions = { mode = "COLOR" }
               dataSets = [{
                 timeSeriesQuery = {
                   timeSeriesFilter = {
@@ -544,55 +730,6 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                     aggregation = {
                       alignmentPeriod  = "60s"
                       perSeriesAligner = "ALIGN_PERCENTILE_99"
-                    }
-                  }
-                }
-              }]
-            }
-          }
-        },
-        # WIDGET 3: Total Equity
-        {
-          width = 6, height = 4, xPos = 0, yPos = 4
-          widget = {
-            title = "💰 Paper Equity ($)"
-            xyChart = {
-              chartOptions = {
-                mode = "COLOR"
-              }
-              timeshiftDuration = "0s"
-              dataSets = [{
-                timeSeriesQuery = {
-                  timeSeriesFilter = {
-                    filter = "metric.type=\"logging.googleapis.com/user/trading/paper_equity\""
-                    aggregation = {
-                      alignmentPeriod  = "300s"
-                      perSeriesAligner = "ALIGN_PERCENTILE_50"
-                    }
-                  }
-                }
-              }]
-            }
-          }
-        },
-        # WIDGET 4: Sentiment Heatmap
-        {
-          width = 6, height = 4, xPos = 6, yPos = 4
-          widget = {
-            title = "📰 Market Sentiment (-1 to +1)"
-            xyChart = {
-              chartOptions = {
-                mode = "COLOR"
-              }
-              timeshiftDuration = "0s"
-              dataSets = [{
-                timeSeriesQuery = {
-                  timeSeriesFilter = {
-                    filter = "metric.type=\"logging.googleapis.com/user/trading/sentiment_score\""
-                    aggregation = {
-                      alignmentPeriod  = "300s"
-                      perSeriesAligner = "ALIGN_PERCENTILE_50"
-                      groupByFields    = ["metric.label.ticker"]
                     }
                   }
                 }
