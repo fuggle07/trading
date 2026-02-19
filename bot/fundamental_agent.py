@@ -7,71 +7,86 @@ from bot.telemetry import logger
 
 PROJECT_ID = os.getenv("PROJECT_ID") or os.getenv("GOOGLE_CLOUD_PROJECT")
 
+
 class FundamentalAgent:
     def __init__(self, finnhub_client=None):
         self.fmp_key = os.getenv("FMP_KEY")
         self.finnhub_client = finnhub_client  # Keep as backup if needed
         self.av_key = os.getenv("ALPHA_VANTAGE_KEY")
         self.bq_client = bigquery.Client(project=PROJECT_ID) if PROJECT_ID else None
-        
+
         if not self.fmp_key:
             logger.warning("⚠️ FMP_KEY not found. Fundamental analysis restricted.")
         else:
             logger.info("✅ Financial Modeling Prep (FMP) Connected")
 
-    async def _fetch_fmp(self, endpoint: str, ticker: str, params: dict = None, version: str = "v3"):
+    async def _fetch_fmp(
+        self, endpoint: str, ticker: str, params: dict = None, version: str = "v3"
+    ):
         """Helper to fetch data from FMP API."""
         if not self.fmp_key:
             return None
-        
+
         url = f"https://financialmodelingprep.com/{version}/{endpoint}"
         query_params = {"symbol": ticker, "apikey": self.fmp_key}
         if params:
             query_params.update(params)
-        
+
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(url, params=query_params, timeout=10) as response:
+                async with session.get(
+                    url, params=query_params, timeout=10
+                ) as response:
                     if response.status == 200:
                         data = await response.json()
                         if data:
                             return data
                     else:
-                        logger.error(f"[{ticker}] ❌ FMP Error {endpoint}: {response.status}")
+                        logger.error(
+                            f"[{ticker}] ❌ FMP Error {endpoint}: {response.status}"
+                        )
         except Exception as e:
             logger.error(f"[{ticker}] ⚠️ FMP Exception {endpoint}: {e}")
         return None
+
     async def _fetch_alphavantage(self, function: str, params: dict = None):
         """Helper to fetch data from AlphaVantage API."""
         if not self.av_key:
             return None
-        
+
         url = "https://www.alphavantage.co/query"
         query_params = {"function": function, "apikey": self.av_key}
         if params:
             query_params.update(params)
-        
+
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(url, params=query_params, timeout=10) as response:
+                async with session.get(
+                    url, params=query_params, timeout=10
+                ) as response:
                     if response.status == 200:
                         return await response.json()
                     else:
-                        logger.error(f"❌ AlphaVantage Error {function}: {response.status}")
+                        logger.error(
+                            f"❌ AlphaVantage Error {function}: {response.status}"
+                        )
         except Exception as e:
             logger.error(f"⚠️ AlphaVantage Exception {function}: {e}")
         return None
 
-    async def get_technical_indicator(self, ticker: str, indicator_type: str, period: int = 20, timeframe: str = "1day"):
+    async def get_technical_indicator(
+        self,
+        ticker: str,
+        indicator_type: str,
+        period: int = 20,
+        timeframe: str = "1day",
+    ):
         """
         Fetches technical indicators from FMP (e.g., sma, rsi, ema).
         URL: https://financialmodelingprep.com/stable/technical-indicators/{type}?symbol={ticker}&periodLength={period}&timeframe={timeframe}&apikey={key}
         """
         endpoint = f"technical-indicators/{indicator_type}"
-        params = {
-            "periodLength": period,
-            "timeframe": timeframe
-        }
+        params = {"periodLength": period, "timeframe": timeframe}
         data = await self._fetch_fmp(endpoint, ticker, params=params, version="stable")
         if data and isinstance(data, list):
             # FMP returns a list of indicators, we usually want the latest one
@@ -88,14 +103,14 @@ class FundamentalAgent:
             # /quote gives MarketCap, Price. /ratios-ttm gives PE, EPS.
             quote_task = self._fetch_fmp("quote", ticker)
             ratios_task = self._fetch_fmp("ratios-ttm", ticker)
-            
+
             quote_data, ratios_data = await asyncio.gather(quote_task, ratios_task)
 
             if quote_data:
                 q = quote_data[0]
                 pe = 0.0
                 eps = 0.0
-                
+
                 # Try to get PE/EPS from ratios-ttm first (more reliable on stable)
                 if ratios_data:
                     r = ratios_data[0]
@@ -109,16 +124,20 @@ class FundamentalAgent:
                 data = {
                     "pe_ratio": pe,
                     "eps": eps,
-                    "sector": "Unknown", 
+                    "sector": "Unknown",
                     "industry": "Unknown",
                     "market_cap": int(q.get("marketCap", 0) or 0),
                 }
-                logger.info(f"[{ticker}] 📊 {ticker} Fundamentals (FMP): PE={data['pe_ratio']:.2f}, EPS={data['eps']:.2f}")
+                logger.info(
+                    f"[{ticker}] 📊 {ticker} Fundamentals (FMP): PE={data['pe_ratio']:.2f}, EPS={data['eps']:.2f}"
+                )
 
         # 2. Fallback to Finnhub if FMP fails
         if not data and self.finnhub_client:
             try:
-                logger.info(f"[{ticker}] 📡 Falling back to Finnhub for {ticker} fundamentals...")
+                logger.info(
+                    f"[{ticker}] 📡 Falling back to Finnhub for {ticker} fundamentals..."
+                )
                 basic_fin = await asyncio.to_thread(
                     self.finnhub_client.company_basic_financials, ticker, "all"
                 )
@@ -129,9 +148,12 @@ class FundamentalAgent:
                         "eps": float(metric.get("epsExclExtraItemsTTM", 0) or 0),
                         "sector": "Unknown (Finnhub Fallback)",
                         "industry": "Unknown (Finnhub Fallback)",
-                        "market_cap": int(metric.get("marketCapitalization", 0) or 0) * 1_000_000,
+                        "market_cap": int(metric.get("marketCapitalization", 0) or 0)
+                        * 1_000_000,
                     }
-                    logger.info(f"[{ticker}] 📊 {ticker} Fundamentals (Finnhub): PE={data['pe_ratio']}, EPS={data['eps']}")
+                    logger.info(
+                        f"[{ticker}] 📊 {ticker} Fundamentals (Finnhub): PE={data['pe_ratio']}, EPS={data['eps']}"
+                    )
             except Exception as e:
                 logger.error(f"[{ticker}] ❌ Finnhub Fallback failed: {e}")
 
@@ -143,32 +165,38 @@ class FundamentalAgent:
         """
         intelligence = {
             "analyst_consensus": "Neutral",
-            "institutional_momentum": "Neutral"
+            "institutional_momentum": "Neutral",
         }
-        
+
         if not self.fmp_key:
             return intelligence
 
         try:
             # 1. Analyst Ratings (FMP /analyst-stock-recommendations)
             ratings_task = self._fetch_fmp("analyst-stock-recommendations", ticker)
-            
+
             # 2. Institutional Ownership %
-            inst_task = self._fetch_fmp("institutional-ownership/symbol-ownership-percent", ticker)
-            
+            inst_task = self._fetch_fmp(
+                "institutional-ownership/symbol-ownership-percent", ticker
+            )
+
             ratings_data, inst_data = await asyncio.gather(ratings_task, inst_task)
 
             if ratings_data and isinstance(ratings_data, list):
                 r = ratings_data[0]
-                intelligence["analyst_consensus"] = f"{r.get('recommendation', 'Neutral')} (Consensus of {r.get('analystRatingsTotal', 0)} analysts)"
-            
+                intelligence["analyst_consensus"] = (
+                    f"{r.get('recommendation', 'Neutral')} (Consensus of {r.get('analystRatingsTotal', 0)} analysts)"
+                )
+
             if inst_data and isinstance(inst_data, list):
                 pct = float(inst_data[0].get("totalOwnershipPercentage", 0) or 0)
-                intelligence["institutional_momentum"] = f"{pct:.1f}% Institutional Ownership"
+                intelligence["institutional_momentum"] = (
+                    f"{pct:.1f}% Institutional Ownership"
+                )
 
         except Exception as e:
             logger.error(f"[{ticker}] ⚠️ Failed to fetch intelligence metrics: {e}")
-            
+
         return intelligence
 
     async def get_economic_calendar(self, days_ahead: int = 7) -> list:
@@ -181,7 +209,8 @@ class FundamentalAgent:
             data = await self._fetch_fmp("economic_calendar", "", version="v3")
             if data and isinstance(data, list):
                 high_impact = [
-                    ev for ev in data 
+                    ev
+                    for ev in data
                     if ev.get("country") == "US" and ev.get("impact") == "High"
                 ]
                 if high_impact:
@@ -191,15 +220,20 @@ class FundamentalAgent:
         if self.finnhub_client:
             try:
                 from_date = datetime.now().strftime("%Y-%m-%d")
-                to_date = (datetime.now() + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
-                
+                to_date = (datetime.now() + timedelta(days=days_ahead)).strftime(
+                    "%Y-%m-%d"
+                )
+
                 # Finnhub SDK call
-                res = await asyncio.to_thread(self.finnhub_client.calendar_economic, _from=from_date, to=to_date)
+                res = await asyncio.to_thread(
+                    self.finnhub_client.calendar_economic, _from=from_date, to=to_date
+                )
                 if res and "economicCalendar" in res:
                     events = res["economicCalendar"]
                     # Filter for High impact US
                     high_impact = [
-                        e for e in events 
+                        e
+                        for e in events
                         if e.get("impact") == "high" and e.get("country") == "US"
                     ]
                     return high_impact[:5]
@@ -221,22 +255,24 @@ class FundamentalAgent:
                 return {
                     "date": latest.get("date"),
                     "10Y": float(latest.get("year10", 0) or 0),
-                    "2Y": float(latest.get("year2", 0) or 0)
+                    "2Y": float(latest.get("year2", 0) or 0),
                 }
 
         # 2. Fallback to Finnhub (Macro Data)
         if self.finnhub_client:
             try:
-                # DGS10 is the FRED code for 10Y Yield. 
-                # Finnhub often maps these to MA-USA codes. 
+                # DGS10 is the FRED code for 10Y Yield.
+                # Finnhub often maps these to MA-USA codes.
                 # MA-USA-347 is often 'Long Term Government Bond Yields: 10-year: Main (Including Benchmark) for the United States'
-                res = await asyncio.to_thread(self.finnhub_client.economic_data, code="MA-USA-347")
+                res = await asyncio.to_thread(
+                    self.finnhub_client.economic_data, code="MA-USA-347"
+                )
                 if res and "data" in res and res["data"]:
-                    latest = res["data"][0] # Usually latest is first
+                    latest = res["data"][0]  # Usually latest is first
                     return {
                         "date": latest.get("date"),
                         "10Y": float(latest.get("value", 0) or 0),
-                        "source": "Finnhub/FRED"
+                        "source": "Finnhub/FRED",
                     }
             except Exception as e:
                 logger.error(f"⚠️ Finnhub Treasury Fallback failed: {e}")
@@ -245,13 +281,15 @@ class FundamentalAgent:
         if self.av_key:
             try:
                 # Daily 10Y Yield
-                av_res = await self._fetch_alphavantage("TREASURY_YIELD", {"maturity": "10year", "interval": "daily"})
+                av_res = await self._fetch_alphavantage(
+                    "TREASURY_YIELD", {"maturity": "10year", "interval": "daily"}
+                )
                 if av_res and "data" in av_res and av_res["data"]:
                     latest = av_res["data"][0]
                     return {
                         "date": latest.get("date"),
                         "10Y": float(latest.get("value", 0) or 0),
-                        "source": "AlphaVantage"
+                        "source": "AlphaVantage",
                     }
             except Exception as e:
                 logger.error(f"⚠️ AlphaVantage Treasury Fallback failed: {e}")
@@ -272,10 +310,18 @@ class FundamentalAgent:
             if data and isinstance(data, list):
                 for item in data:
                     sym = item.get("symbol")
-                    if sym == "^VIX": results["vix"] = float(item.get("price", 0) or 0)
-                    elif sym == "SPY": results["spy_perf"] = float(item.get("changesPercentage", 0) or 0)
-                    elif sym == "QQQ": results["qqq_perf"] = float(item.get("changesPercentage", 0) or 0)
-                if results["vix"] > 0: return results
+                    if sym == "^VIX":
+                        results["vix"] = float(item.get("price", 0) or 0)
+                    elif sym == "SPY":
+                        results["spy_perf"] = float(
+                            item.get("changesPercentage", 0) or 0
+                        )
+                    elif sym == "QQQ":
+                        results["qqq_perf"] = float(
+                            item.get("changesPercentage", 0) or 0
+                        )
+                if results["vix"] > 0:
+                    return results
 
         # 2. Fallback to Finnhub
         if self.finnhub_client:
@@ -294,12 +340,14 @@ class FundamentalAgent:
                 # Fetch SPY/QQQ performance (These are usually free as they are ETFs)
                 spy_task = asyncio.to_thread(self.finnhub_client.quote, "SPY")
                 qqq_task = asyncio.to_thread(self.finnhub_client.quote, "QQQ")
-                
+
                 spy_res, qqq_res = await asyncio.gather(spy_task, qqq_task)
-                
-                if spy_res and "dp" in spy_res: results["spy_perf"] = float(spy_res["dp"])
-                if qqq_res and "dp" in qqq_res: results["qqq_perf"] = float(qqq_res["dp"])
-                
+
+                if spy_res and "dp" in spy_res:
+                    results["spy_perf"] = float(spy_res["dp"])
+                if qqq_res and "dp" in qqq_res:
+                    results["qqq_perf"] = float(qqq_res["dp"])
+
             except Exception as e:
                 logger.error(f"⚠️ Finnhub Indices Fallback failed: {e}")
 
@@ -327,24 +375,35 @@ class FundamentalAgent:
         except Exception:
             return None
 
-    def _save_to_cache(self, ticker: str, is_healthy: bool, h_reason: str, is_deep: bool, d_reason: str, metrics: dict = None):
+    def _save_to_cache(
+        self,
+        ticker: str,
+        is_healthy: bool,
+        h_reason: str,
+        is_deep: bool,
+        d_reason: str,
+        metrics: dict = None,
+    ):
         """Persists evaluation results to BigQuery."""
         client = self.bq_client
         if not client:
             return
 
         import json
+
         metrics_json = json.dumps(metrics) if metrics else None
 
-        rows_to_insert = [{
-            "timestamp": datetime.now().isoformat(),
-            "ticker": ticker,
-            "is_healthy": is_healthy,
-            "health_reason": h_reason,
-            "is_deep_healthy": is_deep,
-            "deep_health_reason": d_reason,
-            "metrics_json": metrics_json
-        }]
+        rows_to_insert = [
+            {
+                "timestamp": datetime.now().isoformat(),
+                "ticker": ticker,
+                "is_healthy": is_healthy,
+                "health_reason": h_reason,
+                "is_deep_healthy": is_deep,
+                "deep_health_reason": d_reason,
+                "metrics_json": metrics_json,
+            }
+        ]
         try:
             table_id = f"{PROJECT_ID}.trading_data.fundamental_cache"
             client.insert_rows_json(table_id, rows_to_insert)
@@ -391,11 +450,11 @@ class FundamentalAgent:
         endpoints = {
             "income": "income-statement",
             "balance": "balance-sheet-statement",
-            "cash": "cash-flow-statement"
+            "cash": "cash-flow-statement",
         }
 
         for key, endpoint in endpoints.items():
-            url = f"https://financialmodelingprep.com/stable/{endpoint}?symbol={ticker}&limit=2&apikey={self.fmp_key}" # Switch to stable/query param
+            url = f"https://financialmodelingprep.com/stable/{endpoint}?symbol={ticker}&limit=2&apikey={self.fmp_key}"  # Switch to stable/query param
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(url, timeout=10) as response:
@@ -405,10 +464,18 @@ class FundamentalAgent:
                                 financials[key] = data
             except Exception as e:
                 logger.error(f"[{ticker}] ⚠️ Failed to fetch annual {key}: {e}")
-        
+
         return financials
 
-    def calculate_dcf(self, fcf_ttm, shares_outstanding, growth_rate=0.08, discount_rate=0.10, years=5, terminal_growth=0.02):
+    def calculate_dcf(
+        self,
+        fcf_ttm,
+        shares_outstanding,
+        growth_rate=0.08,
+        discount_rate=0.10,
+        years=5,
+        terminal_growth=0.02,
+    ):
         """
         Simplified DCF Valuation.
         Assumes 8% growth for 5 years, then 2% terminal growth, discounted at 10%.
@@ -423,13 +490,15 @@ class FundamentalAgent:
         # 1. Project Future Cash Flows
         current_fcf = fcf_ttm
         for i in range(1, years + 1):
-            current_fcf *= (1 + growth_rate)
-            discounted_cf = current_fcf / (df_factor ** i)
+            current_fcf *= 1 + growth_rate
+            discounted_cf = current_fcf / (df_factor**i)
             future_cash_flows.append(discounted_cf)
 
         # 2. Terminal Value
-        terminal_value = (current_fcf * (1 + terminal_growth)) / (discount_rate - terminal_growth)
-        discounted_terminal_value = terminal_value / (df_factor ** years)
+        terminal_value = (current_fcf * (1 + terminal_growth)) / (
+            discount_rate - terminal_growth
+        )
+        discounted_terminal_value = terminal_value / (df_factor**years)
 
         # 3. Sum and Divide by Shares
         total_enterprise_value = sum(future_cash_flows) + discounted_terminal_value
@@ -449,48 +518,73 @@ class FundamentalAgent:
             cfs = financials.get("cash", [])
 
             if len(inc) < 2 or len(bal) < 2 or len(cfs) < 2:
-                return 0 # Not enough data
+                return 0  # Not enough data
 
             # Year 0 (Current/Most Recent), Year 1 (Previous)
             i0, i1 = inc[0], inc[1]
             b0, b1 = bal[0], bal[1]
-            c0, c1 = cfs[0], cfs[1]
+            c0, _c1 = cfs[0], cfs[1]
 
             # --- Profitability (4 pts) ---
             net_income = float(i0.get("netIncome", 0))
             roa = net_income / float(b0.get("totalAssets", 1))
             cfo = float(c0.get("operatingCashFlow", 0))
-            
+
             roa_prev = float(i1.get("netIncome", 0)) / float(b1.get("totalAssets", 1))
 
-            if net_income > 0: score += 1      # 1. Positive Net Income
-            if cfo > 0: score += 1             # 2. Positive Operating Cash Flow
-            if roa > roa_prev: score += 1      # 3. Higher ROA YoY
-            if cfo > net_income: score += 1    # 4. Cash Flow > Net Income (Quality of Earnings)
+            if net_income > 0:
+                score += 1  # 1. Positive Net Income
+            if cfo > 0:
+                score += 1  # 2. Positive Operating Cash Flow
+            if roa > roa_prev:
+                score += 1  # 3. Higher ROA YoY
+            if cfo > net_income:
+                score += 1  # 4. Cash Flow > Net Income (Quality of Earnings)
 
             # --- Leverage / Liquidity / Source of Funds (3 pts) ---
-            leverage = float(b0.get("totalLiabilities", 0)) / float(b0.get("totalAssets", 1))
-            leverage_prev = float(b1.get("totalLiabilities", 0)) / float(b1.get("totalAssets", 1))
-            
-            current_ratio = float(b0.get("totalCurrentAssets", 1)) / float(b0.get("totalCurrentLiabilities", 1))
-            current_ratio_prev = float(b1.get("totalCurrentAssets", 1)) / float(b1.get("totalCurrentLiabilities", 1))
+            leverage = float(b0.get("totalLiabilities", 0)) / float(
+                b0.get("totalAssets", 1)
+            )
+            leverage_prev = float(b1.get("totalLiabilities", 0)) / float(
+                b1.get("totalAssets", 1)
+            )
+
+            current_ratio = float(b0.get("totalCurrentAssets", 1)) / float(
+                b0.get("totalCurrentLiabilities", 1)
+            )
+            current_ratio_prev = float(b1.get("totalCurrentAssets", 1)) / float(
+                b1.get("totalCurrentLiabilities", 1)
+            )
 
             shares = float(i0.get("weightedAverageShsOut", 0))
             shares_prev = float(i1.get("weightedAverageShsOut", 0))
 
-            if leverage < leverage_prev: score += 1       # 5. Lower Leverage
-            if current_ratio > current_ratio_prev: score += 1 # 6. Higher Current Ratio
-            if shares <= shares_prev: score += 1          # 7. No Dilution (Shares flat or down)
+            if leverage < leverage_prev:
+                score += 1  # 5. Lower Leverage
+            if current_ratio > current_ratio_prev:
+                score += 1  # 6. Higher Current Ratio
+            if shares <= shares_prev:
+                score += 1  # 7. No Dilution (Shares flat or down)
 
             # --- Operating Efficiency (2 pts) ---
-            gross_margin = (float(i0.get("revenue", 1)) - float(i0.get("costOfRevenue", 0))) / float(i0.get("revenue", 1))
-            gross_margin_prev = (float(i1.get("revenue", 1)) - float(i1.get("costOfRevenue", 0))) / float(i1.get("revenue", 1))
+            gross_margin = (
+                float(i0.get("revenue", 1)) - float(i0.get("costOfRevenue", 0))
+            ) / float(i0.get("revenue", 1))
+            gross_margin_prev = (
+                float(i1.get("revenue", 1)) - float(i1.get("costOfRevenue", 0))
+            ) / float(i1.get("revenue", 1))
 
-            asset_turnover = float(i0.get("revenue", 0)) / float(b0.get("totalAssets", 1))
-            asset_turnover_prev = float(i1.get("revenue", 0)) / float(b1.get("totalAssets", 1))
+            asset_turnover = float(i0.get("revenue", 0)) / float(
+                b0.get("totalAssets", 1)
+            )
+            asset_turnover_prev = float(i1.get("revenue", 0)) / float(
+                b1.get("totalAssets", 1)
+            )
 
-            if gross_margin > gross_margin_prev: score += 1   # 8. Higher Gross Margin
-            if asset_turnover > asset_turnover_prev: score += 1 # 9. Higher Asset Turnover
+            if gross_margin > gross_margin_prev:
+                score += 1  # 8. Higher Gross Margin
+            if asset_turnover > asset_turnover_prev:
+                score += 1  # 9. Higher Asset Turnover
 
         except Exception as e:
             logger.error(f"F-Score Logic Error: {e}")
@@ -504,7 +598,7 @@ class FundamentalAgent:
         Weighted average of Profitability, Safety, and Value.
         """
         score = 0.0
-        
+
         # Helper to safely get float
         def g(d, k, default=0.0):
             return float(d.get(k, 0) or default)
@@ -516,17 +610,25 @@ class FundamentalAgent:
         gm = g(ratios, "grossProfitMarginTTM")
         nm = g(ratios, "netProfitMarginTTM")
 
-        if roe > 0.15: score += 10
-        elif roe > 0.08: score += 5
-        
-        if roa > 0.05: score += 10
-        elif roa > 0.02: score += 5
+        if roe > 0.15:
+            score += 10
+        elif roe > 0.08:
+            score += 5
 
-        if gm > 0.40: score += 10
-        elif gm > 0.20: score += 5
+        if roa > 0.05:
+            score += 10
+        elif roa > 0.02:
+            score += 5
 
-        if nm > 0.10: score += 10
-        elif nm > 0: score += 5
+        if gm > 0.40:
+            score += 10
+        elif gm > 0.20:
+            score += 5
+
+        if nm > 0.10:
+            score += 10
+        elif nm > 0:
+            score += 5
 
         # 2. Safety (30 points)
         # Current Ratio > 1.5 (+10), Debt/Equity < 0.5 (+10), Interest Cov > 5 (+10)
@@ -534,35 +636,47 @@ class FundamentalAgent:
         de = g(ratios, "debtToEquityRatioTTM")
         ic = g(ratios, "interestCoverageRatioTTM")
 
-        if cr > 1.5: score += 10
-        elif cr > 1.0: score += 5
+        if cr > 1.5:
+            score += 10
+        elif cr > 1.0:
+            score += 5
 
-        if de < 0.5: score += 10
-        elif de < 1.0: score += 5
+        if de < 0.5:
+            score += 10
+        elif de < 1.0:
+            score += 5
 
-        if ic > 5: score += 10
-        elif ic > 1: score += 5
+        if ic > 5:
+            score += 10
+        elif ic > 1:
+            score += 5
 
         # 3. Value (30 points)
         # PE < 25 (+10), PEG < 1.5 (+10), DCF Upside > 10% (+10)
         pe = g(ratios, "priceToEarningsRatioTTM")
         peg = g(ratios, "priceToEarningsGrowthRatioTTM")
-        
+
         # DCF Upside Logic
-        # We need recent Price and Fair Value, which aren't in ratios/metrics directly strictly speaking 
-        # but we can approximate or pass them in? 
-        # Actually, let's keep it simple and use whatever ratios has or skip DCF here 
+        # We need recent Price and Fair Value, which aren't in ratios/metrics directly strictly speaking
+        # but we can approximate or pass them in?
+        # Actually, let's keep it simple and use whatever ratios has or skip DCF here
         # and assume "Price to Free Cash Flow" is a good proxy for value.
         pfcf = g(ratios, "priceToFreeCashFlowRatioTTM")
 
-        if 0 < pe < 25: score += 10
-        elif 0 < pe < 40: score += 5
+        if 0 < pe < 25:
+            score += 10
+        elif 0 < pe < 40:
+            score += 5
 
-        if 0 < peg < 1.5: score += 10
-        elif 0 < peg < 2.5: score += 5
+        if 0 < peg < 1.5:
+            score += 10
+        elif 0 < peg < 2.5:
+            score += 5
 
-        if 0 < pfcf < 20: score += 10
-        elif 0 < pfcf < 30: score += 5
+        if 0 < pfcf < 20:
+            score += 10
+        elif 0 < pfcf < 30:
+            score += 5
 
         return int(score)
 
@@ -581,7 +695,7 @@ class FundamentalAgent:
         price = 0.0
         ratios = {}
         metrics = {}
-        
+
         # Get basic health first (we need is_healthy and h_reason for caching)
         is_healthy, h_reason = await self.evaluate_health(ticker)
 
@@ -590,15 +704,16 @@ class FundamentalAgent:
         if cached:
             # Attempt to parse F-Score from reason string if cached
             import re
+
             d_reason = cached["deep_health_reason"]
             f_score_match = re.search(r"F-Score (\d+)/9", d_reason)
             cached_f_score = int(f_score_match.group(1)) if f_score_match else 0
-            
+
             return cached["is_deep_healthy"], d_reason, cached_f_score
 
         # 2. Proceed to analysis (Need cache update at end)
         is_healthy, h_reason = await self.evaluate_health(ticker)
-        
+
         is_deep = True
         d_reason_parts = []
 
@@ -609,14 +724,18 @@ class FundamentalAgent:
                 metrics_task = self._fetch_fmp("key-metrics-ttm", ticker)
                 ratios_task = self._fetch_fmp("ratios-ttm", ticker)
                 quote_task = self._fetch_fmp("quote", ticker)
-                
-                financials, metrics_data, ratios_data, quote_data = await asyncio.gather(
-                    financials_task, metrics_task, ratios_task, quote_task
+
+                financials, metrics_data, ratios_data, quote_data = (
+                    await asyncio.gather(
+                        financials_task, metrics_task, ratios_task, quote_task
+                    )
                 )
 
                 # CHECK FOR FMP DATA FAILURE
                 if not financials.get("income") or not metrics_data:
-                    logger.warning(f"[{ticker}] ⚠️ FMP Data Incomplete. Triggering Fallback.")
+                    logger.warning(
+                        f"[{ticker}] ⚠️ FMP Data Incomplete. Triggering Fallback."
+                    )
                     raise ValueError("Incomplete FMP Data")
 
                 price = 0.0
@@ -625,22 +744,26 @@ class FundamentalAgent:
 
                 # --- A. Piotroski F-Score ---
                 f_score = self.calculate_piotroski_f_score(financials)
-                
+
                 # --- B. DCF Valuation ---
                 fair_value = 0.0
-                dcf_upside = 0.0
                 if metrics_data:
                     m = metrics_data[0]
                     fcf_per_share = float(m.get("freeCashFlowPerShareTTM", 0) or 0)
-                    shares_out = float(financials.get("income", [{}])[0].get("weightedAverageShsOut", 0) or 1)
-                    
+                    shares_out = float(
+                        financials.get("income", [{}])[0].get(
+                            "weightedAverageShsOut", 0
+                        )
+                        or 1
+                    )
+
                     # Estimate Total FCF TTM (Approx)
                     total_fcf = fcf_per_share * shares_out
-                    
+
                     if total_fcf > 0:
                         fair_value = self.calculate_dcf(total_fcf, shares_out)
-                        if price > 0:
-                            dcf_upside = (fair_value - price) / price
+                        # dcf_upside reserved for future use
+                        _ = (fair_value - price) / price if price > 0 else 0
 
                 # --- C. Growth Analysis (YoY) ---
                 rev_growth = 0.0
@@ -653,7 +776,9 @@ class FundamentalAgent:
                 # --- D. Quality Score ---
                 ratios = ratios_data[0] if ratios_data else {}
                 metrics = metrics_data[0] if metrics_data else {}
-                quality_score = self.calculate_quality_score(ratios, metrics, financials)
+                quality_score = self.calculate_quality_score(
+                    ratios, metrics, financials
+                )
 
                 # --- Rating Logic ---
                 # 1. Financial Strength (F-Score)
@@ -671,18 +796,18 @@ class FundamentalAgent:
 
                 # 2. Valuation (DCF)
                 if price > 0 and fair_value > 0:
-                    if price > (fair_value * 1.5): # 50% premium over fair value
-                         is_deep = False
-                         d_reason_parts.append(f"Overvalued (DCF ${fair_value})")
+                    if price > (fair_value * 1.5):  # 50% premium over fair value
+                        is_deep = False
+                        d_reason_parts.append(f"Overvalued (DCF ${fair_value})")
                     else:
-                         d_reason_parts.append(f"DCF Fair Value ${fair_value}")
+                        d_reason_parts.append(f"DCF Fair Value ${fair_value}")
 
                 # 3. Growth
                 if rev_growth < 0:
-                     is_deep = False
-                     d_reason_parts.append(f"Declining Revenue ({rev_growth:.1%})")
+                    is_deep = False
+                    d_reason_parts.append(f"Declining Revenue ({rev_growth:.1%})")
                 else:
-                     d_reason_parts.append(f"Rev Growth {rev_growth:.1%}")
+                    d_reason_parts.append(f"Rev Growth {rev_growth:.1%}")
 
                 if not d_reason_parts:
                     d_reason_parts.append("Analysis Inconclusive")
@@ -704,11 +829,11 @@ class FundamentalAgent:
             # NO FMP KEY -> Check basic health only
             if is_healthy:
                 d_reason = "Basic Health Only (No FMP Key)"
-                f_score = 5 # Pass if basic health is good
+                f_score = 5  # Pass if basic health is good
             else:
                 d_reason = f"Unhealthy Basic: {h_reason}"
                 is_deep = False
-        
+
         # 3. Cache Result (with metrics)
         metrics_snapshot = {
             "pe": float(ratios.get("priceToEarningsRatioTTM", 0) or 0),
@@ -719,8 +844,16 @@ class FundamentalAgent:
             "fair_value": fair_value,
             "price": price,
             "raw_ratios": ratios,  # Archive ALL raw FMP data
-            "raw_metrics": metrics
+            "raw_metrics": metrics,
         }
-        await asyncio.to_thread(self._save_to_cache, ticker, is_healthy, h_reason, is_deep, d_reason, metrics_snapshot)
-        
+        await asyncio.to_thread(
+            self._save_to_cache,
+            ticker,
+            is_healthy,
+            h_reason,
+            is_deep,
+            d_reason,
+            metrics_snapshot,
+        )
+
         return is_deep, d_reason, f_score

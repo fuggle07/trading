@@ -1,5 +1,5 @@
 from decimal import Decimal
-from typing import Optional, Dict
+from typing import Dict
 from datetime import datetime
 import pytz
 from bot.telemetry import log_decision
@@ -142,7 +142,7 @@ class SignalAgent:
                     final_action = "BUY"
                     conviction = 70  # Aggressive entry conviction
                     technical_signal = "HOLD_AGGRESSIVE_ENTRY"
-            
+
             # --- RSI OVERLAY (Oversold Aggression) ---
             if rsi <= 30 and sentiment > 0.4:
                 final_action = "BUY"
@@ -157,9 +157,11 @@ class SignalAgent:
                 p_change = (current_price - avg_price) / avg_price
                 final_action = "SELL"
                 conviction = 100  # Exit is mandatory
-                exit_type = "PROFIT_TARGET" if p_change >= 0.05 else "STOP_LOSS/SENTIMENT"
-                technical_signal = f"EXIT_{exit_type}" # Update for the log line
-            
+                exit_type = (
+                    "PROFIT_TARGET" if p_change >= 0.05 else "STOP_LOSS/SENTIMENT"
+                )
+                technical_signal = f"EXIT_{exit_type}"  # Update for the log line
+
             # RSI Overbought Exit
             elif rsi >= 80:
                 final_action = "SELL"
@@ -171,20 +173,20 @@ class SignalAgent:
         if final_action == "BUY":
             f_score = fundamentals.get("f_score", 0)
             is_healthy = fundamentals.get("is_healthy", True)
-            
+
             # HURDLE 1: Basic Profitability/Valuation
             if not is_healthy:
                 final_action = "IDLE"
                 conviction = 0
-                technical_signal = "REJECT_UNHEALTHY" # Update log
-                
+                technical_signal = "REJECT_UNHEALTHY"  # Update log
+
             # HURDLE 2: Deep Financial Health (F-Score)
             elif f_score < 5:
                 # F-Score range is 0-9. < 5 implies mixed/poor signals.
                 final_action = "IDLE"
                 conviction = 0
                 technical_signal = f"REJECT_WEAK_FSCORE_{f_score}"
-            
+
             # BONUS: Boost for Elite Health
             elif f_score >= 7:
                 conviction = min(100, conviction + 10)
@@ -283,7 +285,7 @@ class SignalAgent:
             # Must be "Deeply Healthy" to justify a forced swap
             if not potential_fundamentals.get("is_deep_healthy", False):
                 return False
-            
+
             # Optional: Enforce F-Score > 5 for swaps
             if potential_fundamentals.get("f_score", 0) < 5:
                 return False
@@ -292,5 +294,5 @@ class SignalAgent:
         # hurdle_rate might be 15-20% confidence difference
         if potential_conf > (current_conf + 15):
             return True
-            
+
         return False

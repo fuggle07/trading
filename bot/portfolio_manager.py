@@ -2,6 +2,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class PortfolioManager:
     def __init__(self, bq_client, table_id):
         self.client = bq_client
@@ -80,7 +81,7 @@ class PortfolioManager:
             current_state = self.get_state(ticker)
             old_holdings = current_state["holdings"]
             old_avg = current_state["avg_price"]
-        except:
+        except Exception:
             old_holdings = 0.0
             old_avg = 0.0
 
@@ -180,6 +181,7 @@ class PortfolioManager:
             "total_market_value": total_market_value,
             "breakdown": breakdown,
         }
+
     def get_held_tickers(self):
         """Returns a dict of {ticker: holdings} for assets where holdings > 0."""
         query = f"SELECT asset_name, holdings FROM `{self.table_id}` WHERE holdings > 0 AND asset_name != 'USD'"

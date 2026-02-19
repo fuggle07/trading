@@ -43,7 +43,7 @@ class FeedbackAgent:
         """Queries BQ to find cases where sentiment was wrong (Intraday hourly check)."""
         # We look for a prediction from ~1 hour ago (prediction_time)
         # And compare it to price NOW.
-        # Strict logic: 
+        # Strict logic:
         #   Snapshot A: 60-90 mins ago.
         #   Snapshot B: NOW (last 10 mins).
         query = f"""
@@ -126,7 +126,6 @@ class FeedbackAgent:
         row = {
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "ticker": ticker,
-            "lesson": lesson,
             "lesson": lesson,
             "category": "Intraday Adjustment",
         }

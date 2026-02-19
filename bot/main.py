@@ -1,13 +1,18 @@
 import os
 import asyncio
+import logging
 import finnhub
 import pandas as pd
 from flask import Flask, jsonify
 from datetime import datetime, timezone, timedelta
+from typing import Optional
 from bot.telemetry import log_watchlist_data, log_macro_snapshot, log_decision
 import pytz
 import traceback
 from google.cloud import bigquery
+from alpaca.data.historical import StockHistoricalDataClient
+from alpaca.data.requests import StockBarsRequest
+from alpaca.data.timeframe import TimeFrame
 from bot.signal_agent import SignalAgent
 from bot.execution_manager import ExecutionManager
 from bot.portfolio_manager import PortfolioManager
@@ -20,6 +25,8 @@ from bot.portfolio_reconciler import PortfolioReconciler
 # --- 1. INITIALIZATION ---
 app = Flask(__name__)
 app.url_map.strict_slashes = False
+
+logger = logging.getLogger(__name__)
 
 # Retrieve the key
 FINNHUB_KEY = os.environ.get("EXCHANGE_API_KEY")
@@ -74,10 +81,6 @@ feedback_agent = FeedbackAgent(PROJECT_ID, bq_client)
 reconciler = PortfolioReconciler(PROJECT_ID, bq_client)
 
 # --- 2. CORE UTILITIES ---
-
-from alpaca.data.historical import StockHistoricalDataClient
-from alpaca.data.requests import StockBarsRequest
-from alpaca.data.timeframe import TimeFrame
 
 
 def _get_ny_time():
@@ -170,22 +173,24 @@ async def get_macro_context() -> dict:
         "indices": {},
         "rates": {},
         "vix": 0.0,
-        "formatted": "Market Context: Stable"
+        "formatted": "Market Context: Stable",
     }
-    
+
     try:
         # Fetch data in parallel
         indices_task = fundamental_agent.get_market_indices()
         rates_task = fundamental_agent.get_treasury_rates()
         calendar_task = fundamental_agent.get_economic_calendar()
-        
-        indices, rates, calendar = await asyncio.gather(indices_task, rates_task, calendar_task)
-        
+
+        indices, rates, calendar = await asyncio.gather(
+            indices_task, rates_task, calendar_task
+        )
+
         macro_data["indices"] = indices
         macro_data["rates"] = rates
         macro_data["calendar"] = calendar
         macro_data["vix"] = indices.get("vix", 0.0)
-        
+
         parts = []
         if "spy_perf" in indices:
             parts.append(f"SPY: {indices['spy_perf']:.2f}%")
@@ -195,13 +200,13 @@ async def get_macro_context() -> dict:
             parts.append(f"10Y Yield: {rates['10Y']:.2f}%")
         if macro_data["vix"] > 0:
             parts.append(f"VIX: {macro_data['vix']:.2f}")
-            
+
         if parts:
             macro_data["formatted"] = f"Market Context: {', '.join(parts)}"
-            
+
     except Exception as e:
         logger.error(f"⚠️ Failed to fetch macro context: {e}")
-    
+
     return macro_data
 
 
@@ -209,7 +214,7 @@ def calculate_technical_indicators(df, ticker="Unknown"):
     """Calculates SMA-20, SMA-50, and Bollinger Bands."""
     if df is None:
         return None
-    
+
     if len(df) < 50:
         print(
             f"⚠️  [{ticker}] Insufficient technical data: {len(df)} rows < 50 required"
@@ -269,8 +274,12 @@ async def fetch_sentiment(ticker, lessons="", context=None):
             print(
                 f"[{ticker}] 📰 Found {len(news)} news items for {ticker}. Asking Gemini..."
             )
-            result = await sentiment_analyzer.analyze_news(ticker, news, lessons, context=context)
-            sentiment_score, gemini_reasoning = result if isinstance(result, tuple) else (result, "")
+            result = await sentiment_analyzer.analyze_news(
+                ticker, news, lessons, context=context
+            )
+            sentiment_score, gemini_reasoning = (
+                result if isinstance(result, tuple) else (result, "")
+            )
         else:
             gemini_reasoning = ""
 
@@ -316,11 +325,11 @@ async def run_audit():
     """
     tickers_env = os.environ.get("BASE_TICKERS", "NVDA,AAPL,MU,MSFT,AMD")
     base_tickers = [t.strip() for t in tickers_env.split(",") if t.strip()]
-    
+
     # --- Phase 1: Portfolio Awareness & Intel Gathering ---
     print("🔄 Fetching Portfolio & Intel...")
     held_tickers = portfolio_manager.get_held_tickers()
-    
+
     # Audit all monitored tickers PLUS anything we currently hold (safety first)
     tickers = list(set(base_tickers + list(held_tickers.keys())))
     print(f"🔍 Starting Multi-Phase Audit for: {tickers}")
@@ -341,10 +350,10 @@ async def run_audit():
     # 2. Fetch Enriched Macro Context
     lessons_task = feedback_agent.get_recent_lessons(limit=3)
     macro_task = get_macro_context()
-    
+
     lessons, macro_data = await asyncio.gather(lessons_task, macro_task)
     macro_context_str = macro_data.get("formatted", "Market Context: Stable")
-    
+
     if lessons:
         print("🧠 Injecting Hard-Learned Lessons into Intraday Analysis...")
     print(f"🌍 {macro_context_str}")
@@ -359,37 +368,93 @@ async def run_audit():
         print(f"[{ticker}] 📡 Gathering Intel for {ticker}...")
         try:
             # Parallel fetch for a single ticker to save time
-            quote_task = asyncio.to_thread(finnhub_client.quote, ticker) if finnhub_client else None
+            quote_task = (
+                asyncio.to_thread(finnhub_client.quote, ticker)
+                if finnhub_client
+                else None
+            )
             intelligence_task = fundamental_agent.get_intelligence_metrics(ticker)
             fundamental_task = fundamental_agent.evaluate_health(ticker)
             deep_health_task = fundamental_agent.evaluate_deep_health(ticker)
             history_task = fetch_historical_data(ticker)
             confidence_task = get_latest_confidence(ticker)
-            
+
             # FMP Technical Indicators
-            sma20_task = fundamental_agent.get_technical_indicator(ticker, "sma", period=20)
-            sma50_task = fundamental_agent.get_technical_indicator(ticker, "sma", period=50)
-            rsi_task = fundamental_agent.get_technical_indicator(ticker, "rsi", period=14)
-            std_task = fundamental_agent.get_technical_indicator(ticker, "standarddeviation", period=20)
+            sma20_task = fundamental_agent.get_technical_indicator(
+                ticker, "sma", period=20
+            )
+            sma50_task = fundamental_agent.get_technical_indicator(
+                ticker, "sma", period=50
+            )
+            rsi_task = fundamental_agent.get_technical_indicator(
+                ticker, "rsi", period=14
+            )
+            std_task = fundamental_agent.get_technical_indicator(
+                ticker, "standarddeviation", period=20
+            )
 
             # Execute gather with error handling
             intel_results = await asyncio.gather(
-                quote_task, intelligence_task, fundamental_task, deep_health_task,
-                history_task, confidence_task, sma20_task, sma50_task, rsi_task, std_task,
+                quote_task,
+                intelligence_task,
+                fundamental_task,
+                deep_health_task,
+                history_task,
+                confidence_task,
+                sma20_task,
+                sma50_task,
+                rsi_task,
+                std_task,
                 return_exceptions=True,
             )
 
             # --- UNPACK ALL RESULTS ---
-            res_quote = intel_results[0] if not isinstance(intel_results[0], Exception) else None
-            res_intel = intel_results[1] if not isinstance(intel_results[1], Exception) else {}
-            res_health = intel_results[2] if not isinstance(intel_results[2], Exception) else (False, "Health fail")
-            res_deep = intel_results[3] if not isinstance(intel_results[3], Exception) else (False, "Deep fail", 0)
-            res_history = intel_results[4] if not isinstance(intel_results[4], Exception) else None
-            res_conf = intel_results[5] if not isinstance(intel_results[5], Exception) else 0
-            res_sma20 = intel_results[6] if not isinstance(intel_results[6], Exception) else None
-            res_sma50 = intel_results[7] if not isinstance(intel_results[7], Exception) else None
-            res_rsi = intel_results[8] if not isinstance(intel_results[8], Exception) else None
-            res_std = intel_results[9] if not isinstance(intel_results[9], Exception) else None
+            res_quote = (
+                intel_results[0]
+                if not isinstance(intel_results[0], Exception)
+                else None
+            )
+            res_intel = (
+                intel_results[1] if not isinstance(intel_results[1], Exception) else {}
+            )
+            res_health = (
+                intel_results[2]
+                if not isinstance(intel_results[2], Exception)
+                else (False, "Health fail")
+            )
+            res_deep = (
+                intel_results[3]
+                if not isinstance(intel_results[3], Exception)
+                else (False, "Deep fail", 0)
+            )
+            res_history = (
+                intel_results[4]
+                if not isinstance(intel_results[4], Exception)
+                else None
+            )
+            res_conf = (
+                intel_results[5] if not isinstance(intel_results[5], Exception) else 0
+            )
+            res_sma20 = (
+                intel_results[6]
+                if not isinstance(intel_results[6], Exception)
+                else None
+            )
+            res_sma50 = (
+                intel_results[7]
+                if not isinstance(intel_results[7], Exception)
+                else None
+            )
+            res_rsi = (
+                intel_results[8]
+                if not isinstance(intel_results[8], Exception)
+                else None
+            )
+            res_std = (
+                intel_results[9]
+                if not isinstance(intel_results[9], Exception)
+                else None
+            )
 
             if res_quote and isinstance(res_quote, dict) and "c" in res_quote:
                 price = float(res_quote["c"])
@@ -398,24 +463,38 @@ async def run_audit():
                 # --- PREPARE ENRICHED CONTEXT FOR AI ---
                 sma20_val = float(res_sma20.get("sma", 0)) if res_sma20 else 0
                 sma_stretch = ((price / sma20_val) - 1) * 100 if sma20_val > 0 else 0
-                
+
                 ai_context = {
-                    "macro": macro_data, # Detailed macro dict for Gemini
+                    "macro": macro_data,  # Detailed macro dict for Gemini
                     "analyst_consensus": res_intel.get("analyst_consensus", "Neutral"),
-                    "institutional_flow": res_intel.get("institutional_momentum", "Neutral"),
+                    "institutional_flow": res_intel.get(
+                        "institutional_momentum", "Neutral"
+                    ),
                     "rsi": float(res_rsi.get("rsi", 50)) if res_rsi else 50.0,
                     "sma_stretch_pct": round(sma_stretch, 2),
                 }
-                
+
                 # Fetch sentiment with the enriched context
-                sentiment_result = await fetch_sentiment(ticker, lessons, context=ai_context)
-                sentiment_score, gemini_reasoning = sentiment_result if isinstance(sentiment_result, tuple) else (sentiment_result, "")
+                sentiment_result = await fetch_sentiment(
+                    ticker, lessons, context=ai_context
+                )
+                sentiment_score, gemini_reasoning = (
+                    sentiment_result
+                    if isinstance(sentiment_result, tuple)
+                    else (sentiment_result, "")
+                )
 
                 # Process technicals
                 indicators = calculate_technical_indicators(res_history, ticker)
                 if indicators:
-                    if res_sma20: indicators["sma_20"] = float(res_sma20.get("sma", indicators["sma_20"]))
-                    if res_sma50: indicators["sma_50"] = float(res_sma50.get("sma", indicators["sma_50"]))
+                    if res_sma20:
+                        indicators["sma_20"] = float(
+                            res_sma20.get("sma", indicators["sma_20"])
+                        )
+                    if res_sma50:
+                        indicators["sma_50"] = float(
+                            res_sma50.get("sma", indicators["sma_50"])
+                        )
                     if res_sma20 and res_std:
                         sma = float(res_sma20.get("sma", indicators["sma_20"]))
                         std = float(res_std.get("standardDeviation", 0))
@@ -423,23 +502,28 @@ async def run_audit():
                         indicators["bb_lower"] = sma - (std * 2)
 
                 ticker_intel[ticker] = {
-                    "price":            price,
-                    "sentiment":        float(sentiment_score or 0.0),
+                    "price": price,
+                    "sentiment": float(sentiment_score or 0.0),
                     "gemini_reasoning": gemini_reasoning,
-                    "rsi":              float(res_rsi.get("rsi", 50)) if res_rsi else 50.0,
-                    "is_healthy":       bool(res_health[0]),
-                    "health_reason":    str(res_health[1]),
-                    "is_deep_healthy":  bool(res_deep[0]),
+                    "rsi": float(res_rsi.get("rsi", 50)) if res_rsi else 50.0,
+                    "is_healthy": bool(res_health[0]),
+                    "health_reason": str(res_health[1]),
+                    "is_deep_healthy": bool(res_deep[0]),
                     "deep_health_reason": str(res_deep[1]),
-                    "f_score":          int(res_deep[2]) if len(res_deep) > 2 else 0,
-                    "confidence":       int(res_conf or 0),
-                    "indicators":       indicators,
-                    "history_res":      res_history
+                    "f_score": int(res_deep[2]) if len(res_deep) > 2 else 0,
+                    "confidence": int(res_conf or 0),
+                    "indicators": indicators,
+                    "history_res": res_history,
                 }
                 # Log to Watchlist — include all technical fields
                 ind = indicators or {}
                 log_watchlist_data(
-                    bq_client, table_id, ticker, price, sentiment_score, int(res_conf or 0),
+                    bq_client,
+                    table_id,
+                    ticker,
+                    price,
+                    sentiment_score,
+                    int(res_conf or 0),
                     rsi=float(res_rsi.get("rsi", 0)) if res_rsi else None,
                     sma_20=ind.get("sma_20"),
                     sma_50=ind.get("sma_50"),
@@ -519,7 +603,7 @@ async def run_audit():
 
     # REBALANCING LOGIC: The Conviction Swap
     # We find the weakest link in our portfolio and potentially swap it for a rising star
-    
+
     weakest_link = None
     # 1. Identify Weakest Link (Lowest Confidence OR Failed Fundamentals)
     for t in held_tickers:
@@ -527,17 +611,19 @@ async def run_audit():
         if intel:
             conf = intel.get("confidence", 0)
             is_deep = intel.get("is_deep_healthy", True)
-            
+
             # SWAP TRIGGER: If confidence is low OR Fundamentals are "Low Quality" (< 40)
             if conf < 50 or not is_deep:
                 # Prioritize is_deep failures (Fundamental Failures) as the weakest link
                 if weakest_link is None:
                     weakest_link = t
                 else:
-                    current_weakest_is_deep = ticker_intel[weakest_link].get("is_deep_healthy", True)
+                    current_weakest_is_deep = ticker_intel[weakest_link].get(
+                        "is_deep_healthy", True
+                    )
                     # If current weakest is fundamentally OK, but this one isn't, replace it
                     if current_weakest_is_deep and not is_deep:
-                         weakest_link = t
+                        weakest_link = t
                     # If both are fundamentally bad, use the one with lower confidence
                     elif not current_weakest_is_deep and not is_deep:
                         if conf < ticker_intel[weakest_link].get("confidence", 0):
@@ -549,40 +635,41 @@ async def run_audit():
     # 2. Identify Rising Star (Highest Confidence + Fundamentals)
     rising_star = None
     best_star_conf = 0
-    
+
     for t in non_held_tickers:
         intel = ticker_intel.get(t)
-        if not intel: continue
-        
+        if not intel:
+            continue
+
         conf = intel.get("confidence", 0)
-        
+
         # Candidate Check: Must be high confidence
         if conf > 80:
-             if rising_star is None or conf > best_star_conf:
-                 rising_star = t
-                 best_star_conf = conf
+            if rising_star is None or conf > best_star_conf:
+                rising_star = t
+                best_star_conf = conf
 
     # 3. Evaluate Swap
     if rising_star and weakest_link:
         weakest_conf = ticker_intel[weakest_link].get("confidence", 0)
         star_intel = ticker_intel[rising_star]
-        
+
         should_swap = signal_agent.check_conviction_swap(
-            weakest_link, 
-            weakest_conf, 
-            rising_star, 
+            weakest_link,
+            weakest_conf,
+            rising_star,
             best_star_conf,
             potential_fundamentals={
                 "is_deep_healthy": star_intel["is_deep_healthy"],
-                "f_score": star_intel["f_score"]
-            }
+                "f_score": star_intel["f_score"],
+            },
         )
-        
+
         if should_swap:
             weakest_conf = ticker_intel[weakest_link].get("confidence", 0)
             log_decision(
                 rising_star,
-                "BUY", # Action for the rising star
+                "BUY",  # Action for the rising star
                 f"Rotating out of {weakest_link} ({weakest_conf}%) into {rising_star} ({best_star_conf}%)",
             )
             signals[weakest_link] = {
@@ -601,53 +688,62 @@ async def run_audit():
         # BUT: Respect volatility and hygiene checks
         existing_sig = signals.get(rising_star, {})
         existing_action = existing_sig.get("action", "IDLE")
-        
+
         # Extract technical signal from meta if available
         meta = existing_sig.get("meta", {})
         tech_signal = meta.get("technical", "UNKNOWN")
 
         # Check if the signal explicitly forbids trading
         is_valid_candidate = True
-        
+
         # Reject if:
         # 1. Action is explicitly SELL
         # 2. Technical signal is VOLATILE_IGNORE
         # 3. Action is IDLE (meaning no buy signal was generated normally)
         if existing_action == "SELL" or tech_signal == "VOLATILE_IGNORE":
-                is_valid_candidate = False
-        
-        # We also generally shouldn't override IDLE unless we are VERY sure, 
-        # but 'Initial Deployment' is meant to be aggressive. 
+            is_valid_candidate = False
+
+        # We also generally shouldn't override IDLE unless we are VERY sure,
+        # but 'Initial Deployment' is meant to be aggressive.
         # However, if it was IDLE because of volatility, tech_signal would catch it.
-            
-        if is_valid_candidate and (rising_star not in signals or signals[rising_star]["action"] != "BUY"):
-                # Check for volatility
-                if tech_signal == "VOLATILE_IGNORE":
-                    print(f"⚠️ Initial Deployment: Skipping {rising_star} due to high volatility despite high conviction.")
-                elif existing_action == "SELL":
-                    print(f"⚠️ Initial Deployment: Skipping {rising_star} due to SELL signal.")
-                else: 
-                    log_decision(
-                        rising_star,
-                        "BUY",
-                        f"Initial Deployment: High Conviction Rising Star ({best_star_conf}%)",
-                    )
-                    signals[rising_star] = {
-                        "action": "BUY",
-                        "reason": "INITIAL_DEPLOYMENT",
-                        "price": ticker_intel[rising_star]["price"],
-                    }
+
+        if is_valid_candidate and (
+            rising_star not in signals or signals[rising_star]["action"] != "BUY"
+        ):
+            # Check for volatility
+            if tech_signal == "VOLATILE_IGNORE":
+                print(
+                    f"⚠️ Initial Deployment: Skipping {rising_star} due to high volatility despite high conviction."
+                )
+            elif existing_action == "SELL":
+                print(
+                    f"⚠️ Initial Deployment: Skipping {rising_star} due to SELL signal."
+                )
+            else:
+                log_decision(
+                    rising_star,
+                    "BUY",
+                    f"Initial Deployment: High Conviction Rising Star ({best_star_conf}%)",
+                )
+                signals[rising_star] = {
+                    "action": "BUY",
+                    "reason": "INITIAL_DEPLOYMENT",
+                    "price": ticker_intel[rising_star]["price"],
+                }
 
     # Fallback Deployment: If we still have low exposure and no valid rising star was bought
     # Find the *next best* available candidate (conf > 60) that isn't volatile/sell
-    if exposure < 0.60 and not any(s.get("reason") == "INITIAL_DEPLOYMENT" for s in signals.values()):
+    if exposure < 0.60 and not any(
+        s.get("reason") == "INITIAL_DEPLOYMENT" for s in signals.values()
+    ):
         best_deploy_candidate = None
         best_deploy_conf = 0
 
         for t in non_held_tickers:
             intel = ticker_intel.get(t)
-            if not intel: continue
-            
+            if not intel:
+                continue
+
             conf = intel.get("confidence", 0)
             sig = signals.get(t, {})
             action = sig.get("action", "IDLE")
@@ -658,7 +754,7 @@ async def run_audit():
                 if conf > best_deploy_conf:
                     best_deploy_conf = conf
                     best_deploy_candidate = t
-        
+
         if best_deploy_candidate:
             log_decision(
                 best_deploy_candidate,
@@ -760,11 +856,13 @@ async def run_audit():
 
     # --- Phase 4: Post-Trade Reconciliation ---
     # Triggered only if any actual orders were attempted (not just dry-run intent)
-    executed_trades = [r for r in execution_results if "executed" in str(r.get("status", ""))]
-    
+    executed_trades = [
+        r for r in execution_results if "executed" in str(r.get("status", ""))
+    ]
+
     if executed_trades:
         try:
-            print(f"⌛ Waiting 45s for Alpaca fills before reconciliation...")
+            print("⌛ Waiting 45s for Alpaca fills before reconciliation...")
             await asyncio.sleep(45)
             print("🔄 Triggering Post-Trade Reconciliation...")
             await asyncio.to_thread(reconciler.sync_portfolio)
@@ -781,9 +879,6 @@ async def run_audit():
         print(f"⚠️ Feedback Loop Error: {e}")
 
     return execution_results
-
-
-from typing import Optional
 
 
 async def get_latest_confidence(ticker: str) -> Optional[int]:
@@ -804,7 +899,7 @@ async def get_latest_confidence(ticker: str) -> Optional[int]:
         for row in results:
             print(f"DEBUG: Found confidence for {ticker}: {row.confidence}")
             return row.confidence
-        
+
         print(f"⚠️ No confidence data found for {ticker} in last 24h")
         return 0
     except Exception as e:
@@ -815,7 +910,9 @@ async def get_latest_confidence(ticker: str) -> Optional[int]:
 @app.route("/rank-tickers", methods=["POST"])
 async def run_ranker_endpoint():
     """Trigger the morning ticker ranking job."""
-    tickers = os.environ.get("BASE_TICKERS", "NVDA,MU,AMD,PLTR,COIN,META,MSTR").split(",")
+    tickers = os.environ.get("BASE_TICKERS", "NVDA,MU,AMD,PLTR,COIN,META,MSTR").split(
+        ","
+    )
     try:
         results = await ticker_ranker.rank_and_log(tickers)
         return jsonify({"status": "success", "results": results}), 200
@@ -885,48 +982,60 @@ async def run_audit_endpoint():
 async def debug_alpaca_endpoint(ticker):
     """Diagnose Alpaca Data connectivity issues on command."""
     log = []
-    
+
     key = os.environ.get("ALPACA_API_KEY", "")
     secret = os.environ.get("ALPACA_API_SECRET", "")
-    
+
     log.append(f"Key Prefix: {key[:4]}...")
     log.append(f"Secret Length: {len(secret)}")
-    
+
     if not key or not secret:
         return jsonify({"status": "error", "log": log, "message": "Keys missing"}), 500
-        
+
     try:
         from alpaca.data.historical import StockHistoricalDataClient
         from alpaca.data.requests import StockBarsRequest
         from alpaca.data.timeframe import TimeFrame
-        
+
         client = StockHistoricalDataClient(key, secret)
-        
+
         end = datetime.now(timezone.utc)
-        start = end - timedelta(days=20) # Short window for speed
-        
+        start = end - timedelta(days=20)  # Short window for speed
+
         # Test 1: IEX Feed
         log.append("Attempting IEX feed...")
         try:
-            req = StockBarsRequest(symbol_or_symbols=ticker, timeframe=TimeFrame.Day, start=start, end=end, feed="iex")
+            req = StockBarsRequest(
+                symbol_or_symbols=ticker,
+                timeframe=TimeFrame.Day,
+                start=start,
+                end=end,
+                feed="iex",
+            )
             bars = client.get_stock_bars(req)
             count = len(bars.data.get(ticker, [])) if bars.data else 0
             log.append(f"IEX Result: {count} bars")
         except Exception as e:
             log.append(f"IEX Failed: {str(e)}")
-            
+
         # Test 2: SIP Feed (if IEX failed or empty)
         log.append("Attempting SIP feed...")
         try:
-            req = StockBarsRequest(symbol_or_symbols=ticker, timeframe=TimeFrame.Day, start=start, end=end, feed="sip")
+            req = StockBarsRequest(
+                symbol_or_symbols=ticker,
+                timeframe=TimeFrame.Day,
+                start=start,
+                end=end,
+                feed="sip",
+            )
             bars = client.get_stock_bars(req)
             count = len(bars.data.get(ticker, [])) if bars.data else 0
             log.append(f"SIP Result: {count} bars")
         except Exception as e:
             log.append(f"SIP Failed: {str(e)}")
-            
+
         return jsonify({"status": "complete", "log": log}), 200
-        
+
     except Exception as e:
         traceback.print_exc()
         return jsonify({"status": "fatal", "error": str(e), "log": log}), 500

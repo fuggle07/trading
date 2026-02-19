@@ -39,7 +39,7 @@ class TickerRanker:
         try:
             start_date = yesterday.strftime("%Y-%m-%d")
             end_date = now.strftime("%Y-%m-%d")
-            
+
             logger.info(f"[{ticker}] Fetching news from {start_date} to {end_date}")
 
             client = self.finnhub_client
@@ -53,7 +53,7 @@ class TickerRanker:
             if isinstance(news, str) and "limit reached" in news.lower():
                 logger.warning(f"[{ticker}] ⚠️ Finnhub Rate Limit hit")
                 return []
-            
+
             logger.info(f"[{ticker}] Found {len(news)} news items.")
             return news
         except Exception as e:
@@ -114,12 +114,12 @@ class TickerRanker:
                 if line.startswith("SCORE:"):
                     try:
                         score = float(line.replace("SCORE:", "").strip())
-                    except:
+                    except ValueError:
                         pass
                 elif line.startswith("CONFIDENCE:"):
                     try:
                         confidence = int(line.replace("CONFIDENCE:", "").strip())
-                    except:
+                    except ValueError:
                         pass
                 elif line.startswith("REASON:"):
                     reason = line.replace("REASON:", "").strip()
@@ -148,11 +148,11 @@ class TickerRanker:
         for res in results:
             rows.append(
                 {
-                    "timestamp":        now,
-                    "ticker":           res["ticker"],
-                    "sentiment":        res["sentiment"],
-                    "confidence":       res["confidence"],
-                    "reason":           res["reason"],
+                    "timestamp": now,
+                    "ticker": res["ticker"],
+                    "sentiment": res["sentiment"],
+                    "confidence": res["confidence"],
+                    "reason": res["reason"],
                     "gemini_reasoning": res.get("gemini_reasoning", ""),
                 }
             )

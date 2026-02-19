@@ -3,6 +3,7 @@ import httpx
 from unittest.mock import patch, MagicMock
 from portfolio_manager import PortfolioManager
 
+
 # This test requires pytest-asyncio to be installed
 @pytest.mark.asyncio
 async def test_service_connectivity_dry_run():
@@ -15,7 +16,7 @@ async def test_service_connectivity_dry_run():
         mock_bq = mock_bq_client.return_value
 
         # 2. Mock Portfolio Manager to return a safe test state
-        pm = PortfolioManager(mock_bq, "test-project.trading_data.portfolio")
+        _pm = PortfolioManager(mock_bq, "test-project.trading_data.portfolio")
 
         # 3. Define the internal endpoints (using your local defaults)
         finance_url = "http://localhost:8081/price/QQQ"
@@ -42,6 +43,7 @@ async def test_service_connectivity_dry_run():
             except httpx.ConnectError:
                 pytest.skip("Sentiment service offline - skipping integration check")
 
+
 def test_ledger_sql_logic_integrity():
     """
     Verify the PortfolioManager correctly formats the UPDATE DML
@@ -51,12 +53,20 @@ def test_ledger_sql_logic_integrity():
     table_id = "unified-aberfeldie-node.trading_data.portfolio"
     pm = PortfolioManager(mock_client, table_id)
 
-    # Simulate a ledger sync
-    pm.update_ledger("QQQ", 45000.0, 100)
+    # Simulate a ledger sync (cash_delta, holdings_delta, price, action)
+    pm.update_ledger("QQQ", -4500.0, 10, 450.0, "BUY")
 
-    # Verify the SQL string construction
+    # Verify the SQL string construction — three queries: get_state SELECT + asset UPDATE + cash UPDATE
     assert mock_client.query.called
-    sql_call = mock_client.query.call_args[0][0]
-    assert f"UPDATE `{table_id}`" in sql_call
-    assert "SET cash_balance = 45000.0" in sql_call
-    assert "asset_name = 'QQQ'" in sql_call
+    all_calls = mock_client.query.call_args_list
+    assert len(all_calls) == 3
+
+    asset_sql = all_calls[1][0][0]
+    assert f"UPDATE `{table_id}`" in asset_sql
+    assert "SET holdings" in asset_sql
+    assert "WHERE asset_name = 'QQQ'" in asset_sql
+
+    cash_sql = all_calls[2][0][0]
+    assert f"UPDATE `{table_id}`" in cash_sql
+    assert "SET cash_balance = cash_balance +" in cash_sql
+    assert "WHERE asset_name = 'USD'" in cash_sql

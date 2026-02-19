@@ -5,6 +5,7 @@ import json
 from datetime import datetime
 import pytz
 
+
 # 1. STRUCTURED LOGGING CONFIGURATION
 class CloudLoggingFormatter(logging.Formatter):
     def format(self, record):
@@ -18,6 +19,7 @@ class CloudLoggingFormatter(logging.Formatter):
         }
         return json.dumps(log_entry)
 
+
 # Setup the master logger to use stdout (Cloud Run standard)
 logger = logging.getLogger("master-log")
 logger.setLevel(logging.INFO)
@@ -27,13 +29,16 @@ logger.addHandler(handler)
 
 # 2. MASTER LOGGING INTERFACE
 
+
 def log_audit(level, message, extra=None):
     # This format is automatically parsed by Google Cloud Logging
     entry = {"severity": level, "message": message, "extra": extra or {}}
     print(json.dumps(entry))
     sys.stdout.flush()  # Force the log out immediately
 
+
 # 3. BIGQUERY TELEMETRY
+
 
 def log_macro_snapshot(client, project_id, macro_data: dict):
     """
@@ -45,13 +50,14 @@ def log_macro_snapshot(client, project_id, macro_data: dict):
         calendar = macro_data.get("calendar", [])
 
         import json
+
         row = {
             "timestamp": datetime.now(pytz.utc).isoformat(),
-            "vix":          float(indices.get("vix", 0) or 0),
-            "spy_perf":     float(indices.get("spy_perf", 0) or 0),
-            "qqq_perf":     float(indices.get("qqq_perf", 0) or 0),
-            "yield_10y":    float(rates.get("10Y", 0) or 0),
-            "yield_2y":     float(rates.get("2Y", 0) or 0),
+            "vix": float(indices.get("vix", 0) or 0),
+            "spy_perf": float(indices.get("spy_perf", 0) or 0),
+            "qqq_perf": float(indices.get("qqq_perf", 0) or 0),
+            "yield_10y": float(rates.get("10Y", 0) or 0),
+            "yield_2y": float(rates.get("2Y", 0) or 0),
             "yield_source": str(rates.get("source", "")),
             "calendar_json": json.dumps(calendar) if calendar else None,
         }
@@ -60,7 +66,9 @@ def log_macro_snapshot(client, project_id, macro_data: dict):
         if errors:
             print(f"❌ Macro Snapshot BQ Error: {errors}")
         else:
-            print(f"🌍 Macro Snapshot stored (VIX={row['vix']}, SPY={row['spy_perf']:.2f}%)")
+            print(
+                f"🌍 Macro Snapshot stored (VIX={row['vix']}, SPY={row['spy_perf']:.2f}%)"
+            )
     except Exception as e:
         print(f"⚠️ Macro Snapshot Log Failure: {e}")
 
@@ -86,17 +94,17 @@ def log_watchlist_data(
     """
     row_to_insert = [
         {
-            "timestamp":       datetime.now(pytz.utc).isoformat(),
-            "ticker":          ticker,
-            "price":           float(price),
+            "timestamp": datetime.now(pytz.utc).isoformat(),
+            "ticker": ticker,
+            "price": float(price),
             "sentiment_score": float(sentiment) if sentiment is not None else 0.0,
-            "rsi":             float(rsi) if rsi is not None else None,
-            "sma_20":          float(sma_20) if sma_20 is not None else None,
-            "sma_50":          float(sma_50) if sma_50 is not None else None,
-            "bb_upper":        float(bb_upper) if bb_upper is not None else None,
-            "bb_lower":        float(bb_lower) if bb_lower is not None else None,
-            "f_score":         int(f_score) if f_score is not None else None,
-            "conviction":      int(conviction) if conviction is not None else None,
+            "rsi": float(rsi) if rsi is not None else None,
+            "sma_20": float(sma_20) if sma_20 is not None else None,
+            "sma_50": float(sma_50) if sma_50 is not None else None,
+            "bb_upper": float(bb_upper) if bb_upper is not None else None,
+            "bb_lower": float(bb_lower) if bb_lower is not None else None,
+            "f_score": int(f_score) if f_score is not None else None,
+            "conviction": int(conviction) if conviction is not None else None,
             "gemini_reasoning": str(gemini_reasoning) if gemini_reasoning else None,
         }
     ]
@@ -119,6 +127,7 @@ def log_watchlist_data(
             raise RuntimeError(f"Sync failed: {errors}")
     except Exception as e:
         print(f"🔥 Critical Telemetry Failure: {e}")
+
 
 def log_performance(client, table_id, metrics):
     """
@@ -159,6 +168,7 @@ def log_performance(client, table_id, metrics):
     except Exception as e:
         print(f"🔥 Performance Log Failure: {e}")
 
+
 def log_decision(ticker, action, reason, details=None):
     """
     High-visibility logging for trading decisions (BUY, SELL, SKIP).
@@ -166,7 +176,7 @@ def log_decision(ticker, action, reason, details=None):
     """
     emoji = "🚀" if "BUY" in action else "🛑" if "SELL" in action else "⏭️"
     message = f"[DECISION] {emoji} {action} {ticker}: {reason}"
-    
+
     # Structured log for Cloud Logging
     log_payload = {
         "severity": "INFO",
