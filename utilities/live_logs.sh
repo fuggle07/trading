@@ -1,6 +1,17 @@
-#!/bin/bash
 # live_logs.sh
 # Streams live logs from the Cloud Run service.
+
+usage() {
+  echo "Usage: ./utilities/live_logs.sh [OPTIONS]"
+  echo "Options:"
+  echo "  --json, --raw    Output raw JSON logs"
+  echo "  --help           Show this help message"
+  exit 1
+}
+
+if [[ "$1" == "--help" ]]; then
+  usage
+fi
 
 PROJECT_ID=$(gcloud config get-value project)
 SERVICE_NAME="trading-audit-agent"

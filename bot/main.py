@@ -267,9 +267,15 @@ async def run_audit():
     Phase 2: Portfolio Analysis & Conviction Swapping
     Phase 3: Execution (SELLs first, then BUYs)
     """
-    tickers_env = os.environ.get("BASE_TICKERS", "NVDA,AAPL,TSLA,MSFT,AMD")
-    tickers = [t.strip() for t in tickers_env.split(",") if t.strip()]
-    tickers = [t.strip() for t in tickers_env.split(",") if t.strip()]
+    tickers_env = os.environ.get("BASE_TICKERS", "NVDA,AAPL,MU,MSFT,AMD")
+    base_tickers = [t.strip() for t in tickers_env.split(",") if t.strip()]
+    
+    # --- Phase 1: Portfolio Awareness & Intel Gathering ---
+    print("🔄 Fetching Portfolio & Intel...")
+    held_tickers = portfolio_manager.get_held_tickers()
+    
+    # Audit all monitored tickers PLUS anything we currently hold (safety first)
+    tickers = list(set(base_tickers + list(held_tickers.keys())))
     print(f"🔍 Starting Multi-Phase Audit for: {tickers}")
 
     # --- Phase 0: Reconciliation ---
@@ -280,7 +286,7 @@ async def run_audit():
     except Exception as e:
         print(f"⚠️ Reconciliation Warning: {e}")
 
-    # --- Phase 1: Intelligence Gathering ---
+    # already fetched held_tickers above
     ticker_intel = {}
     current_prices = {}
 
@@ -333,8 +339,13 @@ async def run_audit():
             deep_health = (
                 intel_results[3]
                 if not isinstance(intel_results[3], Exception)
-                else (False, "Deep health fetch failed")
+                else (False, "Deep health fetch failed", 0)
             )
+            # Unpack Deep Health Tuple (is_deep, reason, f_score)
+            is_deep_healthy_val = bool(deep_health[0])
+            deep_health_reason_str = str(deep_health[1])
+            f_score_val = int(deep_health[2]) if len(deep_health) > 2 else 0
+
             df = (
                 intel_results[4]
                 if not isinstance(intel_results[4], Exception)
@@ -354,8 +365,9 @@ async def run_audit():
                     "sentiment": float(sentiment_score or 0.0),
                     "is_healthy": bool(health[0]),
                     "health_reason": str(health[1]),
-                    "is_deep_healthy": bool(deep_health[0]),
-                    "deep_health_reason": str(deep_health[1]),
+                    "is_deep_healthy": is_deep_healthy_val,
+                    "deep_health_reason": deep_health_reason_str,
+                    "f_score": f_score_val,
                     "confidence": int(confidence or 0),
                     "indicators": indicators,
                     "history_res": intel_results[4],  # Store raw result for Phase 2 diagnostics
@@ -402,9 +414,10 @@ async def run_audit():
                 "health_reason": intel["health_reason"],
                 "is_deep_healthy": intel["is_deep_healthy"],
                 "deep_health_reason": intel["deep_health_reason"],
+                "f_score": intel["f_score"],
                 "avg_price": held_tickers.get(ticker, {}).get("avg_price", 0.0),
                 "prediction_confidence": intel["confidence"],
-                "is_low_exposure": exposure < 0.25,
+                "is_low_exposure": exposure < 0.60,
             }
 
             sig = signal_agent.evaluate_strategy(market_data, force_eval=True)
@@ -429,36 +442,72 @@ async def run_audit():
             )
 
     # REBALANCING LOGIC: The Conviction Swap
+    # We find the weakest link in our portfolio and potentially swap it for a rising star
+    
     weakest_link = None
+    # 1. Identify Weakest Link (Lowest Confidence OR Failed Fundamentals)
     for t in held_tickers:
         intel = ticker_intel.get(t)
         if intel:
             conf = intel.get("confidence", 0)
-            if conf < 50:
-                if weakest_link is None or conf < ticker_intel[weakest_link].get(
-                    "confidence", 0
-                ):
+            is_deep = intel.get("is_deep_healthy", True)
+            
+            # SWAP TRIGGER: If confidence is low OR Fundamentals are "Low Quality" (< 40)
+            if conf < 50 or not is_deep:
+                # Prioritize is_deep failures (Fundamental Failures) as the weakest link
+                if weakest_link is None:
                     weakest_link = t
+                else:
+                    current_weakest_is_deep = ticker_intel[weakest_link].get("is_deep_healthy", True)
+                    # If current weakest is fundamentally OK, but this one isn't, replace it
+                    if current_weakest_is_deep and not is_deep:
+                         weakest_link = t
+                    # If both are fundamentally bad, use the one with lower confidence
+                    elif not current_weakest_is_deep and not is_deep:
+                        if conf < ticker_intel[weakest_link].get("confidence", 0):
+                            weakest_link = t
+                    # If both are fundamentally OK, use the one with lower confidence
+                    elif conf < ticker_intel[weakest_link].get("confidence", 0):
+                        weakest_link = t
 
+    # 2. Identify Rising Star (Highest Confidence + Fundamentals)
     rising_star = None
+    best_star_conf = 0
+    
     for t in non_held_tickers:
         intel = ticker_intel.get(t)
-        if intel:
-            conf = intel.get("confidence", 0)
-            if conf > 80:
-                if rising_star is None or conf > ticker_intel[rising_star].get(
-                    "confidence", 0
-                ):
-                    rising_star = t
+        if not intel: continue
+        
+        conf = intel.get("confidence", 0)
+        
+        # Candidate Check: Must be high confidence
+        if conf > 80:
+             if rising_star is None or conf > best_star_conf:
+                 rising_star = t
+                 best_star_conf = conf
 
-    if rising_star:
-        star_conf = ticker_intel[rising_star].get("confidence", 0)
-        if weakest_link:
+    # 3. Evaluate Swap
+    if rising_star and weakest_link:
+        weakest_conf = ticker_intel[weakest_link].get("confidence", 0)
+        star_intel = ticker_intel[rising_star]
+        
+        should_swap = signal_agent.check_conviction_swap(
+            weakest_link, 
+            weakest_conf, 
+            rising_star, 
+            best_star_conf,
+            potential_fundamentals={
+                "is_deep_healthy": star_intel["is_deep_healthy"],
+                "f_score": star_intel["f_score"]
+            }
+        )
+        
+        if should_swap:
             weakest_conf = ticker_intel[weakest_link].get("confidence", 0)
             log_decision(
                 rising_star,
-                "SWAP",
-                f"Rotating out of {weakest_link} ({weakest_conf}%) into {rising_star} ({star_conf}%)",
+                "BUY", # Action for the rising star
+                f"Rotating out of {weakest_link} ({weakest_conf}%) into {rising_star} ({best_star_conf}%)",
             )
             signals[weakest_link] = {
                 "action": "SELL",
@@ -471,7 +520,7 @@ async def run_audit():
                     "reason": "CONVICTION_ROTATION",
                     "price": ticker_intel[rising_star]["price"],
                 }
-    elif exposure < 0.25:
+    elif exposure < 0.60:
         # Deployment Logic: If we have cash, buy the best thing available
         # BUT: Respect volatility and hygiene checks
         existing_sig = signals.get(rising_star, {})
@@ -505,7 +554,7 @@ async def run_audit():
                     log_decision(
                         rising_star,
                         "BUY",
-                        f"Initial Deployment: High Conviction Rising Star ({star_conf}%)",
+                        f"Initial Deployment: High Conviction Rising Star ({best_star_conf}%)",
                     )
                     signals[rising_star] = {
                         "action": "BUY",
@@ -515,7 +564,7 @@ async def run_audit():
 
     # Fallback Deployment: If we still have low exposure and no valid rising star was bought
     # Find the *next best* available candidate (conf > 60) that isn't volatile/sell
-    if exposure < 0.25 and not any(s.get("reason") == "INITIAL_DEPLOYMENT" for s in signals.values()):
+    if exposure < 0.60 and not any(s.get("reason") == "INITIAL_DEPLOYMENT" for s in signals.values()):
         best_deploy_candidate = None
         best_deploy_conf = 0
 
@@ -676,7 +725,7 @@ async def get_latest_confidence(ticker: str) -> Optional[int]:
 @app.route("/rank-tickers", methods=["POST"])
 async def run_ranker_endpoint():
     """Trigger the morning ticker ranking job."""
-    tickers = os.environ.get("BASE_TICKERS", "NVDA,TSLA,AMD,PLTR,COIN,META,MSTR").split(",")
+    tickers = os.environ.get("BASE_TICKERS", "NVDA,MU,AMD,PLTR,COIN,META,MSTR").split(",")
     try:
         results = await ticker_ranker.rank_and_log(tickers)
         return jsonify({"status": "success", "results": results}), 200

@@ -23,7 +23,7 @@ class FundamentalAgent:
         if not self.fmp_key:
             return None
         
-        url = f"https://financialmodelingprep.com/api/v3/{endpoint}/{ticker}?apikey={self.fmp_key}"
+        url = f"https://financialmodelingprep.com/stable/{endpoint}?symbol={ticker}&apikey={self.fmp_key}" # Switch to stable/query param
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(url, timeout=10) as response:
@@ -44,18 +44,35 @@ class FundamentalAgent:
         # 1. Try FMP First
         data = None
         if self.fmp_key:
-            # /quote gives PE, EPS, MarketCap in one shot and is fast
-            quote_data = await self._fetch_fmp("quote", ticker)
+            # /quote gives MarketCap, Price. /ratios-ttm gives PE, EPS.
+            quote_task = self._fetch_fmp("quote", ticker)
+            ratios_task = self._fetch_fmp("ratios-ttm", ticker)
+            
+            quote_data, ratios_data = await asyncio.gather(quote_task, ratios_task)
+
             if quote_data:
                 q = quote_data[0]
+                pe = 0.0
+                eps = 0.0
+                
+                # Try to get PE/EPS from ratios-ttm first (more reliable on stable)
+                if ratios_data:
+                    r = ratios_data[0]
+                    pe = float(r.get("priceToEarningsRatioTTM", 0) or 0)
+                    eps = float(r.get("netIncomePerShareTTM", 0) or 0)
+                else:
+                    # Fallback to quote if ratios failed (legacy behavior)
+                    pe = float(q.get("pe", 0) or 0)
+                    eps = float(q.get("eps", 0) or 0)
+
                 data = {
-                    "pe_ratio": float(q.get("pe", 0) or 0),
-                    "eps": float(q.get("eps", 0) or 0),
-                    "sector": "Unknown", # FMP /profile has sector, but /quote is faster. 
+                    "pe_ratio": pe,
+                    "eps": eps,
+                    "sector": "Unknown", 
                     "industry": "Unknown",
                     "market_cap": int(q.get("marketCap", 0) or 0),
                 }
-                logger.info(f"[{ticker}] 📊 {ticker} Fundamentals (FMP): PE={data['pe_ratio']}, EPS={data['eps']}")
+                logger.info(f"[{ticker}] 📊 {ticker} Fundamentals (FMP): PE={data['pe_ratio']:.2f}, EPS={data['eps']:.2f}")
 
         # 2. Fallback to Finnhub if FMP fails
         if not data and self.finnhub_client:
@@ -101,11 +118,14 @@ class FundamentalAgent:
         except Exception:
             return None
 
-    def _save_to_cache(self, ticker: str, is_healthy: bool, h_reason: str, is_deep: bool, d_reason: str):
+    def _save_to_cache(self, ticker: str, is_healthy: bool, h_reason: str, is_deep: bool, d_reason: str, metrics: dict = None):
         """Persists evaluation results to BigQuery."""
         client = self.bq_client
         if not client:
             return
+
+        import json
+        metrics_json = json.dumps(metrics) if metrics else None
 
         rows_to_insert = [{
             "timestamp": datetime.now().isoformat(),
@@ -114,6 +134,7 @@ class FundamentalAgent:
             "health_reason": h_reason,
             "is_deep_healthy": is_deep,
             "deep_health_reason": d_reason,
+            "metrics_json": metrics_json
         }]
         try:
             table_id = f"{PROJECT_ID}.trading_data.fundamental_cache"
@@ -165,7 +186,7 @@ class FundamentalAgent:
         }
 
         for key, endpoint in endpoints.items():
-            url = f"https://financialmodelingprep.com/api/v3/{endpoint}/{ticker}?limit=2&apikey={self.fmp_key}"
+            url = f"https://financialmodelingprep.com/stable/{endpoint}?symbol={ticker}&limit=2&apikey={self.fmp_key}" # Switch to stable/query param
             try:
                 async with aiohttp.ClientSession() as session:
                     async with session.get(url, timeout=10) as response:
@@ -268,15 +289,103 @@ class FundamentalAgent:
 
         return score
 
+    def calculate_quality_score(self, ratios: dict, metrics: dict, financials: dict):
+        """
+        Calculates a Composite Quality Score (0-100).
+        Weighted average of Profitability, Safety, and Value.
+        """
+        score = 0.0
+        
+        # Helper to safely get float
+        def g(d, k, default=0.0):
+            return float(d.get(k, 0) or default)
+
+        # 1. Profitability (40 points)
+        # ROE > 15% (+10), ROA > 5% (+10), Gross Margin > 40% (+10), Net Margin > 10% (+10)
+        roe = g(ratios, "returnOnEquityTTM")
+        roa = g(ratios, "returnOnAssetsTTM")
+        gm = g(ratios, "grossProfitMarginTTM")
+        nm = g(ratios, "netProfitMarginTTM")
+
+        if roe > 0.15: score += 10
+        elif roe > 0.08: score += 5
+        
+        if roa > 0.05: score += 10
+        elif roa > 0.02: score += 5
+
+        if gm > 0.40: score += 10
+        elif gm > 0.20: score += 5
+
+        if nm > 0.10: score += 10
+        elif nm > 0: score += 5
+
+        # 2. Safety (30 points)
+        # Current Ratio > 1.5 (+10), Debt/Equity < 0.5 (+10), Interest Cov > 5 (+10)
+        cr = g(ratios, "currentRatioTTM")
+        de = g(ratios, "debtToEquityRatioTTM")
+        ic = g(ratios, "interestCoverageRatioTTM")
+
+        if cr > 1.5: score += 10
+        elif cr > 1.0: score += 5
+
+        if de < 0.5: score += 10
+        elif de < 1.0: score += 5
+
+        if ic > 5: score += 10
+        elif ic > 1: score += 5
+
+        # 3. Value (30 points)
+        # PE < 25 (+10), PEG < 1.5 (+10), DCF Upside > 10% (+10)
+        pe = g(ratios, "priceToEarningsRatioTTM")
+        peg = g(ratios, "priceToEarningsGrowthRatioTTM")
+        
+        # DCF Upside Logic
+        # We need recent Price and Fair Value, which aren't in ratios/metrics directly strictly speaking 
+        # but we can approximate or pass them in? 
+        # Actually, let's keep it simple and use whatever ratios has or skip DCF here 
+        # and assume "Price to Free Cash Flow" is a good proxy for value.
+        pfcf = g(ratios, "priceToFreeCashFlowRatioTTM")
+
+        if 0 < pe < 25: score += 10
+        elif 0 < pe < 40: score += 5
+
+        if 0 < peg < 1.5: score += 10
+        elif 0 < peg < 2.5: score += 5
+
+        if 0 < pfcf < 20: score += 10
+        elif 0 < pfcf < 30: score += 5
+
+        return int(score)
+
     async def evaluate_deep_health(self, ticker: str):
         """
         Returns (is_deep_healthy, reason) using Advanced Fundamental Analysis.
         Integrates DCF, Piotroski F-Score, and Growth.
         """
+        # --- 0. Initialize Variables (Prevention for UnboundLocalError) ---
+        is_deep = True
+        d_reason = "Analysis Pending"
+        f_score = 0
+        quality_score = 0
+        rev_growth = 0.0
+        fair_value = 0.0
+        price = 0.0
+        ratios = {}
+        metrics = {}
+        
+        # Get basic health first (we need is_healthy and h_reason for caching)
+        is_healthy, h_reason = await self.evaluate_health(ticker)
+
         # 1. Check Cache
         cached = await asyncio.to_thread(self._get_cached_evaluation, ticker)
         if cached:
-            return cached["is_deep_healthy"], cached["deep_health_reason"]
+            # Attempt to parse F-Score from reason string if cached
+            import re
+            d_reason = cached["deep_health_reason"]
+            f_score_match = re.search(r"F-Score (\d+)/9", d_reason)
+            cached_f_score = int(f_score_match.group(1)) if f_score_match else 0
+            
+            return cached["is_deep_healthy"], d_reason, cached_f_score
 
         # 2. Proceed to analysis (Need cache update at end)
         is_healthy, h_reason = await self.evaluate_health(ticker)
@@ -286,12 +395,20 @@ class FundamentalAgent:
 
         if self.fmp_key:
             try:
-                # Fetch Annual Financials (Last 2 years) & TTM Metrics
+                # Fetch Annual Financials, TTM Metrics, Quote, AND Ratios
                 financials_task = self.fetch_annual_financials(ticker)
                 metrics_task = self._fetch_fmp("key-metrics-ttm", ticker)
+                ratios_task = self._fetch_fmp("ratios-ttm", ticker)
                 quote_task = self._fetch_fmp("quote", ticker)
                 
-                financials, metrics_data, quote_data = await asyncio.gather(financials_task, metrics_task, quote_task)
+                financials, metrics_data, ratios_data, quote_data = await asyncio.gather(
+                    financials_task, metrics_task, ratios_task, quote_task
+                )
+
+                # CHECK FOR FMP DATA FAILURE
+                if not financials.get("income") or not metrics_data:
+                    logger.warning(f"[{ticker}] ⚠️ FMP Data Incomplete. Triggering Fallback.")
+                    raise ValueError("Incomplete FMP Data")
 
                 price = 0.0
                 if quote_data:
@@ -324,6 +441,11 @@ class FundamentalAgent:
                     rev_prev = float(inc[1].get("revenue", 1))
                     rev_growth = (rev_curr - rev_prev) / rev_prev
 
+                # --- D. Quality Score ---
+                ratios = ratios_data[0] if ratios_data else {}
+                metrics = metrics_data[0] if metrics_data else {}
+                quality_score = self.calculate_quality_score(ratios, metrics, financials)
+
                 # --- Rating Logic ---
                 # 1. Financial Strength (F-Score)
                 if f_score < 4:
@@ -331,6 +453,12 @@ class FundamentalAgent:
                     d_reason_parts.append(f"Weak Financials (F-Score {f_score}/9)")
                 else:
                     d_reason_parts.append(f"F-Score {f_score}/9")
+
+                # Quality Score
+                d_reason_parts.append(f"Quality {quality_score}/100")
+                if quality_score < 40:
+                    is_deep = False
+                    d_reason_parts.append("Low Quality")
 
                 # 2. Valuation (DCF)
                 if price > 0 and fair_value > 0:
@@ -353,15 +481,37 @@ class FundamentalAgent:
                 d_reason = ", ".join(d_reason_parts)
 
             except Exception as e:
-                logger.error(f"[{ticker}] ⚠️ Deep Health Check Failed: {e}")
-                import traceback
-                traceback.print_exc()
-                d_reason = "Check Failed (Exception)"
-                is_deep = False # Fail safe
+                logger.error(f"[{ticker}] ⚠️ Deep Health Check Failed (FMP): {e}")
+                # FALLBACK TO BASIC HEALTH IF FMP FAILS
+                if is_healthy:
+                    d_reason = "Basic Health Only (FMP Failed)"
+                    # Set a passing F-Score (5/9) to avoid blocking trades due to API failure
+                    # We assume "Innocent until proven guilty" if basic health passes
+                    f_score = 5
+                else:
+                    d_reason = f"Unhealthy Basic (FMP Failed): {h_reason}"
+                    is_deep = False
         else:
-             d_reason = "No API Key"
-             is_deep = False
+            # NO FMP KEY -> Check basic health only
+            if is_healthy:
+                d_reason = "Basic Health Only (No FMP Key)"
+                f_score = 5 # Pass if basic health is good
+            else:
+                d_reason = f"Unhealthy Basic: {h_reason}"
+                is_deep = False
         
-        # 3. Cache Result
-        await asyncio.to_thread(self._save_to_cache, ticker, is_healthy, h_reason, is_deep, d_reason)
-        return is_deep, d_reason
+        # 3. Cache Result (with metrics)
+        metrics_snapshot = {
+            "pe": float(ratios.get("priceToEarningsRatioTTM", 0) or 0),
+            "eps": float(ratios.get("netIncomePerShareTTM", 0) or 0),
+            "f_score": f_score,
+            "quality_score": quality_score,
+            "rev_growth": rev_growth,
+            "fair_value": fair_value,
+            "price": price,
+            "raw_ratios": ratios,  # Archive ALL raw FMP data
+            "raw_metrics": metrics
+        }
+        await asyncio.to_thread(self._save_to_cache, ticker, is_healthy, h_reason, is_deep, d_reason, metrics_snapshot)
+        
+        return is_deep, d_reason, f_score

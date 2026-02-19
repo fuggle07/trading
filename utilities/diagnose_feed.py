@@ -1,3 +1,15 @@
+"""
+Finnhub Feed Diagnosis Utility
+Usage: python3 utilities/diagnose_feed.py
+Description: Tests Finnhub API connectivity and data freshness for a sample ticker (NVDA).
+"""
+#!/usr/bin/env python3
+import sys
+import os
+
+# Ensure the project root is in the path so we can import 'bot'
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import finnhub
 import os
 import time

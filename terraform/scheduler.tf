@@ -65,3 +65,21 @@ resource "google_cloud_scheduler_job" "hindsight_trigger" {
     }
   }
 }
+
+resource "google_cloud_scheduler_job" "intraday_feedback_trigger" {
+  name             = "trading-intraday-feedback"
+  description      = "Hourly intraday AI feedback (Every hour during market hours)"
+  schedule         = "0 10-15 * * 1-5" # Hourly from 10 AM to 3 PM
+  time_zone        = "America/New_York"
+  attempt_deadline = "310s"
+
+  http_target {
+    http_method = "POST"
+    uri         = "${google_cloud_run_v2_service.trading_bot.uri}/run-hindsight"
+
+    oidc_token {
+      service_account_email = google_service_account.bot_sa.email
+      audience              = google_cloud_run_v2_service.trading_bot.uri
+    }
+  }
+}

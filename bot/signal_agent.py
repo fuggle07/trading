@@ -104,6 +104,7 @@ class SignalAgent:
             "health_reason": market_data.get("health_reason", ""),
             "is_deep_healthy": market_data.get("is_deep_healthy", True),
             "deep_health_reason": market_data.get("deep_health_reason", ""),
+            "f_score": market_data.get("f_score", 0),  # Piotroski F-Score
             "score": market_data.get("prediction_confidence", 0),
         }
         avg_price = market_data.get("avg_price", 0.0)
@@ -152,15 +153,28 @@ class SignalAgent:
                 exit_type = "PROFIT_TARGET" if p_change >= 0.05 else "STOP_LOSS/SENTIMENT"
                 technical_signal = f"EXIT_{exit_type}" # Update for the log line
 
-        # 3. Fundamental Overlay (The conviction booster for BUYs)
-        if fundamentals and final_action == "BUY":
-            f_score = fundamentals.get("score", 0)
-            if f_score > 70:
-                conviction = min(100, conviction + 10)
-            elif f_score < 40:
-                # Fundamental weakness overrides technical buy
+        # 3. Fundamental Overlay (The Gatekeeper)
+        # We now BLOCK buys if fundamentals are weak.
+        if final_action == "BUY":
+            f_score = fundamentals.get("f_score", 0)
+            is_healthy = fundamentals.get("is_healthy", True)
+            
+            # HURDLE 1: Basic Profitability/Valuation
+            if not is_healthy:
                 final_action = "IDLE"
                 conviction = 0
+                technical_signal = "REJECT_UNHEALTHY" # Update log
+                
+            # HURDLE 2: Deep Financial Health (F-Score)
+            elif f_score < 5:
+                # F-Score range is 0-9. < 5 implies mixed/poor signals.
+                final_action = "IDLE"
+                conviction = 0
+                technical_signal = f"REJECT_WEAK_FSCORE_{f_score}"
+            
+            # BONUS: Boost for Elite Health
+            elif f_score >= 7:
+                conviction = min(100, conviction + 10)
 
         # 4. Conviction Enhancement via 'Lessons Learned'
         if lessons and "caution" in lessons.lower() and final_action == "BUY":
@@ -242,12 +256,27 @@ class SignalAgent:
         current_conf: int,
         potential_ticker: str,
         potential_conf: int,
+        potential_fundamentals: Dict = None,
     ) -> bool:
         """
         Determines if we should SELL a current holding to BUY a much better opportunity.
-        We swap only if the potential is significantly better (Hurdle Rate).
+        We swap only if:
+        1. Potential confidence is significantly better (Hurdle Rate).
+        2. Potential ticker is Fundamentally Strong (Gatekeeper).
         """
-        # hurdle_rate might be 20% confidence difference
-        if potential_conf > (current_conf + 20):
+        # 1. Fundamental Gatekeeper
+        if potential_fundamentals:
+            # Must be "Deeply Healthy" to justify a forced swap
+            if not potential_fundamentals.get("is_deep_healthy", False):
+                return False
+            
+            # Optional: Enforce F-Score > 5 for swaps
+            if potential_fundamentals.get("f_score", 0) < 5:
+                return False
+
+        # 2. Confidence Hurdle (Switching Cost buffer)
+        # hurdle_rate might be 15-20% confidence difference
+        if potential_conf > (current_conf + 15):
             return True
+            
         return False

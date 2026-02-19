@@ -1,3 +1,8 @@
+"""
+Morning Ticker Ranker Utility
+Usage: python3 utilities/rank_tickers.py
+Description: Fetches lessons, creating analysis tasks, and then logging the results to BigQuery.
+"""
 #!/usr/bin/env python3
 import sys
 import os
@@ -21,7 +26,7 @@ logger = logging.getLogger("RankerScript")
 # Configuration
 # Actual Project ID: utopian-calling-429014-r9
 PROJECT_ID = os.environ.get("PROJECT_ID", "utopian-calling-429014-r9")
-TICKERS = ["NVDA", "TSLA", "AMD", "PLTR", "COIN", "META", "MSTR"]
+TICKERS = ["NVDA", "MU", "AMD", "PLTR", "COIN", "META", "MSTR"]
 
 async def main():
     logger.info(f"🚀 Starting Morning Ticker Ranking for Project: {PROJECT_ID}")
