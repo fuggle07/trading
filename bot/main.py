@@ -344,7 +344,7 @@ async def run_audit():
                     "history_res": intel_results[4],  # Store raw result for Phase 2 diagnostics
                 }
                 # Log to Watchlist (Persistence)
-                log_watchlist_data(bq_client, table_id, ticker, price, sentiment_score)
+                log_watchlist_data(bq_client, table_id, ticker, price, sentiment_score, int(confidence or 0))
         except Exception as e:
             print(f"[{ticker}] ⚠️ Failed to gather intel for {ticker}: {e}")
 
