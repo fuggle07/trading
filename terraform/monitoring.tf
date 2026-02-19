@@ -1,7 +1,7 @@
 # monitoring.tf
 
 locals {
-  tickers = ["NVDA", "TSLA", "AMD", "PLTR", "COIN", "META", "MSTR"]
+  tickers = ["NVDA", "MU", "AMD", "PLTR", "COIN", "META", "MSTR"]
 }
 
 resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
@@ -298,18 +298,18 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
           }
         ],
 
-        # TSLA — yPos 22
+        # MU — yPos 22
         [
           {
             width = 4, height = 4, xPos = 0, yPos = 22
             widget = {
-              title = "TSLA — Price & Sentiment"
+              title = "MU — Price & Sentiment"
               xyChart = {
                 chartOptions = { mode = "COLOR" }
                 dataSets = [{
                   timeSeriesQuery = {
                     timeSeriesFilter = {
-                      filter = "metric.type=\"logging.googleapis.com/user/trading/sentiment_score\" AND metric.labels.ticker=\"TSLA\""
+                      filter = "metric.type=\"logging.googleapis.com/user/trading/sentiment_score\" AND metric.labels.ticker=\"MU\""
                       aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                     }
                   }
@@ -321,14 +321,14 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
           {
             width = 4, height = 4, xPos = 4, yPos = 22
             widget = {
-              title = "TSLA — Bollinger Bands & SMAs"
+              title = "MU — Bollinger Bands & SMAs"
               xyChart = {
                 chartOptions = { mode = "COLOR" }
                 dataSets = [
                   {
                     timeSeriesQuery = {
                       timeSeriesFilter = {
-                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_upper\" AND metric.labels.ticker=\"TSLA\""
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_upper\" AND metric.labels.ticker=\"MU\""
                         aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                       }
                     }
@@ -337,7 +337,7 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                   {
                     timeSeriesQuery = {
                       timeSeriesFilter = {
-                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_20\" AND metric.labels.ticker=\"TSLA\""
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_20\" AND metric.labels.ticker=\"MU\""
                         aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                       }
                     }
@@ -346,7 +346,7 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                   {
                     timeSeriesQuery = {
                       timeSeriesFilter = {
-                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_50\" AND metric.labels.ticker=\"TSLA\""
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_50\" AND metric.labels.ticker=\"MU\""
                         aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                       }
                     }
@@ -355,7 +355,7 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                   {
                     timeSeriesQuery = {
                       timeSeriesFilter = {
-                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_lower\" AND metric.labels.ticker=\"TSLA\""
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_lower\" AND metric.labels.ticker=\"MU\""
                         aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                       }
                     }
@@ -368,14 +368,14 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
           {
             width = 4, height = 4, xPos = 8, yPos = 22
             widget = {
-              title = "TSLA — RSI / Conviction / F-Score"
+              title = "MU — RSI / Conviction / F-Score"
               xyChart = {
                 chartOptions = { mode = "COLOR" }
                 dataSets = [
                   {
                     timeSeriesQuery = {
                       timeSeriesFilter = {
-                        filter = "metric.type=\"logging.googleapis.com/user/trading/rsi\" AND metric.labels.ticker=\"TSLA\""
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/rsi\" AND metric.labels.ticker=\"MU\""
                         aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                       }
                     }
@@ -384,7 +384,7 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                   {
                     timeSeriesQuery = {
                       timeSeriesFilter = {
-                        filter = "metric.type=\"logging.googleapis.com/user/trading/conviction\" AND metric.labels.ticker=\"TSLA\""
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/conviction\" AND metric.labels.ticker=\"MU\""
                         aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                       }
                     }
@@ -393,7 +393,7 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                   {
                     timeSeriesQuery = {
                       timeSeriesFilter = {
-                        filter = "metric.type=\"logging.googleapis.com/user/trading/f_score\" AND metric.labels.ticker=\"TSLA\""
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/f_score\" AND metric.labels.ticker=\"MU\""
                         aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                       }
                     }
