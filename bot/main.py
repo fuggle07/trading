@@ -199,7 +199,7 @@ def calculate_technical_indicators(df, ticker="Unknown"):
 # --- 3. THE AUDIT ENGINE ---
 
 
-async def fetch_sentiment(ticker):
+async def fetch_sentiment(ticker, lessons=""):
     """
     Hybrid Sentiment Engine:
     1. Vertex AI (Gemini) Deep Analysis of headlines
@@ -223,7 +223,7 @@ async def fetch_sentiment(ticker):
             print(
                 f"[{ticker}] 📰 Found {len(news)} news items for {ticker}. Asking Gemini..."
             )
-            sentiment_score = await sentiment_analyzer.analyze_news(ticker, news)
+            sentiment_score = await sentiment_analyzer.analyze_news(ticker, news, lessons)
 
         # If Gemini returned a score (non-zero), use it.
         if sentiment_score is not None and sentiment_score != 0.0:
@@ -273,6 +273,11 @@ async def run_audit():
     ticker_intel = {}
     current_prices = {}
 
+    # 1. Fetch Hard-Learned Lessons (Intraday Feedback Loop)
+    lessons = await feedback_agent.get_recent_lessons(limit=3)
+    if lessons:
+        print("🧠 Injecting Hard-Learned Lessons into Intraday Analysis...")
+
     for ticker in tickers:
         print(f"[{ticker}] 📡 Gathering Intel for {ticker}...")
         try:
@@ -282,7 +287,8 @@ async def run_audit():
                 if finnhub_client
                 else None
             )
-            sentiment_task = fetch_sentiment(ticker)
+            # Inject lessons into sentiment fetch
+            sentiment_task = fetch_sentiment(ticker, lessons)
             fundamental_task = fundamental_agent.evaluate_health(ticker)
             deep_health_task = fundamental_agent.evaluate_deep_health(ticker)
             history_task = fetch_historical_data(ticker)
