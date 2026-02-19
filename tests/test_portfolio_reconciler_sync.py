@@ -46,10 +46,9 @@ class TestPortfolioReconcilerSync(unittest.TestCase):
         except Exception as e:
             self.fail(f"sync_executions raised exception: {e}")
 
-        # 4. Verify BQ was called with the time filter
         self.mock_bq.query.assert_called_once()
         query_text = self.mock_bq.query.call_args[0][0]
-        self.assertIn("timestamp < CURRENT_TIMESTAMP() - INTERVAL 2 HOUR", query_text)
+        self.assertIn("timestamp < CURRENT_TIMESTAMP() - INTERVAL 3 HOUR", query_text)
         self.assertIn("alpaca_order_id = 'order_123'", query_text)
 
     def test_sync_executions_other_error(self):

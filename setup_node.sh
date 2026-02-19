@@ -115,6 +115,33 @@ if gcloud logging metrics describe trading/trade_executed --project=$PROJECT_ID 
     terraform import -var="project_id=$PROJECT_ID" google_logging_metric.trade_executed projects/$PROJECT_ID/metrics/trading/trade_executed || true
 fi
 
+# Attempt to import all Cloud Scheduler Jobs
+for job in trading-ticker-ranker trading-audit-trigger trading-hindsight-reflection trading-intraday-feedback; do
+    if gcloud scheduler jobs describe $job --location=us-central1 --project=$PROJECT_ID > /dev/null 2>&1; then
+        echo "⏰ Scheduler Job $job exists, importing..."
+        # Map specific job names to terraform resource names
+        case $job in
+            trading-ticker-ranker) tf_name="ticker_rank_trigger" ;;
+            trading-audit-trigger) tf_name="audit_trigger" ;;
+            trading-hindsight-reflection) tf_name="hindsight_trigger" ;;
+            trading-intraday-feedback) tf_name="intraday_feedback_trigger" ;;
+        esac
+        terraform import -var="project_id=$PROJECT_ID" google_cloud_scheduler_job.$tf_name projects/$PROJECT_ID/locations/us-central1/jobs/$job || true
+    fi
+done
+
+# Attempt to import Log Sink
+if gcloud logging sinks describe trading-system-master-sink --project=$PROJECT_ID > /dev/null 2>&1; then
+    echo "🚰 Log Sink exists, importing..."
+    terraform import -var="project_id=$PROJECT_ID" google_logging_project_sink.master_log_sink projects/$PROJECT_ID/sinks/trading-system-master-sink || true
+fi
+
+# Attempt to import Audit Log Bucket
+if gcloud logging buckets describe system-audit-trail --location=us-central1 --project=$PROJECT_ID > /dev/null 2>&1; then
+    echo "🪣 Audit Log Bucket exists, importing..."
+    terraform import -var="project_id=$PROJECT_ID" google_logging_project_bucket_config.audit_log_bucket projects/$PROJECT_ID/locations/us-central1/buckets/system-audit-trail || true
+fi
+
 # We target the repo and the logging infrastructure first
 terraform apply \
   -target=google_artifact_registry_repository.repo \

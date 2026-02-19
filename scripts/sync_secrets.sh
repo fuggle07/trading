@@ -26,7 +26,7 @@ for SECRET in "${REQUIRED_SECRETS[@]}"; do
 
  # 3. Injection: Create a new version in Secret Manager
  # We use --data-file=- to read from stdin, avoiding process list leaks.
- echo -n "$SECRET_VALUE" | gcloud secrets versions add "$SECRET" --data-file=- \
+ printf "%s" "$SECRET_VALUE" | gcloud secrets versions add "$SECRET" --data-file=- \
  --quiet &>/dev/null
 
  if [ $? -eq 0 ]; then
