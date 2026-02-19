@@ -49,6 +49,7 @@ done
 # But first, we need to handle potential state conflicts if resources already exist
 echo "--- 🏗️  PHASE A: Deploying Foundations ---"
 cd terraform
+terraform init
 
 # Attempt to import existing repository if it exists but isn't in state
 if gcloud artifacts repositories describe trading-node-repo --location=us-central1 --project=$PROJECT_ID > /dev/null 2>&1; then
@@ -57,7 +58,7 @@ if gcloud artifacts repositories describe trading-node-repo --location=us-centra
 fi
 
 # Attempt to import Secret Manager Secrets
-for secret in APIFY_TOKEN FINNHUB_KEY IBKR_KEY ALPACA_API_KEY ALPACA_API_SECRET ALPHA_VANTAGE_KEY; do
+for secret in APIFY_TOKEN FINNHUB_KEY IBKR_KEY ALPACA_API_KEY ALPACA_API_SECRET ALPHA_VANTAGE_KEY FMP_KEY; do
     if gcloud secrets describe $secret --project=$PROJECT_ID > /dev/null 2>&1; then
          echo "🔐 Secret $secret exists, importing..."
          terraform import -var="project_id=$PROJECT_ID" "google_secret_manager_secret.secrets[\"$secret\"]" projects/$PROJECT_ID/secrets/$secret || true
@@ -81,17 +82,13 @@ if bq show --project_id=$PROJECT_ID trading_data > /dev/null 2>&1; then
     terraform import -var="project_id=$PROJECT_ID" google_bigquery_dataset.trading_data projects/$PROJECT_ID/datasets/trading_data || true
 fi
 
-# Attempt to import table performance_logs
-if bq show --project_id=$PROJECT_ID trading_data.performance_logs > /dev/null 2>&1; then
-    echo "📊 Table performance_logs exists, importing..."
-    terraform import -var="project_id=$PROJECT_ID" google_bigquery_table.performance_logs projects/$PROJECT_ID/datasets/trading_data/tables/performance_logs || true
-fi
-
-# Attempt to import table fundamental_cache
-if bq show --project_id=$PROJECT_ID trading_data.fundamental_cache > /dev/null 2>&1; then
-    echo "📊 Table fundamental_cache exists, importing..."
-    terraform import -var="project_id=$PROJECT_ID" google_bigquery_table.fundamental_cache projects/$PROJECT_ID/datasets/trading_data/tables/fundamental_cache || true
-fi
+# Attempt to import all BigQuery Tables
+for table in performance_logs fundamental_cache watchlist_logs portfolio executions ticker_rankings macro_snapshots learning_insights; do
+    if bq show --project_id=$PROJECT_ID trading_data.$table > /dev/null 2>&1; then
+        echo "📊 Table trading_data.$table exists, importing..."
+        terraform import -var="project_id=$PROJECT_ID" google_bigquery_table.$table projects/$PROJECT_ID/datasets/trading_data/tables/$table || true
+    fi
+done
 
 # Attempt to import Cloud Run Service
 if gcloud run services describe trading-audit-agent --region=us-central1 --project=$PROJECT_ID > /dev/null 2>&1; then
@@ -105,7 +102,19 @@ if gcloud scheduler jobs describe trading-ticker-ranker --location=us-central1 -
     terraform import -var="project_id=$PROJECT_ID" google_cloud_scheduler_job.ticker_rank_trigger projects/$PROJECT_ID/locations/us-central1/jobs/trading-ticker-ranker || true
 fi
 
-terraform init
+# Attempt to import Logging Metrics
+for metric in paper_equity sentiment_score total_cash market_value exposure_pct prediction_confidence rsi sma_20 sma_50 bb_upper bb_lower f_score conviction; do
+    if gcloud logging metrics describe trading/$metric --project=$PROJECT_ID > /dev/null 2>&1; then
+        echo "📈 Logging Metric $metric exists, importing..."
+        terraform import -var="project_id=$PROJECT_ID" google_logging_metric.$metric projects/$PROJECT_ID/metrics/trading/$metric || true
+    fi
+done
+
+if gcloud logging metrics describe trading/trade_executed --project=$PROJECT_ID > /dev/null 2>&1; then
+    echo "📈 Logging Metric trade_executed exists, importing..."
+    terraform import -var="project_id=$PROJECT_ID" google_logging_metric.trade_executed projects/$PROJECT_ID/metrics/trading/trade_executed || true
+fi
+
 # We target the repo and the logging infrastructure first
 terraform apply \
   -target=google_artifact_registry_repository.repo \
