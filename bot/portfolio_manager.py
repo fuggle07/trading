@@ -1,4 +1,5 @@
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -41,10 +42,11 @@ class PortfolioManager:
             results = list(self.client.query(query).result(timeout=10))
 
             if not results:
-                logger.info("💰 Seeding GLOBAL CASH POOL (USD) with $50,000")
+                initial_cash = float(os.getenv("INITIAL_CASH", 50000.0))
+                logger.info(f"💰 Seeding GLOBAL CASH POOL (USD) with ${initial_cash:,.2f}")
                 dml = f"""
                 INSERT INTO `{self.table_id}` (asset_name, holdings, cash_balance, avg_price, last_updated)
-                VALUES ('USD', 0.0, 100000.0, 0.0, CURRENT_TIMESTAMP())
+                VALUES ('USD', 0.0, {initial_cash}, 0.0, CURRENT_TIMESTAMP())
                 """
                 self.client.query(dml).result(timeout=10)
 
@@ -157,7 +159,9 @@ class PortfolioManager:
             price = current_prices.get(ticker, 0.0)
             market_value = holdings * price
 
-            total_cash += cash
+            # USD already added to total_cash above; ticker rows shouldn't have cash_balance but we sum if they do
+            # (though in this architecture, only USD row holds global cash)
+            # total_cash += cash  <-- Removing this to prevent double-count if legacy rows exist
             total_market_value += market_value
 
             breakdown.append(

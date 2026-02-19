@@ -174,7 +174,7 @@ def log_decision(ticker, action, reason, details=None):
     High-visibility logging for trading decisions (BUY, SELL, SKIP).
     Priority: Terminal readability for tailing logs.
     """
-    emoji = "🚀" if "BUY" in action else "🛑" if "SELL" in action else "⏭️"
+    emoji = "🚀" if "BUY" in action else "🛑" if "SELL" in action else "🔄" if "SWAP" in action else "⏭️"
     message = f"[DECISION] {emoji} {action} {ticker}: {reason}"
 
     # Structured log for Cloud Logging

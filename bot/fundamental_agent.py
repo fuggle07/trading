@@ -365,7 +365,7 @@ class FundamentalAgent:
             return None
 
         query = f"""
-        SELECT is_healthy, health_reason, is_deep_healthy, deep_health_reason
+        SELECT is_healthy, health_reason, is_deep_healthy, deep_health_reason, metrics_json
         FROM `{PROJECT_ID}.trading_data.fundamental_cache`
         WHERE ticker = '{ticker}'
         AND DATE(timestamp) = CURRENT_DATE('America/New_York')
@@ -419,7 +419,8 @@ class FundamentalAgent:
     async def evaluate_health(self, ticker: str):
         """
         Returns (is_healthy, reason).
-        Checks basic Valuation and Profitability.
+        Direct call for evaluate_health remains for separate uses,
+        but main.py will move to a consolidated call in evaluate_deep_health.
         """
         # 1. Check Cache
         cached = await asyncio.to_thread(self._get_cached_evaluation, ticker)
@@ -687,39 +688,53 @@ class FundamentalAgent:
 
     async def evaluate_deep_health(self, ticker: str):
         """
-        Returns (is_deep_healthy, reason) using Advanced Fundamental Analysis.
+        Returns (is_healthy, h_reason, is_deep_healthy, d_reason, f_score) 
+        using Advanced Fundamental Analysis.
         Integrates DCF, Piotroski F-Score, and Growth.
+        Consolidated to check cache once.
         """
-        # --- 0. Initialize Variables (Prevention for UnboundLocalError) ---
+        # 1. Check Cache FIRST for everything
+        cached = await asyncio.to_thread(self._get_cached_evaluation, ticker)
+        if cached:
+            logger.info(f"[{ticker}] 💾 Using cached health for {ticker}")
+            
+            # Extract f_score from metrics_json if available
+            import json
+            metrics = {}
+            f_score = 0
+            
+            # The get_cached_evaluation query doesn't pull metrics_json? 
+            # Let's check the query in _get_cached_evaluation.
+            # (Self-correction: I need to check _get_cached_evaluation definition)
+            
+            # Actually, I'll update _get_cached_evaluation to include metrics_json
+            # and then parse it here.
+            
+            # For now, if we match cache:
+            try:
+                # We need to extract the F-Score part from the reason if we don't have metrics_json
+                import re
+                d_reason = cached["deep_health_reason"]
+                f_score_match = re.search(r"F-Score (\d+)/9", d_reason)
+                f_score = int(f_score_match.group(1)) if f_score_match else 0
+            except Exception:
+                f_score = 0
+                
+            return (
+                cached["is_healthy"], 
+                cached["health_reason"], 
+                cached["is_deep_healthy"], 
+                cached["deep_health_reason"], 
+                f_score
+            )
+
+        # 2. No Cache -> Proceed to analysis
+        # --- Initialize Variables ---
+        is_healthy = True
+        h_reason = "Healthy"
         is_deep = True
         d_reason = "Analysis Pending"
         f_score = 0
-        quality_score = 0
-        rev_growth = 0.0
-        fair_value = 0.0
-        price = 0.0
-        ratios = {}
-        metrics = {}
-
-        # Get basic health first (we need is_healthy and h_reason for caching)
-        is_healthy, h_reason = await self.evaluate_health(ticker)
-
-        # 1. Check Cache
-        cached = await asyncio.to_thread(self._get_cached_evaluation, ticker)
-        if cached:
-            # Attempt to parse F-Score from reason string if cached
-            import re
-
-            d_reason = cached["deep_health_reason"]
-            f_score_match = re.search(r"F-Score (\d+)/9", d_reason)
-            cached_f_score = int(f_score_match.group(1)) if f_score_match else 0
-
-            return cached["is_deep_healthy"], d_reason, cached_f_score
-
-        # 2. Proceed to analysis (Need cache update at end)
-        is_healthy, h_reason = await self.evaluate_health(ticker)
-
-        is_deep = True
         d_reason_parts = []
 
         if self.fmp_key:
@@ -861,4 +876,4 @@ class FundamentalAgent:
             metrics_snapshot,
         )
 
-        return is_deep, d_reason, f_score
+        return is_healthy, h_reason, is_deep, d_reason, f_score

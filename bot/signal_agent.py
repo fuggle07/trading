@@ -200,7 +200,8 @@ class SignalAgent:
         dry_run_prefix = ""
         if not is_open:
             dry_run_prefix = "[DRY-RUN] "
-            final_action = f"OFF_MARKET_{final_action}"
+            # We keep the core action (BUY/SELL) so the bot logs the intent clearly.
+            # main.py handles the actual execution avoidance via is_market_open().
 
         decision = {
             "ticker": ticker,

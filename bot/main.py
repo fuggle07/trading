@@ -73,6 +73,11 @@ print(f"🛡️  Final Volatility Threshold: {final_vol_threshold:.1%}")
 signal_agent = SignalAgent(
     hurdle_rate=tax_adjusted_hurdle, vol_threshold=final_vol_threshold
 )
+
+# Exposure Threshold
+MIN_EXPOSURE_THRESHOLD = float(os.environ.get("MIN_EXPOSURE_THRESHOLD", 0.65))
+print(f"📊 Minimum Portfolio Exposure Threshold: {MIN_EXPOSURE_THRESHOLD:.1%}")
+
 portfolio_manager = PortfolioManager(bq_client, portfolio_table_id)
 execution_manager = ExecutionManager(portfolio_manager)
 fundamental_agent = FundamentalAgent(finnhub_client=finnhub_client)
@@ -374,7 +379,6 @@ async def run_audit():
                 else None
             )
             intelligence_task = fundamental_agent.get_intelligence_metrics(ticker)
-            fundamental_task = fundamental_agent.evaluate_health(ticker)
             deep_health_task = fundamental_agent.evaluate_deep_health(ticker)
             history_task = fetch_historical_data(ticker)
             confidence_task = get_latest_confidence(ticker)
@@ -397,7 +401,6 @@ async def run_audit():
             intel_results = await asyncio.gather(
                 quote_task,
                 intelligence_task,
-                fundamental_task,
                 deep_health_task,
                 history_task,
                 confidence_task,
@@ -417,42 +420,38 @@ async def run_audit():
             res_intel = (
                 intel_results[1] if not isinstance(intel_results[1], Exception) else {}
             )
-            res_health = (
+            # res_deep now returns (is_healthy, h_reason, is_deep, d_reason, f_score)
+            res_consolidated_health = (
                 intel_results[2]
                 if not isinstance(intel_results[2], Exception)
-                else (False, "Health fail")
-            )
-            res_deep = (
-                intel_results[3]
-                if not isinstance(intel_results[3], Exception)
-                else (False, "Deep fail", 0)
+                else (False, "Health fail", False, "Deep fail", 0)
             )
             res_history = (
-                intel_results[4]
-                if not isinstance(intel_results[4], Exception)
+                intel_results[3]
+                if not isinstance(intel_results[3], Exception)
                 else None
             )
             res_conf = (
-                intel_results[5] if not isinstance(intel_results[5], Exception) else 0
+                intel_results[4] if not isinstance(intel_results[4], Exception) else 0
             )
             res_sma20 = (
+                intel_results[5]
+                if not isinstance(intel_results[5], Exception)
+                else None
+            )
+            res_sma50 = (
                 intel_results[6]
                 if not isinstance(intel_results[6], Exception)
                 else None
             )
-            res_sma50 = (
+            res_rsi = (
                 intel_results[7]
                 if not isinstance(intel_results[7], Exception)
                 else None
             )
-            res_rsi = (
+            res_std = (
                 intel_results[8]
                 if not isinstance(intel_results[8], Exception)
-                else None
-            )
-            res_std = (
-                intel_results[9]
-                if not isinstance(intel_results[9], Exception)
                 else None
             )
 
@@ -501,16 +500,17 @@ async def run_audit():
                         indicators["bb_upper"] = sma + (std * 2)
                         indicators["bb_lower"] = sma - (std * 2)
 
+                # Unpack consolidated health
+                is_h, h_re, is_d, d_re, f_sc = res_consolidated_health
+
                 ticker_intel[ticker] = {
                     "price": price,
-                    "sentiment": float(sentiment_score or 0.0),
-                    "gemini_reasoning": gemini_reasoning,
-                    "rsi": float(res_rsi.get("rsi", 50)) if res_rsi else 50.0,
-                    "is_healthy": bool(res_health[0]),
-                    "health_reason": str(res_health[1]),
-                    "is_deep_healthy": bool(res_deep[0]),
-                    "deep_health_reason": str(res_deep[1]),
-                    "f_score": int(res_deep[2]) if len(res_deep) > 2 else 0,
+                    "sentiment": sentiment_score,
+                    "is_healthy": is_h,
+                    "health_reason": h_re,
+                    "is_deep_healthy": is_d,
+                    "deep_health_reason": d_re,
+                    "f_score": f_sc,
                     "confidence": int(res_conf or 0),
                     "indicators": indicators,
                     "history_res": res_history,
@@ -529,7 +529,9 @@ async def run_audit():
                     sma_50=ind.get("sma_50"),
                     bb_upper=ind.get("bb_upper"),
                     bb_lower=ind.get("bb_lower"),
-                    f_score=int(res_deep[2]) if len(res_deep) > 2 else None,
+                    f_score=int(res_consolidated_health[4])
+                    if len(res_consolidated_health) > 4
+                    else None,
                     conviction=int(res_conf or 0),
                     gemini_reasoning=gemini_reasoning,
                 )
@@ -577,7 +579,7 @@ async def run_audit():
                 "rsi": intel.get("rsi", 50.0),
                 "avg_price": held_tickers.get(ticker, {}).get("avg_price", 0.0),
                 "prediction_confidence": intel["confidence"],
-                "is_low_exposure": exposure < 0.60,
+                "is_low_exposure": exposure < MIN_EXPOSURE_THRESHOLD,
             }
 
             sig = signal_agent.evaluate_strategy(market_data, force_eval=True)
@@ -669,7 +671,7 @@ async def run_audit():
             weakest_conf = ticker_intel[weakest_link].get("confidence", 0)
             log_decision(
                 rising_star,
-                "BUY",  # Action for the rising star
+                "SWAP",
                 f"Rotating out of {weakest_link} ({weakest_conf}%) into {rising_star} ({best_star_conf}%)",
             )
             signals[weakest_link] = {
@@ -683,7 +685,7 @@ async def run_audit():
                     "reason": "CONVICTION_ROTATION",
                     "price": ticker_intel[rising_star]["price"],
                 }
-    elif exposure < 0.60 and rising_star:
+    elif exposure < MIN_EXPOSURE_THRESHOLD and rising_star:
         # Deployment Logic: If we have cash, buy the best thing available
         # BUT: Respect volatility and hygiene checks
         existing_sig = signals.get(rising_star, {})
@@ -733,7 +735,7 @@ async def run_audit():
 
     # Fallback Deployment: If we still have low exposure and no valid rising star was bought
     # Find the *next best* available candidate (conf > 60) that isn't volatile/sell
-    if exposure < 0.60 and not any(
+    if exposure < MIN_EXPOSURE_THRESHOLD and not any(
         s.get("reason") == "INITIAL_DEPLOYMENT" for s in signals.values()
     ):
         best_deploy_candidate = None
@@ -780,7 +782,7 @@ async def run_audit():
         if sig.get("action") == "SELL":
             reason = sig.get("reason", "Strategy Signal")
             if not effective_enabled:
-                log_decision(ticker, "SKIP", f"🧊 DRY RUN: Intent SELL ({reason})")
+                log_decision(ticker, "SELL", f"🧊 DRY RUN: Intent SELL ({reason})")
                 status = "dry_run_sell"
             else:
                 exec_res = execution_manager.place_order(
@@ -800,7 +802,7 @@ async def run_audit():
         if sig.get("action") == "BUY":
             reason = sig.get("reason", "Strategy Signal")
             if not effective_enabled:
-                log_decision(ticker, "SKIP", f"🧊 DRY RUN: Intent BUY ({reason})")
+                log_decision(ticker, "BUY", f"🧊 DRY RUN: Intent BUY ({reason})")
                 status = "dry_run_buy"
             else:
                 cash_pool = portfolio_manager.get_cash_balance()

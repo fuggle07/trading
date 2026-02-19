@@ -133,6 +133,14 @@ resource "google_cloud_run_v2_service" "trading_bot" {
         value = "NVDA,MU,TSLA,AMD,PLTR,COIN,META,MSTR"
       }
       env {
+        name  = "INITIAL_CASH"
+        value = tostring(var.initial_cash)
+      }
+      env {
+        name  = "MIN_EXPOSURE_THRESHOLD"
+        value = tostring(var.min_exposure_threshold)
+      }
+      env {
         name  = "DEPLOY_TIME"
         value = var.deploy_time
       }
