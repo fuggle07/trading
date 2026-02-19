@@ -180,3 +180,8 @@ class PortfolioManager:
             "total_market_value": total_market_value,
             "breakdown": breakdown,
         }
+    def get_held_tickers(self):
+        """Returns a dict of {ticker: holdings} for assets where holdings > 0."""
+        query = f"SELECT asset_name, holdings FROM `{self.table_id}` WHERE holdings > 0 AND asset_name != 'USD'"
+        results = list(self.client.query(query).result())
+        return {row.asset_name: row.holdings for row in results}

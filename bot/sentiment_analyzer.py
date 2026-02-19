@@ -22,7 +22,7 @@ class SentimentAnalyzer:
             logger.error(f"❌ Failed to initialize Vertex AI: {e}")
 
     async def analyze_news(
-        self, ticker: str, news_items: list, lessons: str = ""
+        self, ticker: str, news_items: list, lessons: str = "", context: dict = None
     ) -> float:
         """
         Analyzes a list of news items and returns a sentiment score from -1.0 to 1.0.
@@ -41,19 +41,30 @@ class SentimentAnalyzer:
             ]
         )
 
+        context_text = ""
+        if context:
+            context_text = f"""
+            Market-Wide Context: {context.get('macro', 'Stable')}
+            Analyst Consensus: {context.get('analyst_consensus', 'Neutral')}
+            Institutional Flow: {context.get('institutional_flow', 'Neutral')}
+            """
+
         prompt = f"""
-        You are a financial sentiment analysis expert.
-        Analyze the following news headlines and summaries for the stock '{ticker}'.
+        You are a financial analysis expert powered by Gemini 2.0 Flash.
+        Analyze the following data for the stock '{ticker}' to derive a high-conviction decision.
+
         {lessons}
+        
+        {context_text}
 
         News Data:
-        {news_text}
+        {news_text if news_items else "No recent news found for this ticker."}
 
         Task:
-        Determine the overall market sentiment for this stock based strictly on the provided news.
+        Determine the overall conviction score for this stock by synthesizing market context, analyst ratings, institutional flow, and news sentiment.
         Return a single JSON object with the following keys:
-        - "score": A float between -1.0 (Very Bearish) and 1.0 (Very Bullish).
-        - "reasoning": A brief explanation of why you assigned this score.
+        - "score": A float between -1.0 (Strong Sell) and 1.0 (Strong Buy).
+        - "reasoning": A brief explanation citing specific data points (e.g., "$QQQ strength" or "analyst upgrades").
 
         Output JSON only. Do not include markdown formatting.
         """

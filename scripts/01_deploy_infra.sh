@@ -53,10 +53,10 @@ echo "🔄 Initializing Terraform Providers..."
 terraform init
 
 echo "🚀 Applying Infrastructure Blueprint..."
-# Get Project ID from gcloud if not set
-if [ -z "$PROJECT_ID" ]; then
-    PROJECT_ID=$(gcloud config get-value project)
-fi
+# FORCE Project ID from gcloud to avoid environmental poisoning (e.g. trading-12345)
+PROJECT_ID=$(gcloud config get-value project)
+
+echo "📋 PROJECT_ID (Forced from gcloud): $PROJECT_ID"
 
 # We force a revision update by passing a new timestamp
 terraform apply -auto-approve \

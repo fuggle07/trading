@@ -161,6 +161,28 @@ async def fetch_historical_data(ticker):
         return None
 
 
+async def get_macro_context() -> str:
+    """
+    Fetches daily performance for $SPY and $QQQ to provide macro context.
+    """
+    context_parts = []
+    for index in ["SPY", "QQQ"]:
+        try:
+            # We use Finnhub quote for a quick check
+            res = await asyncio.to_thread(finnhub_client.quote, index)
+            if res and "dp" in res:
+                perf = float(res["dp"])
+                sign = "+" if perf >= 0 else ""
+                context_parts.append(f"{index}: {sign}{perf:.2f}%")
+        except Exception:
+            pass
+            
+    if not context_parts:
+        return "Market Context: Stable"
+    
+    return f"Market Context: {', '.join(context_parts)}"
+
+
 def calculate_technical_indicators(df, ticker="Unknown"):
     """Calculates SMA-20, SMA-50, and Bollinger Bands."""
     if df is None:
@@ -201,10 +223,10 @@ def calculate_technical_indicators(df, ticker="Unknown"):
 # --- 3. THE AUDIT ENGINE ---
 
 
-async def fetch_sentiment(ticker, lessons=""):
+async def fetch_sentiment(ticker, lessons="", context=None):
     """
     Hybrid Sentiment Engine:
-    1. Vertex AI (Gemini) Deep Analysis of headlines
+    1. Vertex AI (Gemini) Deep Analysis of headlines + context
     2. Finnhub fallback for basic scores
     """
     try:
@@ -225,7 +247,7 @@ async def fetch_sentiment(ticker, lessons=""):
             print(
                 f"[{ticker}] 📰 Found {len(news)} news items for {ticker}. Asking Gemini..."
             )
-            sentiment_score = await sentiment_analyzer.analyze_news(ticker, news, lessons)
+            sentiment_score = await sentiment_analyzer.analyze_news(ticker, news, lessons, context=context)
 
         # If Gemini returned a score (non-zero), use it.
         if sentiment_score is not None and sentiment_score != 0.0:
@@ -291,9 +313,15 @@ async def run_audit():
     current_prices = {}
 
     # 1. Fetch Hard-Learned Lessons (Intraday Feedback Loop)
-    lessons = await feedback_agent.get_recent_lessons(limit=3)
+    # 2. Fetch Macro Context
+    lessons_task = feedback_agent.get_recent_lessons(limit=3)
+    macro_task = get_macro_context()
+    
+    lessons, macro_context = await asyncio.gather(lessons_task, macro_task)
+    
     if lessons:
         print("🧠 Injecting Hard-Learned Lessons into Intraday Analysis...")
+    print(f"🌍 Macro Context: {macro_context}")
 
     for ticker in tickers:
         print(f"[{ticker}] 📡 Gathering Intel for {ticker}...")
@@ -304,8 +332,8 @@ async def run_audit():
                 if finnhub_client
                 else None
             )
-            # Inject lessons into sentiment fetch
-            sentiment_task = fetch_sentiment(ticker, lessons)
+            # Fetch Intelligence Context (Analyst/Institutional)
+            intelligence_task = fundamental_agent.get_intelligence_metrics(ticker)
             fundamental_task = fundamental_agent.evaluate_health(ticker)
             deep_health_task = fundamental_agent.evaluate_deep_health(ticker)
             history_task = fetch_historical_data(ticker)
@@ -314,7 +342,7 @@ async def run_audit():
             # Execute gather with error handling
             intel_results = await asyncio.gather(
                 quote_task,
-                sentiment_task,
+                intelligence_task,
                 fundamental_task,
                 deep_health_task,
                 history_task,
@@ -328,9 +356,19 @@ async def run_audit():
                 if not isinstance(intel_results[0], Exception)
                 else None
             )
-            sentiment_score = (
-                intel_results[1] if not isinstance(intel_results[1], Exception) else 0.0
+            intelligence = (
+                intel_results[1] if not isinstance(intel_results[1], Exception) else {}
             )
+            
+            # --- PREPARE ENRICHED CONTEXT FOR AI ---
+            ai_context = {
+                "macro": macro_context,
+                "analyst_consensus": intelligence.get("analyst_consensus", "Neutral"),
+                "institutional_flow": intelligence.get("institutional_momentum", "Neutral"),
+            }
+            
+            # Now fetch sentiment with the context we just gathered
+            sentiment_score = await fetch_sentiment(ticker, lessons, context=ai_context)
             health = (
                 intel_results[2]
                 if not isinstance(intel_results[2], Exception)

@@ -96,6 +96,38 @@ class FundamentalAgent:
 
         return data
 
+    async def get_intelligence_metrics(self, ticker: str) -> dict:
+        """
+        Fetches 'Soft' context: Analyst Consensus and Institutional Flow.
+        """
+        intelligence = {
+            "analyst_consensus": "Neutral",
+            "institutional_momentum": "Neutral"
+        }
+        
+        if not self.fmp_key:
+            return intelligence
+
+        try:
+            # 1. Analyst Ratings (FMP /analyst-stock-recommendations)
+            ratings_data = await self._fetch_fmp("analyst-stock-recommendations", ticker)
+            if ratings_data and isinstance(ratings_data, list):
+                r = ratings_data[0]
+                intelligence["analyst_consensus"] = f"{r.get('recommendation', 'Neutral')} (Consensus of {r.get('analystRatingsTotal', 0)} analysts)"
+            
+            # 2. Institutional/Insider Flow (FMP /institutional-ownership/symbol-ownership-percent)
+            # We look at 'totalOwnershipPercentage' or recent institutional trends if available.
+            # Simplified proxy: Institutional Ownership Percent
+            inst_data = await self._fetch_fmp("institutional-ownership/symbol-ownership-percent", ticker)
+            if inst_data and isinstance(inst_data, list):
+                pct = float(inst_data[0].get("totalOwnershipPercentage", 0) or 0)
+                intelligence["institutional_momentum"] = f"{pct:.1f}% Institutional Ownership"
+
+        except Exception as e:
+            logger.error(f"[{ticker}] ⚠️ Failed to fetch intelligence metrics: {e}")
+            
+        return intelligence
+
     def _get_cached_evaluation(self, ticker: str):
         """Checks BigQuery for today's evaluation of this ticker."""
         client = self.bq_client
