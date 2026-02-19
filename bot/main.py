@@ -910,9 +910,9 @@ async def get_latest_confidence(ticker: str) -> Optional[int]:
 @app.route("/rank-tickers", methods=["POST"])
 async def run_ranker_endpoint():
     """Trigger the morning ticker ranking job."""
-    tickers = os.environ.get("BASE_TICKERS", "NVDA,MU,TSLA,AMD,PLTR,COIN,META,MSTR").split(
-        ","
-    )
+    base = os.environ.get("BASE_TICKERS", "NVDA,MU,TSLA,AMD,PLTR,COIN,META,MSTR").split(",")
+    held = list(portfolio_manager.get_held_tickers().keys())
+    tickers = list(set(base + held))
     try:
         results = await ticker_ranker.rank_and_log(tickers)
         return jsonify({"status": "success", "results": results}), 200
