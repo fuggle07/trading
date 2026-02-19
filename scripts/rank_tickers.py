@@ -21,7 +21,7 @@ logger = logging.getLogger("RankerScript")
 # Configuration
 # Actual Project ID: utopian-calling-429014-r9
 PROJECT_ID = os.environ.get("PROJECT_ID", "utopian-calling-429014-r9")
-TICKERS = ["NVDA", "AAPL", "TSLA", "MSFT", "AMD", "PLTR", "COIN"]
+TICKERS = ["NVDA", "TSLA", "AMD", "PLTR", "COIN", "META", "MSTR"]
 
 async def main():
     logger.info(f"🚀 Starting Morning Ticker Ranking for Project: {PROJECT_ID}")

@@ -190,7 +190,7 @@ resource "google_cloud_run_v2_service" "trading_bot" {
       }
       env {
         name  = "BASE_TICKERS"
-        value = "NVDA,AAPL,TSLA,MSFT,AMD,PLTR,COIN"
+        value = "NVDA,TSLA,AMD,PLTR,COIN,META,MSTR"
       }
       env {
         name  = "DEPLOY_TIME"
