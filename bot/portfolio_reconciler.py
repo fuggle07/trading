@@ -135,14 +135,23 @@ class PortfolioReconciler:
                             status = 'FILLED_CONFIRMED'
                         WHERE alpaca_order_id = '{alpaca_id}'
                         AND status != 'FILLED_CONFIRMED'
+                        AND timestamp < CURRENT_TIMESTAMP() - INTERVAL 2 HOUR
                     """
-                    job = self.bq_client.query(dml)
-                    job.result()
-                    if job.num_dml_affected_rows > 0:
-                        updates += 1
-                        logger.info(
-                            f"[{order.symbol}] ✅ Synced: Price={filled_price}, Qty={filled_qty}"
-                        )
+                    try:
+                        job = self.bq_client.query(dml)
+                        job.result()
+                        if job.num_dml_affected_rows > 0:
+                            updates += 1
+                            logger.info(
+                                f"[{order.symbol}] ✅ Synced: Price={filled_price}, Qty={filled_qty}"
+                            )
+                    except Exception as e:
+                        if "would affect rows in the streaming buffer" in str(e):
+                            logger.info(
+                                f"[{order.symbol}] ⏳ Skipping sync (still in streaming buffer)"
+                            )
+                        else:
+                            logger.error(f"[{order.symbol}] ❌ Failed to sync: {e}")
 
             if updates > 0:
                 logger.info(
