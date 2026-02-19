@@ -1,7 +1,9 @@
 # scheduler.tf
 
 # 5. SCHEDULER ACCESS
-data "google_project" "project" {}
+data "google_project" "project" {
+  project_id = var.project_id
+}
 
 resource "google_service_account_iam_member" "scheduler_sa_user" {
   service_account_id = google_service_account.bot_sa.name
