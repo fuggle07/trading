@@ -14,7 +14,7 @@ lint_python:
   image: $PYTHON_IMAGE
   script:
     - pip install black
-    - black --check bot/ scripts/*.py
+    - black --check bot/ scripts/*.py utilities/*.py
 
 # 2. Test - Run Python Unit Tests
 unit_tests:
