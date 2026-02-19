@@ -35,16 +35,69 @@ def log_audit(level, message, extra=None):
 
 # 3. BIGQUERY TELEMETRY
 
-def log_watchlist_data(client, table_id, ticker, price, sentiment=None, confidence=0):
+def log_macro_snapshot(client, project_id, macro_data: dict):
+    """
+    Persists one macro context snapshot per audit cycle to BigQuery.
+    """
+    try:
+        indices = macro_data.get("indices", {})
+        rates = macro_data.get("rates", {})
+        calendar = macro_data.get("calendar", [])
+
+        import json
+        row = {
+            "timestamp": datetime.now(pytz.utc).isoformat(),
+            "vix":          float(indices.get("vix", 0) or 0),
+            "spy_perf":     float(indices.get("spy_perf", 0) or 0),
+            "qqq_perf":     float(indices.get("qqq_perf", 0) or 0),
+            "yield_10y":    float(rates.get("10Y", 0) or 0),
+            "yield_2y":     float(rates.get("2Y", 0) or 0),
+            "yield_source": str(rates.get("source", "")),
+            "calendar_json": json.dumps(calendar) if calendar else None,
+        }
+        table_id = f"{project_id}.trading_data.macro_snapshots"
+        errors = client.insert_rows_json(table_id, [row])
+        if errors:
+            print(f"❌ Macro Snapshot BQ Error: {errors}")
+        else:
+            print(f"🌍 Macro Snapshot stored (VIX={row['vix']}, SPY={row['spy_perf']:.2f}%)")
+    except Exception as e:
+        print(f"⚠️ Macro Snapshot Log Failure: {e}")
+
+
+def log_watchlist_data(
+    client,
+    table_id,
+    ticker,
+    price,
+    sentiment=None,
+    confidence=0,
+    rsi=None,
+    sma_20=None,
+    sma_50=None,
+    bb_upper=None,
+    bb_lower=None,
+    f_score=None,
+    conviction=None,
+    gemini_reasoning=None,
+):
     """
     Ensures the JSON keys perfectly match the BigQuery schema.
     """
     row_to_insert = [
         {
-            "timestamp": datetime.now(pytz.utc).isoformat(),
-            "ticker": ticker,
-            "price": float(price),
+            "timestamp":       datetime.now(pytz.utc).isoformat(),
+            "ticker":          ticker,
+            "price":           float(price),
             "sentiment_score": float(sentiment) if sentiment is not None else 0.0,
+            "rsi":             float(rsi) if rsi is not None else None,
+            "sma_20":          float(sma_20) if sma_20 is not None else None,
+            "sma_50":          float(sma_50) if sma_50 is not None else None,
+            "bb_upper":        float(bb_upper) if bb_upper is not None else None,
+            "bb_lower":        float(bb_lower) if bb_lower is not None else None,
+            "f_score":         int(f_score) if f_score is not None else None,
+            "conviction":      int(conviction) if conviction is not None else None,
+            "gemini_reasoning": str(gemini_reasoning) if gemini_reasoning else None,
         }
     ]
 

@@ -129,6 +129,7 @@ class TickerRanker:
                 "sentiment": score,
                 "confidence": confidence,
                 "reason": reason,
+                "gemini_reasoning": reason,  # Full Gemini reasoning text
             }
         except Exception as e:
             logger.error(f"[{ticker}] Error analyzing {ticker} with Vertex AI: {e}")
@@ -137,6 +138,7 @@ class TickerRanker:
                 "sentiment": 0.0,
                 "confidence": 0,
                 "reason": "AI Analysis failed.",
+                "gemini_reasoning": "",
             }
 
     def log_ranking_to_bq(self, results: List[Dict]):
@@ -146,11 +148,12 @@ class TickerRanker:
         for res in results:
             rows.append(
                 {
-                    "timestamp": now,
-                    "ticker": res["ticker"],
-                    "sentiment": res["sentiment"],
-                    "confidence": res["confidence"],
-                    "reason": res["reason"],
+                    "timestamp":        now,
+                    "ticker":           res["ticker"],
+                    "sentiment":        res["sentiment"],
+                    "confidence":       res["confidence"],
+                    "reason":           res["reason"],
+                    "gemini_reasoning": res.get("gemini_reasoning", ""),
                 }
             )
 

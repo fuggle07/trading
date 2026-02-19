@@ -4,7 +4,7 @@ import finnhub
 import pandas as pd
 from flask import Flask, jsonify
 from datetime import datetime, timezone, timedelta
-from bot.telemetry import log_watchlist_data, log_decision
+from bot.telemetry import log_watchlist_data, log_macro_snapshot, log_decision
 import pytz
 import traceback
 from google.cloud import bigquery
@@ -269,11 +269,14 @@ async def fetch_sentiment(ticker, lessons="", context=None):
             print(
                 f"[{ticker}] 📰 Found {len(news)} news items for {ticker}. Asking Gemini..."
             )
-            sentiment_score = await sentiment_analyzer.analyze_news(ticker, news, lessons, context=context)
+            result = await sentiment_analyzer.analyze_news(ticker, news, lessons, context=context)
+            sentiment_score, gemini_reasoning = result if isinstance(result, tuple) else (result, "")
+        else:
+            gemini_reasoning = ""
 
         # If Gemini returned a score (non-zero), use it.
         if sentiment_score is not None and sentiment_score != 0.0:
-            return sentiment_score
+            return sentiment_score, gemini_reasoning
 
         # 2. Fallback to Finnhub's Generic Score
         print(
@@ -295,10 +298,10 @@ async def fetch_sentiment(ticker, lessons="", context=None):
                     f"[{ticker}] ⚠️  Finnhub Sentiment fallback failed for {ticker}: {e}"
                 )
 
-        return 0.0  # Neutral default
+        return 0.0, ""  # Neutral default
     except Exception as e:
         print(f"[{ticker}] ⚠️  Global fetch_sentiment error for {ticker}: {e}")
-        return 0.0
+        return 0.0, ""
 
 
 # --- 3. THE AUDIT ENGINE ---
@@ -345,6 +348,12 @@ async def run_audit():
     if lessons:
         print("🧠 Injecting Hard-Learned Lessons into Intraday Analysis...")
     print(f"🌍 {macro_context_str}")
+
+    # Store macro snapshot to BigQuery for historical analysis
+    try:
+        log_macro_snapshot(bq_client, PROJECT_ID, macro_data)
+    except Exception as e:
+        print(f"⚠️ Macro snapshot log failed: {e}")
 
     for ticker in tickers:
         print(f"[{ticker}] 📡 Gathering Intel for {ticker}...")
@@ -399,7 +408,8 @@ async def run_audit():
                 }
                 
                 # Fetch sentiment with the enriched context
-                sentiment_score = await fetch_sentiment(ticker, lessons, context=ai_context)
+                sentiment_result = await fetch_sentiment(ticker, lessons, context=ai_context)
+                sentiment_score, gemini_reasoning = sentiment_result if isinstance(sentiment_result, tuple) else (sentiment_result, "")
 
                 # Process technicals
                 indicators = calculate_technical_indicators(res_history, ticker)
@@ -413,20 +423,32 @@ async def run_audit():
                         indicators["bb_lower"] = sma - (std * 2)
 
                 ticker_intel[ticker] = {
-                    "price": price,
-                    "sentiment": float(sentiment_score or 0.0),
-                    "rsi": float(res_rsi.get("rsi", 50)) if res_rsi else 50.0,
-                    "is_healthy": bool(res_health[0]),
-                    "health_reason": str(res_health[1]),
-                    "is_deep_healthy": bool(res_deep[0]),
+                    "price":            price,
+                    "sentiment":        float(sentiment_score or 0.0),
+                    "gemini_reasoning": gemini_reasoning,
+                    "rsi":              float(res_rsi.get("rsi", 50)) if res_rsi else 50.0,
+                    "is_healthy":       bool(res_health[0]),
+                    "health_reason":    str(res_health[1]),
+                    "is_deep_healthy":  bool(res_deep[0]),
                     "deep_health_reason": str(res_deep[1]),
-                    "f_score": int(res_deep[2]) if len(res_deep) > 2 else 0,
-                    "confidence": int(res_conf or 0),
-                    "indicators": indicators,
-                    "history_res": res_history
+                    "f_score":          int(res_deep[2]) if len(res_deep) > 2 else 0,
+                    "confidence":       int(res_conf or 0),
+                    "indicators":       indicators,
+                    "history_res":      res_history
                 }
-                # Log to Watchlist
-                log_watchlist_data(bq_client, table_id, ticker, price, sentiment_score, int(res_conf or 0))
+                # Log to Watchlist — include all technical fields
+                ind = indicators or {}
+                log_watchlist_data(
+                    bq_client, table_id, ticker, price, sentiment_score, int(res_conf or 0),
+                    rsi=float(res_rsi.get("rsi", 0)) if res_rsi else None,
+                    sma_20=ind.get("sma_20"),
+                    sma_50=ind.get("sma_50"),
+                    bb_upper=ind.get("bb_upper"),
+                    bb_lower=ind.get("bb_lower"),
+                    f_score=int(res_deep[2]) if len(res_deep) > 2 else None,
+                    conviction=int(res_conf or 0),
+                    gemini_reasoning=gemini_reasoning,
+                )
         except Exception as e:
             print(f"[{ticker}] ⚠️ Failed to gather intel for {ticker}: {e}")
 

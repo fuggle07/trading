@@ -23,13 +23,13 @@ class SentimentAnalyzer:
 
     async def analyze_news(
         self, ticker: str, news_items: list, lessons: str = "", context: dict = None
-    ) -> float:
+    ) -> tuple:
         """
-        Analyzes a list of news items and returns a sentiment score from -1.0 to 1.0.
-        Returns 0.0 if analysis fails or no news provided.
+        Analyzes a list of news items and returns (score, reasoning).
+        score: float -1.0 to 1.0. Returns (0.0, "") if analysis fails or no news provided.
         """
         if not self.model or not news_items:
-            return 0.0
+            return 0.0, ""
 
         # Limit to top 5 news items to fit context window efficiently and stay relevant
         top_news = news_items[:5]
@@ -108,8 +108,8 @@ class SentimentAnalyzer:
             logger.info(
                 f"[{ticker}] 🧠 Gemini Analysis: Score={score} | Reason: {reasoning}"
             )
-            return score
+            return score, reasoning
 
         except Exception as e:
             logger.error(f"[{ticker}] ⚠️ Gemini Analysis Failed: {e}")
-            return 0.0
+            return 0.0, ""

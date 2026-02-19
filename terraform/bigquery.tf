@@ -36,10 +36,18 @@ resource "google_bigquery_table" "watchlist_logs" {
 
   schema = <<EOF
 [
-  { "name": "timestamp", "type": "TIMESTAMP", "mode": "REQUIRED" },
-  { "name": "ticker", "type": "STRING", "mode": "REQUIRED" },
-  { "name": "price", "type": "FLOAT", "mode": "REQUIRED" },
-  { "name": "sentiment_score", "type": "FLOAT", "mode": "NULLABLE" }
+  { "name": "timestamp",       "type": "TIMESTAMP", "mode": "REQUIRED" },
+  { "name": "ticker",          "type": "STRING",    "mode": "REQUIRED" },
+  { "name": "price",           "type": "FLOAT",     "mode": "REQUIRED" },
+  { "name": "sentiment_score", "type": "FLOAT",     "mode": "NULLABLE" },
+  { "name": "rsi",             "type": "FLOAT",     "mode": "NULLABLE", "description": "14-day RSI" },
+  { "name": "sma_20",          "type": "FLOAT",     "mode": "NULLABLE" },
+  { "name": "sma_50",          "type": "FLOAT",     "mode": "NULLABLE" },
+  { "name": "bb_upper",        "type": "FLOAT",     "mode": "NULLABLE", "description": "Bollinger Band Upper" },
+  { "name": "bb_lower",        "type": "FLOAT",     "mode": "NULLABLE", "description": "Bollinger Band Lower" },
+  { "name": "f_score",         "type": "INTEGER",   "mode": "NULLABLE", "description": "Piotroski F-Score (0-9)" },
+  { "name": "conviction",      "type": "INTEGER",   "mode": "NULLABLE", "description": "Signal conviction (0-100)" },
+  { "name": "gemini_reasoning","type": "STRING",    "mode": "NULLABLE", "description": "Gemini sentiment reasoning" }
 ]
 EOF
 }
@@ -109,11 +117,12 @@ resource "google_bigquery_table" "ticker_rankings" {
 
   schema = <<EOF
 [
-  { "name": "timestamp", "type": "TIMESTAMP", "mode": "REQUIRED" },
-  { "name": "ticker", "type": "STRING", "mode": "REQUIRED" },
-  { "name": "sentiment", "type": "FLOAT", "mode": "REQUIRED" },
-  { "name": "confidence", "type": "INTEGER", "mode": "REQUIRED" },
-  { "name": "reason", "type": "STRING", "mode": "NULLABLE" }
+  { "name": "timestamp",        "type": "TIMESTAMP", "mode": "REQUIRED" },
+  { "name": "ticker",           "type": "STRING",    "mode": "REQUIRED" },
+  { "name": "sentiment",        "type": "FLOAT",     "mode": "REQUIRED" },
+  { "name": "confidence",       "type": "INTEGER",   "mode": "REQUIRED" },
+  { "name": "reason",           "type": "STRING",    "mode": "NULLABLE" },
+  { "name": "gemini_reasoning", "type": "STRING",    "mode": "NULLABLE", "description": "Full Gemini reasoning text" }
 ]
 EOF
 }
@@ -125,12 +134,32 @@ resource "google_bigquery_table" "fundamental_cache" {
 
   schema = <<EOF
 [
-  { "name": "timestamp", "type": "TIMESTAMP", "mode": "REQUIRED" },
-  { "name": "ticker", "type": "STRING", "mode": "REQUIRED" },
-  { "name": "is_healthy", "type": "BOOLEAN", "mode": "REQUIRED" },
-  { "name": "health_reason", "type": "STRING", "mode": "NULLABLE" },
-  { "name": "is_deep_healthy", "type": "BOOLEAN", "mode": "REQUIRED" },
-  { "name": "deep_health_reason", "type": "STRING", "mode": "NULLABLE" }
+  { "name": "timestamp",         "type": "TIMESTAMP", "mode": "REQUIRED" },
+  { "name": "ticker",            "type": "STRING",    "mode": "REQUIRED" },
+  { "name": "is_healthy",        "type": "BOOLEAN",   "mode": "REQUIRED" },
+  { "name": "health_reason",     "type": "STRING",    "mode": "NULLABLE" },
+  { "name": "is_deep_healthy",   "type": "BOOLEAN",   "mode": "REQUIRED" },
+  { "name": "deep_health_reason","type": "STRING",    "mode": "NULLABLE" },
+  { "name": "metrics_json",      "type": "STRING",    "mode": "NULLABLE", "description": "Raw FMP metrics snapshot (PE, F-Score, DCF, ROE etc.)" }
+]
+EOF
+}
+
+resource "google_bigquery_table" "macro_snapshots" {
+  dataset_id          = google_bigquery_dataset.trading_data.dataset_id
+  table_id            = "macro_snapshots"
+  deletion_protection = false
+
+  schema = <<EOF
+[
+  { "name": "timestamp",   "type": "TIMESTAMP", "mode": "REQUIRED" },
+  { "name": "vix",         "type": "FLOAT",     "mode": "NULLABLE", "description": "VIX fear index" },
+  { "name": "spy_perf",    "type": "FLOAT",     "mode": "NULLABLE", "description": "SPY % change" },
+  { "name": "qqq_perf",    "type": "FLOAT",     "mode": "NULLABLE", "description": "QQQ % change" },
+  { "name": "yield_10y",   "type": "FLOAT",     "mode": "NULLABLE", "description": "US 10Y Treasury Yield" },
+  { "name": "yield_2y",    "type": "FLOAT",     "mode": "NULLABLE", "description": "US 2Y Treasury Yield" },
+  { "name": "yield_source","type": "STRING",    "mode": "NULLABLE", "description": "Data source: FMP/Finnhub/AlphaVantage" },
+  { "name": "calendar_json","type": "STRING",   "mode": "NULLABLE", "description": "High-impact economic events JSON" }
 ]
 EOF
 }
