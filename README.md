@@ -53,3 +53,5 @@ python3 utilities/rank_tickers.py
 
 ---
 *Note: Ensure your `PROJECT_ID` and API keys are set in the `.env` file or environment.*
+
+
