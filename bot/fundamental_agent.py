@@ -1,7 +1,7 @@
 import os
 import asyncio
 import aiohttp
-from datetime import datetime
+from datetime import datetime, timedelta
 from google.cloud import bigquery
 from bot.telemetry import logger
 
@@ -11,6 +11,7 @@ class FundamentalAgent:
     def __init__(self, finnhub_client=None):
         self.fmp_key = os.getenv("FMP_KEY")
         self.finnhub_client = finnhub_client  # Keep as backup if needed
+        self.av_key = os.getenv("ALPHA_VANTAGE_KEY")
         self.bq_client = bigquery.Client(project=PROJECT_ID) if PROJECT_ID else None
         
         if not self.fmp_key:
@@ -18,15 +19,19 @@ class FundamentalAgent:
         else:
             logger.info("✅ Financial Modeling Prep (FMP) Connected")
 
-    async def _fetch_fmp(self, endpoint: str, ticker: str):
+    async def _fetch_fmp(self, endpoint: str, ticker: str, params: dict = None, version: str = "v3"):
         """Helper to fetch data from FMP API."""
         if not self.fmp_key:
             return None
         
-        url = f"https://financialmodelingprep.com/stable/{endpoint}?symbol={ticker}&apikey={self.fmp_key}" # Switch to stable/query param
+        url = f"https://financialmodelingprep.com/{version}/{endpoint}"
+        query_params = {"symbol": ticker, "apikey": self.fmp_key}
+        if params:
+            query_params.update(params)
+        
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get(url, timeout=10) as response:
+                async with session.get(url, params=query_params, timeout=10) as response:
                     if response.status == 200:
                         data = await response.json()
                         if data:
@@ -35,6 +40,42 @@ class FundamentalAgent:
                         logger.error(f"[{ticker}] ❌ FMP Error {endpoint}: {response.status}")
         except Exception as e:
             logger.error(f"[{ticker}] ⚠️ FMP Exception {endpoint}: {e}")
+        return None
+    async def _fetch_alphavantage(self, function: str, params: dict = None):
+        """Helper to fetch data from AlphaVantage API."""
+        if not self.av_key:
+            return None
+        
+        url = "https://www.alphavantage.co/query"
+        query_params = {"function": function, "apikey": self.av_key}
+        if params:
+            query_params.update(params)
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, params=query_params, timeout=10) as response:
+                    if response.status == 200:
+                        return await response.json()
+                    else:
+                        logger.error(f"❌ AlphaVantage Error {function}: {response.status}")
+        except Exception as e:
+            logger.error(f"⚠️ AlphaVantage Exception {function}: {e}")
+        return None
+
+    async def get_technical_indicator(self, ticker: str, indicator_type: str, period: int = 20, timeframe: str = "1day"):
+        """
+        Fetches technical indicators from FMP (e.g., sma, rsi, ema).
+        URL: https://financialmodelingprep.com/stable/technical-indicators/{type}?symbol={ticker}&periodLength={period}&timeframe={timeframe}&apikey={key}
+        """
+        endpoint = f"technical-indicators/{indicator_type}"
+        params = {
+            "periodLength": period,
+            "timeframe": timeframe
+        }
+        data = await self._fetch_fmp(endpoint, ticker, params=params, version="stable")
+        if data and isinstance(data, list):
+            # FMP returns a list of indicators, we usually want the latest one
+            return data[0]
         return None
 
     async def get_fundamentals(self, ticker: str):
@@ -110,15 +151,17 @@ class FundamentalAgent:
 
         try:
             # 1. Analyst Ratings (FMP /analyst-stock-recommendations)
-            ratings_data = await self._fetch_fmp("analyst-stock-recommendations", ticker)
+            ratings_task = self._fetch_fmp("analyst-stock-recommendations", ticker)
+            
+            # 2. Institutional Ownership %
+            inst_task = self._fetch_fmp("institutional-ownership/symbol-ownership-percent", ticker)
+            
+            ratings_data, inst_data = await asyncio.gather(ratings_task, inst_task)
+
             if ratings_data and isinstance(ratings_data, list):
                 r = ratings_data[0]
                 intelligence["analyst_consensus"] = f"{r.get('recommendation', 'Neutral')} (Consensus of {r.get('analystRatingsTotal', 0)} analysts)"
             
-            # 2. Institutional/Insider Flow (FMP /institutional-ownership/symbol-ownership-percent)
-            # We look at 'totalOwnershipPercentage' or recent institutional trends if available.
-            # Simplified proxy: Institutional Ownership Percent
-            inst_data = await self._fetch_fmp("institutional-ownership/symbol-ownership-percent", ticker)
             if inst_data and isinstance(inst_data, list):
                 pct = float(inst_data[0].get("totalOwnershipPercentage", 0) or 0)
                 intelligence["institutional_momentum"] = f"{pct:.1f}% Institutional Ownership"
@@ -127,6 +170,140 @@ class FundamentalAgent:
             logger.error(f"[{ticker}] ⚠️ Failed to fetch intelligence metrics: {e}")
             
         return intelligence
+
+    async def get_economic_calendar(self, days_ahead: int = 7) -> list:
+        """
+        Fetches upcoming High-Impact US economic events.
+        Fallbacks to Finnhub if FMP fails.
+        """
+        # 1. Try FMP (v3)
+        if self.fmp_key:
+            data = await self._fetch_fmp("economic_calendar", "", version="v3")
+            if data and isinstance(data, list):
+                high_impact = [
+                    ev for ev in data 
+                    if ev.get("country") == "US" and ev.get("impact") == "High"
+                ]
+                if high_impact:
+                    return high_impact[:5]
+
+        # 2. Fallback to Finnhub
+        if self.finnhub_client:
+            try:
+                from_date = datetime.now().strftime("%Y-%m-%d")
+                to_date = (datetime.now() + timedelta(days=days_ahead)).strftime("%Y-%m-%d")
+                
+                # Finnhub SDK call
+                res = await asyncio.to_thread(self.finnhub_client.calendar_economic, _from=from_date, to=to_date)
+                if res and "economicCalendar" in res:
+                    events = res["economicCalendar"]
+                    # Filter for High impact US
+                    high_impact = [
+                        e for e in events 
+                        if e.get("impact") == "high" and e.get("country") == "US"
+                    ]
+                    return high_impact[:5]
+            except Exception as e:
+                logger.error(f"⚠️ Finnhub Economic Calendar Fallback failed: {e}")
+
+        return []
+
+    async def get_treasury_rates(self) -> dict:
+        """
+        Fetches the latest US Treasury Rates (v4 /treasury_rates).
+        Fallbacks to Finnhub (MA-USA codes) if FMP fails.
+        """
+        # 1. Try FMP (v4)
+        if self.fmp_key:
+            data = await self._fetch_fmp("treasury_rates", "", version="v4")
+            if data and isinstance(data, list):
+                latest = data[0]
+                return {
+                    "date": latest.get("date"),
+                    "10Y": float(latest.get("year10", 0) or 0),
+                    "2Y": float(latest.get("year2", 0) or 0)
+                }
+
+        # 2. Fallback to Finnhub (Macro Data)
+        if self.finnhub_client:
+            try:
+                # DGS10 is the FRED code for 10Y Yield. 
+                # Finnhub often maps these to MA-USA codes. 
+                # MA-USA-347 is often 'Long Term Government Bond Yields: 10-year: Main (Including Benchmark) for the United States'
+                res = await asyncio.to_thread(self.finnhub_client.economic_data, code="MA-USA-347")
+                if res and "data" in res and res["data"]:
+                    latest = res["data"][0] # Usually latest is first
+                    return {
+                        "date": latest.get("date"),
+                        "10Y": float(latest.get("value", 0) or 0),
+                        "source": "Finnhub/FRED"
+                    }
+            except Exception as e:
+                logger.error(f"⚠️ Finnhub Treasury Fallback failed: {e}")
+
+        # 3. Fallback to AlphaVantage (Free Treasury Yields)
+        if self.av_key:
+            try:
+                # Daily 10Y Yield
+                av_res = await self._fetch_alphavantage("TREASURY_YIELD", {"maturity": "10year", "interval": "daily"})
+                if av_res and "data" in av_res and av_res["data"]:
+                    latest = av_res["data"][0]
+                    return {
+                        "date": latest.get("date"),
+                        "10Y": float(latest.get("value", 0) or 0),
+                        "source": "AlphaVantage"
+                    }
+            except Exception as e:
+                logger.error(f"⚠️ AlphaVantage Treasury Fallback failed: {e}")
+
+        return {}
+
+    async def get_market_indices(self) -> dict:
+        """
+        Fetches VIX (Fear Index) and other major indices via /quote.
+        Fallbacks to Finnhub Index Quotes or Volatility ETF (VXX) if indices are restricted.
+        """
+        results = {"vix": 0.0, "spy_perf": 0.0, "qqq_perf": 0.0}
+
+        # 1. Try FMP (v3)
+        if self.fmp_key:
+            indices = "^VIX,SPY,QQQ"
+            data = await self._fetch_fmp("quote", indices, version="v3")
+            if data and isinstance(data, list):
+                for item in data:
+                    sym = item.get("symbol")
+                    if sym == "^VIX": results["vix"] = float(item.get("price", 0) or 0)
+                    elif sym == "SPY": results["spy_perf"] = float(item.get("changesPercentage", 0) or 0)
+                    elif sym == "QQQ": results["qqq_perf"] = float(item.get("changesPercentage", 0) or 0)
+                if results["vix"] > 0: return results
+
+        # 2. Fallback to Finnhub
+        if self.finnhub_client:
+            try:
+                # Try Index Quote for ^VIX first
+                vix_res = await asyncio.to_thread(self.finnhub_client.quote, "^VIX")
+                if vix_res and vix_res.get("pc", 0) > 0:
+                    results["vix"] = float(vix_res["c"])
+                else:
+                    # PROXY: Use VXX (Volatility ETF) as a fear proxy if the actual index is restricted
+                    vxx_res = await asyncio.to_thread(self.finnhub_client.quote, "VXX")
+                    if vxx_res and vxx_res.get("pc", 0) > 0:
+                        results["vix_proxy_vxx"] = float(vxx_res["c"])
+                        logger.info("📉 Using VXX as Volatility Proxy (VIX restricted)")
+
+                # Fetch SPY/QQQ performance (These are usually free as they are ETFs)
+                spy_task = asyncio.to_thread(self.finnhub_client.quote, "SPY")
+                qqq_task = asyncio.to_thread(self.finnhub_client.quote, "QQQ")
+                
+                spy_res, qqq_res = await asyncio.gather(spy_task, qqq_task)
+                
+                if spy_res and "dp" in spy_res: results["spy_perf"] = float(spy_res["dp"])
+                if qqq_res and "dp" in qqq_res: results["qqq_perf"] = float(qqq_res["dp"])
+                
+            except Exception as e:
+                logger.error(f"⚠️ Finnhub Indices Fallback failed: {e}")
+
+        return results
 
     def _get_cached_evaluation(self, ticker: str):
         """Checks BigQuery for today's evaluation of this ticker."""

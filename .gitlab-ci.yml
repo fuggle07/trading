@@ -21,9 +21,10 @@ unit_tests:
   stage: test
   image: $PYTHON_IMAGE
   before_script:
-    - pip install -r bot/requirements-dev.txt || pip install pytest pandas finnhub-python google-cloud-bigquery alpaca-py flask pytz vertexai
+    - pip install -r requirements.txt
+    - pip install -r requirements-dev.txt
   script:
-    - export PYTHONPATH=$PYTHONPATH:$(pwd)/bot
+    - export PYTHONPATH=$(pwd)
     - pytest tests/
 
 # 3. Build - Verify Docker Build

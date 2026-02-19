@@ -19,7 +19,7 @@ PROJECT_ID=$(gcloud config get-value project)
 BASE_TICKERS="NVDA,TSLA,AMD,PLTR,COIN,META,MSTR"
 VIX_THRESHOLD_HIGH="30.0"
 VOLATILITY_SENSITIVITY="1.0"
-MORTGAGE_HURDLE_RATE="0.052" # 5.2%
+MORTGAGE_HURDLE_RATE="0.054" # 5.4%
 CAPITAL_USD="50000.0" # Your potential offset withdrawal
 MIN_EDGE_THRESHOLD="0.015" # 1.5% minimum predicted gain to override brokerage drag
 

@@ -12,7 +12,7 @@ class CloudLoggingFormatter(logging.Formatter):
             "severity": record.levelname,
             "message": record.getMessage(),
             "component": os.getenv("K_SERVICE", "trading-bot"),
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(pytz.utc).isoformat(),
             "event": getattr(record, "event", "GENERIC"),
             "details": getattr(record, "details", {}),
         }

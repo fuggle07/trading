@@ -21,9 +21,9 @@ sys.modules["google.cloud"] = mock_cloud
 sys.modules["google.cloud.bigquery"] = mock_bigquery
 
 # Ensure bot directory is in path
-sys.path.append(os.path.join(os.path.dirname(__file__), "../bot"))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
 
-from execution_manager import ExecutionManager
+from bot.execution_manager import ExecutionManager
 
 class TestExecutionManager(unittest.TestCase):
     def setUp(self):
@@ -58,14 +58,13 @@ class TestExecutionManager(unittest.TestCase):
 
         manager = ExecutionManager()
 
-        signal = {
-            "ticker": "NVDA",
-            "action": "BUY",
-            "price": 100.0,
-            "reason": "Test Signal",
-        }
+        ticker = "NVDA"
+        action = "BUY"
+        quantity = 10
+        price = 100.0
+        reason = "Test Signal"
 
-        result = manager.place_order(signal)
+        result = manager.place_order(ticker, action, quantity, price, reason=reason)
 
         # Verify result structure
         self.assertEqual(result["status"], "FILLED")
@@ -89,7 +88,7 @@ class TestExecutionManager(unittest.TestCase):
 
         # Should not raise exception
         try:
-            manager.place_order({"ticker": "FAIL_TEST"})
+            manager.place_order("FAIL_TEST", "BUY", 1, 100.0)
         except Exception as e:
             self.fail(f"place_order raised exception unexpectedly: {e}")
 

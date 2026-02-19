@@ -47,6 +47,8 @@ class SentimentAnalyzer:
             Market-Wide Context: {context.get('macro', 'Stable')}
             Analyst Consensus: {context.get('analyst_consensus', 'Neutral')}
             Institutional Flow: {context.get('institutional_flow', 'Neutral')}
+            Technical RSI (14): {context.get('rsi', 'N/A')}
+            SMA-20 Stretch: {context.get('sma_stretch_pct', '0')}% from baseline
             """
 
         prompt = f"""
@@ -61,10 +63,12 @@ class SentimentAnalyzer:
         {news_text if news_items else "No recent news found for this ticker."}
 
         Task:
-        Determine the overall conviction score for this stock by synthesizing market context, analyst ratings, institutional flow, and news sentiment.
+        Synthesize technical momentum (RSI, SMA Stretch), analyst ratings, institutional flow, and news sentiment into a single conviction score.
+        A score of 1.0 means extreme upside with positive momentum and narrative; -1.0 means high risk/overbought with toxic news.
+
         Return a single JSON object with the following keys:
         - "score": A float between -1.0 (Strong Sell) and 1.0 (Strong Buy).
-        - "reasoning": A brief explanation citing specific data points (e.g., "$QQQ strength" or "analyst upgrades").
+        - "reasoning": A brief explanation citing specific data (e.g., "RSI oversold at 28 + positive macro" or "neutral sentiment despite SMA stretch").
 
         Output JSON only. Do not include markdown formatting.
         """

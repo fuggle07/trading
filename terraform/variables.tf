@@ -5,9 +5,9 @@ variable "project_id" {
 }
 
 variable "mortgage_rate" {
-  description = "The annual mortgage interest rate (e.g., 0.52 for 5.2%)"
+  description = "The annual mortgage interest rate (e.g., 0.54 for 5.4%)"
   type        = number
-  default     = 0.052 # NAB actual
+  default     = 0.054 # NAB actual
 }
 
 variable "billing_account" {

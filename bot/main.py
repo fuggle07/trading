@@ -161,26 +161,48 @@ async def fetch_historical_data(ticker):
         return None
 
 
-async def get_macro_context() -> str:
+async def get_macro_context() -> dict:
     """
-    Fetches daily performance for $SPY and $QQQ to provide macro context.
+    Fetches $SPY, $QQQ, VIX, and Treasury Rates to provide holistic macro context.
+    Returns a dict for AI consumption and a formatted string for logging.
     """
-    context_parts = []
-    for index in ["SPY", "QQQ"]:
-        try:
-            # We use Finnhub quote for a quick check
-            res = await asyncio.to_thread(finnhub_client.quote, index)
-            if res and "dp" in res:
-                perf = float(res["dp"])
-                sign = "+" if perf >= 0 else ""
-                context_parts.append(f"{index}: {sign}{perf:.2f}%")
-        except Exception:
-            pass
-            
-    if not context_parts:
-        return "Market Context: Stable"
+    macro_data = {
+        "indices": {},
+        "rates": {},
+        "vix": 0.0,
+        "formatted": "Market Context: Stable"
+    }
     
-    return f"Market Context: {', '.join(context_parts)}"
+    try:
+        # Fetch data in parallel
+        indices_task = fundamental_agent.get_market_indices()
+        rates_task = fundamental_agent.get_treasury_rates()
+        calendar_task = fundamental_agent.get_economic_calendar()
+        
+        indices, rates, calendar = await asyncio.gather(indices_task, rates_task, calendar_task)
+        
+        macro_data["indices"] = indices
+        macro_data["rates"] = rates
+        macro_data["calendar"] = calendar
+        macro_data["vix"] = indices.get("vix", 0.0)
+        
+        parts = []
+        if "spy_perf" in indices:
+            parts.append(f"SPY: {indices['spy_perf']:.2f}%")
+        if "qqq_perf" in indices:
+            parts.append(f"QQQ: {indices['qqq_perf']:.2f}%")
+        if "10Y" in rates:
+            parts.append(f"10Y Yield: {rates['10Y']:.2f}%")
+        if macro_data["vix"] > 0:
+            parts.append(f"VIX: {macro_data['vix']:.2f}")
+            
+        if parts:
+            macro_data["formatted"] = f"Market Context: {', '.join(parts)}"
+            
+    except Exception as e:
+        logger.error(f"⚠️ Failed to fetch macro context: {e}")
+    
+    return macro_data
 
 
 def calculate_technical_indicators(df, ticker="Unknown"):
@@ -313,105 +335,98 @@ async def run_audit():
     current_prices = {}
 
     # 1. Fetch Hard-Learned Lessons (Intraday Feedback Loop)
-    # 2. Fetch Macro Context
+    # 2. Fetch Enriched Macro Context
     lessons_task = feedback_agent.get_recent_lessons(limit=3)
     macro_task = get_macro_context()
     
-    lessons, macro_context = await asyncio.gather(lessons_task, macro_task)
+    lessons, macro_data = await asyncio.gather(lessons_task, macro_task)
+    macro_context_str = macro_data.get("formatted", "Market Context: Stable")
     
     if lessons:
         print("🧠 Injecting Hard-Learned Lessons into Intraday Analysis...")
-    print(f"🌍 Macro Context: {macro_context}")
+    print(f"🌍 {macro_context_str}")
 
     for ticker in tickers:
         print(f"[{ticker}] 📡 Gathering Intel for {ticker}...")
         try:
             # Parallel fetch for a single ticker to save time
-            quote_task = (
-                asyncio.to_thread(finnhub_client.quote, ticker)
-                if finnhub_client
-                else None
-            )
-            # Fetch Intelligence Context (Analyst/Institutional)
+            quote_task = asyncio.to_thread(finnhub_client.quote, ticker) if finnhub_client else None
             intelligence_task = fundamental_agent.get_intelligence_metrics(ticker)
             fundamental_task = fundamental_agent.evaluate_health(ticker)
             deep_health_task = fundamental_agent.evaluate_deep_health(ticker)
             history_task = fetch_historical_data(ticker)
             confidence_task = get_latest_confidence(ticker)
+            
+            # FMP Technical Indicators
+            sma20_task = fundamental_agent.get_technical_indicator(ticker, "sma", period=20)
+            sma50_task = fundamental_agent.get_technical_indicator(ticker, "sma", period=50)
+            rsi_task = fundamental_agent.get_technical_indicator(ticker, "rsi", period=14)
+            std_task = fundamental_agent.get_technical_indicator(ticker, "standarddeviation", period=20)
 
             # Execute gather with error handling
             intel_results = await asyncio.gather(
-                quote_task,
-                intelligence_task,
-                fundamental_task,
-                deep_health_task,
-                history_task,
-                confidence_task,
+                quote_task, intelligence_task, fundamental_task, deep_health_task,
+                history_task, confidence_task, sma20_task, sma50_task, rsi_task, std_task,
                 return_exceptions=True,
             )
 
-            # Unpack safely
-            quote_res = (
-                intel_results[0]
-                if not isinstance(intel_results[0], Exception)
-                else None
-            )
-            intelligence = (
-                intel_results[1] if not isinstance(intel_results[1], Exception) else {}
-            )
-            
-            # --- PREPARE ENRICHED CONTEXT FOR AI ---
-            ai_context = {
-                "macro": macro_context,
-                "analyst_consensus": intelligence.get("analyst_consensus", "Neutral"),
-                "institutional_flow": intelligence.get("institutional_momentum", "Neutral"),
-            }
-            
-            # Now fetch sentiment with the context we just gathered
-            sentiment_score = await fetch_sentiment(ticker, lessons, context=ai_context)
-            health = (
-                intel_results[2]
-                if not isinstance(intel_results[2], Exception)
-                else (False, "Health fetch failed")
-            )
-            deep_health = (
-                intel_results[3]
-                if not isinstance(intel_results[3], Exception)
-                else (False, "Deep health fetch failed", 0)
-            )
-            # Unpack Deep Health Tuple (is_deep, reason, f_score)
-            is_deep_healthy_val = bool(deep_health[0])
-            deep_health_reason_str = str(deep_health[1])
-            f_score_val = int(deep_health[2]) if len(deep_health) > 2 else 0
+            # --- UNPACK ALL RESULTS ---
+            res_quote = intel_results[0] if not isinstance(intel_results[0], Exception) else None
+            res_intel = intel_results[1] if not isinstance(intel_results[1], Exception) else {}
+            res_health = intel_results[2] if not isinstance(intel_results[2], Exception) else (False, "Health fail")
+            res_deep = intel_results[3] if not isinstance(intel_results[3], Exception) else (False, "Deep fail", 0)
+            res_history = intel_results[4] if not isinstance(intel_results[4], Exception) else None
+            res_conf = intel_results[5] if not isinstance(intel_results[5], Exception) else 0
+            res_sma20 = intel_results[6] if not isinstance(intel_results[6], Exception) else None
+            res_sma50 = intel_results[7] if not isinstance(intel_results[7], Exception) else None
+            res_rsi = intel_results[8] if not isinstance(intel_results[8], Exception) else None
+            res_std = intel_results[9] if not isinstance(intel_results[9], Exception) else None
 
-            df = (
-                intel_results[4]
-                if not isinstance(intel_results[4], Exception)
-                else None
-            )
-            confidence = (
-                intel_results[5] if not isinstance(intel_results[5], Exception) else 0
-            )
-
-            if quote_res and isinstance(quote_res, dict) and "c" in quote_res:
-                price = float(quote_res["c"])
+            if res_quote and isinstance(res_quote, dict) and "c" in res_quote:
+                price = float(res_quote["c"])
                 current_prices[ticker] = price
-                indicators = calculate_technical_indicators(df, ticker)
+
+                # --- PREPARE ENRICHED CONTEXT FOR AI ---
+                sma20_val = float(res_sma20.get("sma", 0)) if res_sma20 else 0
+                sma_stretch = ((price / sma20_val) - 1) * 100 if sma20_val > 0 else 0
+                
+                ai_context = {
+                    "macro": macro_data, # Detailed macro dict for Gemini
+                    "analyst_consensus": res_intel.get("analyst_consensus", "Neutral"),
+                    "institutional_flow": res_intel.get("institutional_momentum", "Neutral"),
+                    "rsi": float(res_rsi.get("rsi", 50)) if res_rsi else 50.0,
+                    "sma_stretch_pct": round(sma_stretch, 2),
+                }
+                
+                # Fetch sentiment with the enriched context
+                sentiment_score = await fetch_sentiment(ticker, lessons, context=ai_context)
+
+                # Process technicals
+                indicators = calculate_technical_indicators(res_history, ticker)
+                if indicators:
+                    if res_sma20: indicators["sma_20"] = float(res_sma20.get("sma", indicators["sma_20"]))
+                    if res_sma50: indicators["sma_50"] = float(res_sma50.get("sma", indicators["sma_50"]))
+                    if res_sma20 and res_std:
+                        sma = float(res_sma20.get("sma", indicators["sma_20"]))
+                        std = float(res_std.get("standardDeviation", 0))
+                        indicators["bb_upper"] = sma + (std * 2)
+                        indicators["bb_lower"] = sma - (std * 2)
 
                 ticker_intel[ticker] = {
                     "price": price,
                     "sentiment": float(sentiment_score or 0.0),
-                    "is_healthy": bool(health[0]),
-                    "health_reason": str(health[1]),
-                    "is_deep_healthy": is_deep_healthy_val,
-                    "deep_health_reason": deep_health_reason_str,
-                    "f_score": f_score_val,
-                    "confidence": int(confidence or 0),
+                    "rsi": float(res_rsi.get("rsi", 50)) if res_rsi else 50.0,
+                    "is_healthy": bool(res_health[0]),
+                    "health_reason": str(res_health[1]),
+                    "is_deep_healthy": bool(res_deep[0]),
+                    "deep_health_reason": str(res_deep[1]),
+                    "f_score": int(res_deep[2]) if len(res_deep) > 2 else 0,
+                    "confidence": int(res_conf or 0),
                     "indicators": indicators,
-                    "history_res": intel_results[4],  # Store raw result for Phase 2 diagnostics
+                    "history_res": res_history
                 }
-                # Log to Watchlist (Persistence)
-                log_watchlist_data(bq_client, table_id, ticker, price, sentiment_score, int(confidence or 0))
+                # Log to Watchlist
+                log_watchlist_data(bq_client, table_id, ticker, price, sentiment_score, int(res_conf or 0))
         except Exception as e:
             print(f"[{ticker}] ⚠️ Failed to gather intel for {ticker}: {e}")
 
@@ -453,6 +468,7 @@ async def run_audit():
                 "is_deep_healthy": intel["is_deep_healthy"],
                 "deep_health_reason": intel["deep_health_reason"],
                 "f_score": intel["f_score"],
+                "rsi": intel.get("rsi", 50.0),
                 "avg_price": held_tickers.get(ticker, {}).get("avg_price", 0.0),
                 "prediction_confidence": intel["confidence"],
                 "is_low_exposure": exposure < 0.60,
@@ -720,7 +736,21 @@ async def run_audit():
     except Exception as e:
         print(f"❌ Perf Log Fail: {e}")
 
-    # --- Phase 4: Intraday Reflection ---
+    # --- Phase 4: Post-Trade Reconciliation ---
+    # Triggered only if any actual orders were attempted (not just dry-run intent)
+    executed_trades = [r for r in execution_results if "executed" in str(r.get("status", ""))]
+    
+    if executed_trades:
+        try:
+            print(f"⌛ Waiting 45s for Alpaca fills before reconciliation...")
+            await asyncio.sleep(45)
+            print("🔄 Triggering Post-Trade Reconciliation...")
+            await asyncio.to_thread(reconciler.sync_portfolio)
+            await asyncio.to_thread(reconciler.sync_executions)
+        except Exception as e:
+            print(f"⚠️ Post-Trade Sync Warning: {e}")
+
+    # --- Phase 5: Intraday Reflection ---
     # We do this asynchronously/fire-and-forget ideally, but here we wait to capture logs
     try:
         print("🧠 Running Intraday Hindsight Analysis...")

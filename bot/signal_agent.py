@@ -109,6 +109,7 @@ class SignalAgent:
         }
         avg_price = market_data.get("avg_price", 0.0)
         is_low_exposure = market_data.get("is_low_exposure", False)
+        rsi = float(market_data.get("rsi", 50.0))
         lessons = ""  # Placeholder for now
 
         technical_signal = self.evaluate_bands(
@@ -141,6 +142,12 @@ class SignalAgent:
                     final_action = "BUY"
                     conviction = 70  # Aggressive entry conviction
                     technical_signal = "HOLD_AGGRESSIVE_ENTRY"
+            
+            # --- RSI OVERLAY (Oversold Aggression) ---
+            if rsi <= 30 and sentiment > 0.4:
+                final_action = "BUY"
+                conviction = max(conviction, 75)
+                technical_signal = "RSI_OVERSOLD_BUY"
 
         # 2. Strategic Exit Check (THE OVERRIDE)
         # If we already hold the stock, we check for Profit Target or Stop Loss FIRST.
@@ -152,6 +159,12 @@ class SignalAgent:
                 conviction = 100  # Exit is mandatory
                 exit_type = "PROFIT_TARGET" if p_change >= 0.05 else "STOP_LOSS/SENTIMENT"
                 technical_signal = f"EXIT_{exit_type}" # Update for the log line
+            
+            # RSI Overbought Exit
+            elif rsi >= 80:
+                final_action = "SELL"
+                conviction = 100
+                technical_signal = "RSI_OVERBOUGHT_EXIT"
 
         # 3. Fundamental Overlay (The Gatekeeper)
         # We now BLOCK buys if fundamentals are weak.
@@ -196,6 +209,7 @@ class SignalAgent:
             "meta": {
                 "sentiment": sentiment,
                 "technical": technical_signal,
+                "rsi": rsi,
                 "fundamentals_analyzed": fundamentals is not None,
                 "is_open": is_open,
             },

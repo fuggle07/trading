@@ -2,8 +2,8 @@ import logging
 import os
 from google.cloud import bigquery
 from alpaca.trading.client import TradingClient
-from alpaca.trading.requests import GetOrdersRequest
-from alpaca.trading.enums import OrderSide, QueryOrderStatus
+from alpaca.trading.requests import GetOrdersRequest, GetAccountActivitiesRequest
+from alpaca.trading.enums import OrderSide, QueryOrderStatus, ActivityType
 from datetime import datetime, timezone
 
 logger = logging.getLogger("PortfolioReconciler")
@@ -102,18 +102,30 @@ class PortfolioReconciler:
 
     def sync_executions(self, limit=50):
         """
-        Updates recent 'executions' logs with actual fill prices/quantities.
-        Alpaca 'filled_avg_price' is the source of truth.
+        Updates recent 'executions' logs with actual fill prices, quantities, AND fees.
+        Alpaca 'AccountActivity' is the source of truth for net_amount (fees).
         """
         if not self.trading_client:
             return
 
         try:
-            # Get recent closed orders
-            # Status: CLOSED means filled, canceled, or expired.
+            # 1. Get recent closed orders
             req = GetOrdersRequest(status=QueryOrderStatus.CLOSED, limit=limit)
             orders = self.trading_client.get_orders(req)
             
+            # 2. Get recent Account Activities to find actual fees
+            # We look for 'FILL' activities which contain net_amount
+            activity_req = GetAccountActivitiesRequest(activity_types=[ActivityType.FILL])
+            activities = self.trading_client.get_account_activities(activity_req)
+            
+            # Map activities by order_id for quick lookup
+            # Note: One order can have multiple fills, but for our simple bot we treat as one
+            activity_map = {}
+            for act in activities:
+                order_id = getattr(act, 'order_id', None)
+                if order_id:
+                    activity_map[str(order_id)] = act
+
             updates = 0
             for order in orders:
                 if order.status == 'filled':
@@ -121,14 +133,28 @@ class PortfolioReconciler:
                     filled_price = float(order.filled_avg_price) if order.filled_avg_price else 0.0
                     filled_qty = float(order.filled_qty)
                     
-                    # Update BQ where alpaca_order_id matches
-                    # NOTE: This assumes 'executions' table has 'price' and 'quantity' columns we want to overwrite,
-                    # OR we might want to add 'actual_price' column. 
-                    # For now, let's overwrite 'price' as it represents the 'executed price'.
+                    # Calculate Actual Fee from net_amount
+                    # net_amount = (qty * price) + fees (where fees are negative for costs)
+                    # For Alpaca AccountActivity:
+                    # Buys: net_amount is negative (e.g., -100.05 for $100 stock + $0.05 fee)
+                    # Sells: net_amount is positive (e.g., 99.95 for $100 stock - $0.05 fee)
+                    actual_fee = 0.0
+                    if alpaca_id in activity_map:
+                        act = activity_map[alpaca_id]
+                        net_amount = float(act.net_amount)
+                        gross_amount = filled_qty * filled_price
+                        
+                        # Fee is the difference that went towards Alpaca/Regulators
+                        actual_fee = abs(abs(net_amount) - gross_amount)
                     
+                    # Update BQ where alpaca_order_id matches
+                    # We overwrite 'price', 'quantity', 'commission' (actual_fee), and 'status'
                     dml = f"""
                         UPDATE `{self.executions_table}`
-                        SET price = {filled_price}, quantity = {filled_qty}, status = 'FILLED_CONFIRMED'
+                        SET price = {filled_price}, 
+                            quantity = {filled_qty}, 
+                            commission = {actual_fee},
+                            status = 'FILLED_CONFIRMED'
                         WHERE alpaca_order_id = '{alpaca_id}'
                         AND status != 'FILLED_CONFIRMED'
                     """
@@ -136,9 +162,10 @@ class PortfolioReconciler:
                     res = job.result()
                     if job.num_dml_affected_rows > 0:
                         updates += 1
+                        logger.info(f"[{order.symbol}] ✅ Updated sync: Price={filled_price}, Fee=${actual_fee:.4f}")
             
             if updates > 0:
-                logger.info(f"✅ Synced {updates} execution records with actual fill data.")
+                logger.info(f"✅ Total: Synced {updates} execution records with actual fill & fee data.")
                 
         except Exception as e:
             logger.error(f"❌ Execution Sync Failed: {e}")
