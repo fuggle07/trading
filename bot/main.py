@@ -331,6 +331,14 @@ async def run_audit():
     tickers_env = os.environ.get("BASE_TICKERS", "NVDA,MU,TSLA,AMD,PLTR,COIN,META,MSTR")
     base_tickers = [t.strip() for t in tickers_env.split(",") if t.strip()]
 
+    # --- Phase 0: Reconciliation (Source of Truth) ---
+    print("🔄 Reconciling Portfolio with Alpaca...")
+    try:
+        await asyncio.to_thread(reconciler.sync_portfolio)
+        await asyncio.to_thread(reconciler.sync_executions)
+    except Exception as e:
+        print(f"⚠️ Reconciliation Warning: {e}")
+
     # --- Phase 1: Portfolio Awareness & Intel Gathering ---
     print("🔄 Fetching Portfolio & Intel...")
     held_tickers = portfolio_manager.get_held_tickers()
@@ -338,14 +346,6 @@ async def run_audit():
     # Audit all monitored tickers PLUS anything we currently hold (safety first)
     tickers = list(set(base_tickers + list(held_tickers.keys())))
     print(f"🔍 Starting Multi-Phase Audit for: {tickers}")
-
-    # --- Phase 0: Reconciliation ---
-    print("🔄 Reconciling Portfolio with Alpaca...")
-    try:
-        await asyncio.to_thread(reconciler.sync_portfolio)
-        await asyncio.to_thread(reconciler.sync_executions)
-    except Exception as e:
-        print(f"⚠️ Reconciliation Warning: {e}")
 
     # already fetched held_tickers above
     ticker_intel = {}

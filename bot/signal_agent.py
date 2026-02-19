@@ -135,13 +135,14 @@ class SignalAgent:
             final_action = "IDLE"
             # ENHANCEMENT: Low Exposure Aggression
             # If we are in cash, we don't wait for price to hit the bottom band
-            # if the narrative (sentiment) and health (fundamentals) are elite.
-            if is_low_exposure and sentiment > 0.6:
-                f_score = fundamentals.get("score", 0)
-                if f_score > 70:
+            # if the narrative (sentiment) and health (fundamentals) are solid.
+            if is_low_exposure and sentiment > 0.4:
+                # 'score' is the Gemini/LLM prediction confidence
+                confidence_score = fundamentals.get("score", 0)
+                if confidence_score > 50:
                     final_action = "BUY"
                     conviction = 70  # Aggressive entry conviction
-                    technical_signal = "HOLD_AGGRESSIVE_ENTRY"
+                    technical_signal = "LOW_EXPOSURE_PROACTIVE_ENTRY"
 
             # --- RSI OVERLAY (Oversold Aggression) ---
             if rsi <= 30 and sentiment > 0.4:
