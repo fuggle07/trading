@@ -40,35 +40,40 @@ class FeedbackAgent:
                 self._log_insight_to_bq(miss["ticker"], lesson)
 
     async def _find_misses(self) -> List[Dict]:
-        """Queries BQ to find cases where sentiment was wrong."""
+        """Queries BQ to find cases where sentiment was wrong (Intraday hourly check)."""
+        # We look for a prediction from ~1 hour ago (prediction_time)
+        # And compare it to price NOW.
+        # Strict logic: 
+        #   Snapshot A: 60-90 mins ago.
+        #   Snapshot B: NOW (last 10 mins).
         query = f"""
-        WITH morning_rankings AS (
-            SELECT ticker, sentiment, timestamp as ranking_time
-            FROM `{self.rankings_table}`
-            WHERE DATE(timestamp) = DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL 1 DAY)
-        ),
-        price_at_ranking AS (
-            SELECT r.ticker, r.sentiment, r.ranking_time, w.price as start_price
-            FROM morning_rankings r
-            JOIN `{self.watchlist_table}` w ON r.ticker = w.ticker
-            AND ABS(TIMESTAMP_DIFF(r.ranking_time, w.timestamp, SECOND)) < 600
-        ),
-        price_now AS (
-            SELECT ticker, price as end_price
+        WITH predictions AS (
+            SELECT ticker, sentiment_score as sentiment, price as start_price, timestamp,
+                   ROW_NUMBER() OVER(PARTITION BY ticker ORDER BY timestamp DESC) as rn
             FROM `{self.watchlist_table}`
-            WHERE timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 1 HOUR)
-            QUALIFY ROW_NUMBER() OVER(PARTITION BY ticker ORDER BY timestamp DESC) = 1
+            WHERE timestamp BETWEEN TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 90 MINUTE) 
+                                AND TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 60 MINUTE)
+        ),
+        current_state AS (
+            SELECT ticker, price as end_price,
+                   ROW_NUMBER() OVER(PARTITION BY ticker ORDER BY timestamp DESC) as rn
+            FROM `{self.watchlist_table}`
+            WHERE timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 15 MINUTE)
         )
         SELECT
             p.ticker,
             p.sentiment,
             p.start_price,
-            n.end_price,
-            ((n.end_price - p.start_price) / p.start_price) * 100 as pct_change
-        FROM price_at_ranking p
-        JOIN price_now n ON p.ticker = n.ticker
-        WHERE (p.sentiment > 0.3 AND ((n.end_price - p.start_price) / p.start_price) < -0.01) -- Predicted UP, went DOWN > 1%
-        OR (p.sentiment < -0.3 AND ((n.end_price - p.start_price) / p.start_price) > 0.01) -- Predicted DOWN, went UP > 1%
+            c.end_price,
+            ((c.end_price - p.start_price) / p.start_price) * 100 as pct_change
+        FROM predictions p
+        JOIN current_state c ON p.ticker = c.ticker
+        WHERE p.rn = 1 AND c.rn = 1
+        AND (
+            (p.sentiment > 0.3 AND ((c.end_price - p.start_price) / p.start_price) < -0.005) -- Bullish but dropped > 0.5%
+            OR 
+            (p.sentiment < -0.3 AND ((c.end_price - p.start_price) / p.start_price) > 0.005) -- Bearish but rose > 0.5%
+        )
         """
         try:
             query_job = self.bq_client.query(query)
@@ -122,7 +127,8 @@ class FeedbackAgent:
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "ticker": ticker,
             "lesson": lesson,
-            "category": "Hindsight Adjustment",
+            "lesson": lesson,
+            "category": "Intraday Adjustment",
         }
         try:
             self.bq_client.insert_rows_json(self.insights_table, [row])

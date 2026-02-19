@@ -15,6 +15,7 @@ from bot.sentiment_analyzer import SentimentAnalyzer
 from bot.fundamental_agent import FundamentalAgent
 from bot.ticker_ranker import TickerRanker
 from bot.feedback_agent import FeedbackAgent
+from bot.portfolio_reconciler import PortfolioReconciler
 
 # --- 1. INITIALIZATION ---
 app = Flask(__name__)
@@ -70,6 +71,7 @@ execution_manager = ExecutionManager(portfolio_manager)
 fundamental_agent = FundamentalAgent(finnhub_client=finnhub_client)
 ticker_ranker = TickerRanker(PROJECT_ID, bq_client)
 feedback_agent = FeedbackAgent(PROJECT_ID, bq_client)
+reconciler = PortfolioReconciler(PROJECT_ID, bq_client)
 
 # --- 2. CORE UTILITIES ---
 
@@ -267,7 +269,16 @@ async def run_audit():
     """
     tickers_env = os.environ.get("BASE_TICKERS", "NVDA,AAPL,TSLA,MSFT,AMD")
     tickers = [t.strip() for t in tickers_env.split(",") if t.strip()]
+    tickers = [t.strip() for t in tickers_env.split(",") if t.strip()]
     print(f"🔍 Starting Multi-Phase Audit for: {tickers}")
+
+    # --- Phase 0: Reconciliation ---
+    print("🔄 Reconciling Portfolio with Alpaca...")
+    try:
+        await asyncio.to_thread(reconciler.sync_portfolio)
+        await asyncio.to_thread(reconciler.sync_executions)
+    except Exception as e:
+        print(f"⚠️ Reconciliation Warning: {e}")
 
     # --- Phase 1: Intelligence Gathering ---
     ticker_intel = {}
@@ -621,6 +632,14 @@ async def run_audit():
         execution_results.append({"type": "performance_summary", "data": perf_metrics})
     except Exception as e:
         print(f"❌ Perf Log Fail: {e}")
+
+    # --- Phase 4: Intraday Reflection ---
+    # We do this asynchronously/fire-and-forget ideally, but here we wait to capture logs
+    try:
+        print("🧠 Running Intraday Hindsight Analysis...")
+        await feedback_agent.run_hindsight()
+    except Exception as e:
+        print(f"⚠️ Feedback Loop Error: {e}")
 
     return execution_results
 

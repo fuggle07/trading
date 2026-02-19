@@ -1,71 +1,65 @@
-from alpha_vantage.fundamentaldata import FundamentalData
-from google.cloud import bigquery
 import os
+import asyncio
+import aiohttp
 from datetime import datetime
-
+from google.cloud import bigquery
 from bot.telemetry import logger
 
 PROJECT_ID = os.getenv("PROJECT_ID") or os.getenv("GOOGLE_CLOUD_PROJECT")
 
 class FundamentalAgent:
     def __init__(self, finnhub_client=None):
-        self.api_key = os.getenv("ALPHA_VANTAGE_KEY")
-        self.finnhub_client = finnhub_client
+        self.fmp_key = os.getenv("FMP_KEY")
+        self.finnhub_client = finnhub_client  # Keep as backup if needed
         self.bq_client = bigquery.Client(project=PROJECT_ID) if PROJECT_ID else None
-
-        if not self.api_key:
-            logger.warning(
-                "⚠️ ALPHA_VANTAGE_KEY not found. Fundamental analysis disabled."
-            )
-            self.fd = None
+        
+        if not self.fmp_key:
+            logger.warning("⚠️ FMP_KEY not found. Fundamental analysis restricted.")
         else:
-            self.fd = FundamentalData(key=self.api_key, output_format="json")
-            logger.info("✅ Alpha Vantage Connected")
+            logger.info("✅ Financial Modeling Prep (FMP) Connected")
+
+    async def _fetch_fmp(self, endpoint: str, ticker: str):
+        """Helper to fetch data from FMP API."""
+        if not self.fmp_key:
+            return None
+        
+        url = f"https://financialmodelingprep.com/api/v3/{endpoint}/{ticker}?apikey={self.fmp_key}"
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(url, timeout=10) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        if data:
+                            return data
+                    else:
+                        logger.error(f"[{ticker}] ❌ FMP Error {endpoint}: {response.status}")
+        except Exception as e:
+            logger.error(f"[{ticker}] ⚠️ FMP Exception {endpoint}: {e}")
+        return None
 
     async def get_fundamentals(self, ticker: str):
         """
-        Fetches basic fundamental data: PE Ratio, EPS, Sector.
-        Falls back to Finnhub if Alpha Vantage fails.
+        Fetches core fundamentals: PE, EPS, Market Cap via FMP /quote or /key-metrics-ttm.
         """
+        # 1. Try FMP First
         data = None
-        # 1. Try Alpha Vantage (Detailed Overview)
-        if self.fd:
-            try:
-                import asyncio
+        if self.fmp_key:
+            # /quote gives PE, EPS, MarketCap in one shot and is fast
+            quote_data = await self._fetch_fmp("quote", ticker)
+            if quote_data:
+                q = quote_data[0]
+                data = {
+                    "pe_ratio": float(q.get("pe", 0) or 0),
+                    "eps": float(q.get("eps", 0) or 0),
+                    "sector": "Unknown", # FMP /profile has sector, but /quote is faster. 
+                    "industry": "Unknown",
+                    "market_cap": int(q.get("marketCap", 0) or 0),
+                }
+                logger.info(f"[{ticker}] 📊 {ticker} Fundamentals (FMP): PE={data['pe_ratio']}, EPS={data['eps']}")
 
-                # Use a timeout to prevent hanging on slow/blocked API calls
-                # Increased to 15s for "noisy" tickers like PLTR
-                overview, _ = await asyncio.wait_for(
-                    asyncio.to_thread(self.fd.get_company_overview, symbol=ticker),
-                    timeout=15,
-                )
-
-                if (
-                    isinstance(overview, str)
-                    and "Alpha Vantage! Please consider" in overview
-                ):
-                    logger.error(f"[{ticker}] ❌ Alpha Vantage Rate Limit Hit (Overview): {ticker}")
-                elif overview and isinstance(overview, dict) and "Symbol" in overview:
-                    data = {
-                        "pe_ratio": float(overview.get("PERatio", 0) or 0),
-                        "eps": float(overview.get("EPS", 0) or 0),
-                        "sector": overview.get("Sector", "Unknown"),
-                        "industry": overview.get("Industry", "Unknown"),
-                        "market_cap": int(overview.get("MarketCapitalization", 0) or 0),
-                    }
-                    logger.info(
-                        f"[{ticker}] 📊 {ticker} Fundamentals (AlphaVantage): PE={data['pe_ratio']}, EPS={data['eps']}"
-                    )
-            except asyncio.TimeoutError:
-                logger.error(f"[{ticker}] ⏳ Alpha Vantage Timeout for {ticker}")
-            except Exception as e:
-                logger.error(f"[{ticker}] ⚠️ Alpha Vantage Overview Error for {ticker}: {e}")
-
-        # 2. Fallback to Finnhub (Basic Financials)
+        # 2. Fallback to Finnhub if FMP fails
         if not data and self.finnhub_client:
             try:
-                import asyncio
-
                 logger.info(f"[{ticker}] 📡 Falling back to Finnhub for {ticker} fundamentals...")
                 basic_fin = await asyncio.to_thread(
                     self.finnhub_client.company_basic_financials, ticker, "all"
@@ -77,16 +71,11 @@ class FundamentalAgent:
                         "eps": float(metric.get("epsExclExtraItemsTTM", 0) or 0),
                         "sector": "Unknown (Finnhub Fallback)",
                         "industry": "Unknown (Finnhub Fallback)",
-                        "market_cap": int(metric.get("marketCapitalization", 0) or 0)
-                        * 1_000_000, # Finnhub is in Millions
+                        "market_cap": int(metric.get("marketCapitalization", 0) or 0) * 1_000_000,
                     }
-                    logger.info(
-                        f"[{ticker}] 📊 {ticker} Fundamentals (Finnhub): PE={data['pe_ratio']}, EPS={data['eps']}"
-                    )
-                else:
-                    logger.warning(f"[{ticker}] ⚠️ Finnhub also has no fundamental data for {ticker}")
+                    logger.info(f"[{ticker}] 📊 {ticker} Fundamentals (Finnhub): PE={data['pe_ratio']}, EPS={data['eps']}")
             except Exception as e:
-                logger.error(f"[{ticker}] ❌ Finnhub Fallback failed for {ticker}: {e}")
+                logger.error(f"[{ticker}] ❌ Finnhub Fallback failed: {e}")
 
         return data
 
@@ -105,55 +94,46 @@ class FundamentalAgent:
         LIMIT 1
         """
         try:
-            # We use a thread for the query since we are in an async context
-            # but using the sync BQ client
             query_job = client.query(query)
             results = query_job.to_dataframe()
             if not results.empty:
                 return results.iloc[0].to_dict()
-        except Exception as e:
-            logger.error(f"[{ticker}] ⚠️ Cache lookup failed for {ticker}: {e}")
+        except Exception:
             return None
 
-    def _save_to_cache(
-        self, ticker: str, is_healthy: bool, h_reason: str, is_deep: bool, d_reason: str
-    ):
+    def _save_to_cache(self, ticker: str, is_healthy: bool, h_reason: str, is_deep: bool, d_reason: str):
         """Persists evaluation results to BigQuery."""
         client = self.bq_client
         if not client:
             return
 
-        rows_to_insert = [
-            {
-                "timestamp": datetime.now().isoformat(),
-                "ticker": ticker,
-                "is_healthy": is_healthy,
-                "health_reason": h_reason,
-                "is_deep_healthy": is_deep,
-                "deep_health_reason": d_reason,
-            }
-        ]
+        rows_to_insert = [{
+            "timestamp": datetime.now().isoformat(),
+            "ticker": ticker,
+            "is_healthy": is_healthy,
+            "health_reason": h_reason,
+            "is_deep_healthy": is_deep,
+            "deep_health_reason": d_reason,
+        }]
         try:
             table_id = f"{PROJECT_ID}.trading_data.fundamental_cache"
             client.insert_rows_json(table_id, rows_to_insert)
             logger.info(f"[{ticker}] ✅ Cached fundamental results for {ticker}")
         except Exception as e:
-            logger.error(f"[{ticker}] ❌ Failed to cache results for {ticker}: {e}")
+            logger.error(f"[{ticker}] ❌ Failed to cache results: {e}")
 
     async def evaluate_health(self, ticker: str):
         """
-        Returns a simplified health check tuple: (is_healthy: bool, reason: str)
-        Rule: Healthy if PE < 60 (Tech adjusted) and EPS > 0.
+        Returns (is_healthy, reason).
+        Checks basic Valuation and Profitability.
         """
         # 1. Check Cache
-        import asyncio
-
         cached = await asyncio.to_thread(self._get_cached_evaluation, ticker)
         if cached:
             logger.info(f"[{ticker}] 💾 Using cached health for {ticker}")
             return cached["is_healthy"], cached["health_reason"]
 
-        # 2. Proceed to API if no cache
+        # 2. Get Data
         data = await self.get_fundamentals(ticker)
         if not data:
             return True, "No Data (Skipped)"
@@ -168,149 +148,220 @@ class FundamentalAgent:
 
         return True, f"Healthy (PE {pe}, EPS {eps})"
 
-    async def get_financial_statements(self, ticker: str):
+    async def fetch_annual_financials(self, ticker: str):
         """
-        Fetches Income Statement, Balance Sheet and Cash Flow.
+        Fetches last 2 years of Annual Income, Balance, and Cash Flow statements.
+        Returns a dict with 'income', 'balance', 'cash' lists (sorted desc date).
         """
-        if not self.fd:
-            return None
+        financials = {"income": [], "balance": [], "cash": []}
+        if not self.fmp_key:
+            return financials
 
+        # Limit to 2 years to minimize data transfer / processing (we only need YoY)
+        endpoints = {
+            "income": "income-statement",
+            "balance": "balance-sheet-statement",
+            "cash": "cash-flow-statement"
+        }
+
+        for key, endpoint in endpoints.items():
+            url = f"https://financialmodelingprep.com/api/v3/{endpoint}/{ticker}?limit=2&apikey={self.fmp_key}"
+            try:
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(url, timeout=10) as response:
+                        if response.status == 200:
+                            data = await response.json()
+                            if data and isinstance(data, list):
+                                financials[key] = data
+            except Exception as e:
+                logger.error(f"[{ticker}] ⚠️ Failed to fetch annual {key}: {e}")
+        
+        return financials
+
+    def calculate_dcf(self, fcf_ttm, shares_outstanding, growth_rate=0.08, discount_rate=0.10, years=5, terminal_growth=0.02):
+        """
+        Simplified DCF Valuation.
+        Assumes 8% growth for 5 years, then 2% terminal growth, discounted at 10%.
+        Returns Fair Value per Share.
+        """
+        if fcf_ttm <= 0 or shares_outstanding <= 0:
+            return 0.0
+
+        future_cash_flows = []
+        df_factor = 1 + discount_rate
+
+        # 1. Project Future Cash Flows
+        current_fcf = fcf_ttm
+        for i in range(1, years + 1):
+            current_fcf *= (1 + growth_rate)
+            discounted_cf = current_fcf / (df_factor ** i)
+            future_cash_flows.append(discounted_cf)
+
+        # 2. Terminal Value
+        terminal_value = (current_fcf * (1 + terminal_growth)) / (discount_rate - terminal_growth)
+        discounted_terminal_value = terminal_value / (df_factor ** years)
+
+        # 3. Sum and Divide by Shares
+        total_enterprise_value = sum(future_cash_flows) + discounted_terminal_value
+        fair_value = total_enterprise_value / shares_outstanding
+
+        return round(fair_value, 2)
+
+    def calculate_piotroski_f_score(self, financials):
+        """
+        Calculates Piotroski F-Score (0-9) using Annual Data.
+        Requires at least 2 years of data in 'income', 'balance', 'cash'.
+        """
+        score = 0
         try:
-            logger.info(f"[{ticker}] 📡 Fetching deep financials for {ticker}...")
-            import asyncio
+            inc = financials.get("income", [])
+            bal = financials.get("balance", [])
+            cfs = financials.get("cash", [])
 
-            # Increased to 20s for deep financials
-            income_q, _ = await asyncio.wait_for(
-                asyncio.to_thread(self.fd.get_income_statement_quarterly, symbol=ticker),
-                timeout=20,
-            )
-            if (
-                isinstance(income_q, str)
-                and "Alpha Vantage! Please consider" in income_q
-            ):
-                logger.error(f"[{ticker}] ❌ Alpha Vantage Rate Limit Hit (Income Q): {income_q}")
-                return None
+            if len(inc) < 2 or len(bal) < 2 or len(cfs) < 2:
+                return 0 # Not enough data
 
-            balance_a, _ = await asyncio.wait_for(
-                asyncio.to_thread(self.fd.get_balance_sheet_annual, symbol=ticker),
-                timeout=15,
-            )
-            if (
-                isinstance(balance_a, str)
-                and "Alpha Vantage! Please consider" in balance_a
-            ):
-                logger.error(
-                    f"[{ticker}] ❌ Alpha Vantage Rate Limit Hit (Balance A): {balance_a}"
-                )
-                return None
+            # Year 0 (Current/Most Recent), Year 1 (Previous)
+            i0, i1 = inc[0], inc[1]
+            b0, b1 = bal[0], bal[1]
+            c0, c1 = cfs[0], cfs[1]
 
-            cash_a, _ = await asyncio.wait_for(
-                asyncio.to_thread(self.fd.get_cash_flow_annual, symbol=ticker),
-                timeout=15,
-            )
-            return {"income_q": income_q, "balance_a": balance_a, "cash_a": cash_a}
-        except asyncio.TimeoutError:
-            logger.error(f"[{ticker}] ⏳ Deep Health Fetch Timeout for {ticker}")
-            return None
+            # --- Profitability (4 pts) ---
+            net_income = float(i0.get("netIncome", 0))
+            roa = net_income / float(b0.get("totalAssets", 1))
+            cfo = float(c0.get("operatingCashFlow", 0))
+            
+            roa_prev = float(i1.get("netIncome", 0)) / float(b1.get("totalAssets", 1))
+
+            if net_income > 0: score += 1      # 1. Positive Net Income
+            if cfo > 0: score += 1             # 2. Positive Operating Cash Flow
+            if roa > roa_prev: score += 1      # 3. Higher ROA YoY
+            if cfo > net_income: score += 1    # 4. Cash Flow > Net Income (Quality of Earnings)
+
+            # --- Leverage / Liquidity / Source of Funds (3 pts) ---
+            leverage = float(b0.get("totalLiabilities", 0)) / float(b0.get("totalAssets", 1))
+            leverage_prev = float(b1.get("totalLiabilities", 0)) / float(b1.get("totalAssets", 1))
+            
+            current_ratio = float(b0.get("totalCurrentAssets", 1)) / float(b0.get("totalCurrentLiabilities", 1))
+            current_ratio_prev = float(b1.get("totalCurrentAssets", 1)) / float(b1.get("totalCurrentLiabilities", 1))
+
+            shares = float(i0.get("weightedAverageShsOut", 0))
+            shares_prev = float(i1.get("weightedAverageShsOut", 0))
+
+            if leverage < leverage_prev: score += 1       # 5. Lower Leverage
+            if current_ratio > current_ratio_prev: score += 1 # 6. Higher Current Ratio
+            if shares <= shares_prev: score += 1          # 7. No Dilution (Shares flat or down)
+
+            # --- Operating Efficiency (2 pts) ---
+            gross_margin = (float(i0.get("revenue", 1)) - float(i0.get("costOfRevenue", 0))) / float(i0.get("revenue", 1))
+            gross_margin_prev = (float(i1.get("revenue", 1)) - float(i1.get("costOfRevenue", 0))) / float(i1.get("revenue", 1))
+
+            asset_turnover = float(i0.get("revenue", 0)) / float(b0.get("totalAssets", 1))
+            asset_turnover_prev = float(i1.get("revenue", 0)) / float(b1.get("totalAssets", 1))
+
+            if gross_margin > gross_margin_prev: score += 1   # 8. Higher Gross Margin
+            if asset_turnover > asset_turnover_prev: score += 1 # 9. Higher Asset Turnover
+
         except Exception as e:
-            logger.error(f"[{ticker}] ❌ Failed to fetch financial statements for {ticker}: {e}")
-            return None
+            logger.error(f"F-Score Logic Error: {e}")
+            return 0
+
+        return score
 
     async def evaluate_deep_health(self, ticker: str):
         """
-        Returns (is_deep_healthy: bool, reason: str) and CACHES result.
+        Returns (is_deep_healthy, reason) using Advanced Fundamental Analysis.
+        Integrates DCF, Piotroski F-Score, and Growth.
         """
         # 1. Check Cache
-        import asyncio
-
         cached = await asyncio.to_thread(self._get_cached_evaluation, ticker)
         if cached:
             return cached["is_deep_healthy"], cached["deep_health_reason"]
 
-        # 2. Proceed to API
+        # 2. Proceed to analysis (Need cache update at end)
         is_healthy, h_reason = await self.evaluate_health(ticker)
+        
+        is_deep = True
+        d_reason_parts = []
 
-        stats = await self.get_financial_statements(ticker)
-        if not stats or not stats.get("balance_a") or not stats.get("income_q"):
-            # Deep Fallback to Finnhub if AV Statement fetch fails
-            if self.finnhub_client:
-                logger.info(f"[{ticker}] 📡 AV Statement Fail. Attempting Finnhub deep fallback for {ticker}...")
-                basic_fin = await asyncio.to_thread(
-                    self.finnhub_client.company_basic_financials, ticker, "all"
-                )
-                metric = basic_fin.get("metric", {})
-                if metric:
-                    current_ratio = float(metric.get("currentRatio", 0.8) or 0.8)
-                    de_ratio = float(metric.get("totalDebt/totalEquityQuarterly", 1.0) or 1.0)
-                    if current_ratio < 0.8:
-                        is_deep, d_reason = False, f"Liquidity Crisis (CR {current_ratio:.2f} - Finnhub)"
-                    elif de_ratio > 300: # Finnhub D/E is often expressed as percentage or raw
-                        is_deep, d_reason = False, f"High Leverage (D/E {de_ratio:.2f} - Finnhub)"
-                    else:
-                        is_deep, d_reason = True, f"Deep Health OK (Finnhub Metrics: CR {current_ratio:.2f})"
-                else:
-                    is_deep, d_reason = True, "No Data (Fallback Exhausted)"
-            else:
-                is_deep, d_reason = True, "No Statement Data (Skipped)"
-        else:
+        if self.fmp_key:
             try:
-                reports = stats["balance_a"].get("annualReports", [])
-                if not reports:
-                    is_deep, d_reason = True, "No Balance Sheet reports (Skipped)"
+                # Fetch Annual Financials (Last 2 years) & TTM Metrics
+                financials_task = self.fetch_annual_financials(ticker)
+                metrics_task = self._fetch_fmp("key-metrics-ttm", ticker)
+                quote_task = self._fetch_fmp("quote", ticker)
+                
+                financials, metrics_data, quote_data = await asyncio.gather(financials_task, metrics_task, quote_task)
+
+                price = 0.0
+                if quote_data:
+                    price = float(quote_data[0].get("price", 0))
+
+                # --- A. Piotroski F-Score ---
+                f_score = self.calculate_piotroski_f_score(financials)
+                
+                # --- B. DCF Valuation ---
+                fair_value = 0.0
+                dcf_upside = 0.0
+                if metrics_data:
+                    m = metrics_data[0]
+                    fcf_per_share = float(m.get("freeCashFlowPerShareTTM", 0) or 0)
+                    shares_out = float(financials.get("income", [{}])[0].get("weightedAverageShsOut", 0) or 1)
+                    
+                    # Estimate Total FCF TTM (Approx)
+                    total_fcf = fcf_per_share * shares_out
+                    
+                    if total_fcf > 0:
+                        fair_value = self.calculate_dcf(total_fcf, shares_out)
+                        if price > 0:
+                            dcf_upside = (fair_value - price) / price
+
+                # --- C. Growth Analysis (YoY) ---
+                rev_growth = 0.0
+                inc = financials.get("income", [])
+                if len(inc) >= 2:
+                    rev_curr = float(inc[0].get("revenue", 1))
+                    rev_prev = float(inc[1].get("revenue", 1))
+                    rev_growth = (rev_curr - rev_prev) / rev_prev
+
+                # --- Rating Logic ---
+                # 1. Financial Strength (F-Score)
+                if f_score < 4:
+                    is_deep = False
+                    d_reason_parts.append(f"Weak Financials (F-Score {f_score}/9)")
                 else:
-                    recent_balance = reports[0]
-                    current_assets = float(
-                        recent_balance.get("totalCurrentAssets", 0) or 0
-                    )
-                    current_liabilities = float(
-                        recent_balance.get("totalCurrentLiabilities", 0) or 0
-                    )
-                    current_ratio = (
-                        current_assets / current_liabilities
-                        if current_liabilities > 0
-                        else 1.0
-                    )
-                    total_liabilities = float(
-                        recent_balance.get("totalLiabilities", 0) or 0
-                    )
-                    equity = float(recent_balance.get("totalShareholderEquity", 0) or 1)
-                    de_ratio = total_liabilities / equity if equity != 0 else 0
-                    q_reports = stats["income_q"].get("quarterlyReports", [])
-                    if not q_reports:
-                        is_deep, d_reason = (
-                            True,
-                            "No Income Statement reports (Skipped)",
-                        )
+                    d_reason_parts.append(f"F-Score {f_score}/9")
+
+                # 2. Valuation (DCF)
+                if price > 0 and fair_value > 0:
+                    if price > (fair_value * 1.5): # 50% premium over fair value
+                         is_deep = False
+                         d_reason_parts.append(f"Overvalued (DCF ${fair_value})")
                     else:
-                        recent_income_q = q_reports[:4]
-                        net_incomes = [
-                            float(q.get("netIncome", 0) or 0) for q in recent_income_q
-                        ]
-                        is_profitable_trend = all(ni > 0 for ni in net_incomes)
+                         d_reason_parts.append(f"DCF Fair Value ${fair_value}")
 
-                        if current_ratio < 0.8:
-                            is_deep, d_reason = (
-                                False,
-                                f"Liquidity Crisis (CR {current_ratio:.2f})",
-                            )
-                        elif de_ratio > 3.0:
-                            is_deep, d_reason = (
-                                False,
-                                f"High Leverage (D/E {de_ratio:.2f})",
-                            )
-                        elif not is_profitable_trend:
-                            is_deep, d_reason = False, "Unstable Earnings"
-                        else:
-                            is_deep, d_reason = (
-                                True,
-                                f"Deep Health OK (CR {current_ratio:.2f})",
-                            )
+                # 3. Growth
+                if rev_growth < 0:
+                     is_deep = False
+                     d_reason_parts.append(f"Declining Revenue ({rev_growth:.1%})")
+                else:
+                     d_reason_parts.append(f"Rev Growth {rev_growth:.1%}")
+
+                if not d_reason_parts:
+                    d_reason_parts.append("Analysis Inconclusive")
+
+                d_reason = ", ".join(d_reason_parts)
+
             except Exception as e:
-                logger.error(f"[{ticker}] ⚠️ Error parsing financials for {ticker}: {e}")
-                is_deep, d_reason = True, "Parsing Error (Skipped)"
-
-        # 3. Cache the final result of BOTH evaluations (async to thread since BQ client is sync)
-        await asyncio.to_thread(
-            self._save_to_cache, ticker, is_healthy, h_reason, is_deep, d_reason
-        )
+                logger.error(f"[{ticker}] ⚠️ Deep Health Check Failed: {e}")
+                import traceback
+                traceback.print_exc()
+                d_reason = "Check Failed (Exception)"
+                is_deep = False # Fail safe
+        else:
+             d_reason = "No API Key"
+             is_deep = False
+        
+        # 3. Cache Result
+        await asyncio.to_thread(self._save_to_cache, ticker, is_healthy, h_reason, is_deep, d_reason)
         return is_deep, d_reason
