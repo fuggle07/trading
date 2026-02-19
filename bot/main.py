@@ -323,7 +323,7 @@ async def run_audit():
     Phase 2: Portfolio Analysis & Conviction Swapping
     Phase 3: Execution (SELLs first, then BUYs)
     """
-    tickers_env = os.environ.get("BASE_TICKERS", "NVDA,AAPL,MU,MSFT,AMD")
+    tickers_env = os.environ.get("BASE_TICKERS", "NVDA,MU,TSLA,AMD,PLTR,COIN,META,MSTR")
     base_tickers = [t.strip() for t in tickers_env.split(",") if t.strip()]
 
     # --- Phase 1: Portfolio Awareness & Intel Gathering ---
@@ -683,7 +683,7 @@ async def run_audit():
                     "reason": "CONVICTION_ROTATION",
                     "price": ticker_intel[rising_star]["price"],
                 }
-    elif exposure < 0.60:
+    elif exposure < 0.60 and rising_star:
         # Deployment Logic: If we have cash, buy the best thing available
         # BUT: Respect volatility and hygiene checks
         existing_sig = signals.get(rising_star, {})
@@ -910,7 +910,7 @@ async def get_latest_confidence(ticker: str) -> Optional[int]:
 @app.route("/rank-tickers", methods=["POST"])
 async def run_ranker_endpoint():
     """Trigger the morning ticker ranking job."""
-    tickers = os.environ.get("BASE_TICKERS", "NVDA,MU,AMD,PLTR,COIN,META,MSTR").split(
+    tickers = os.environ.get("BASE_TICKERS", "NVDA,MU,TSLA,AMD,PLTR,COIN,META,MSTR").split(
         ","
     )
     try:

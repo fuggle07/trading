@@ -41,6 +41,11 @@ class FundamentalAgent:
                         data = await response.json()
                         if data:
                             return data
+                    elif response.status == 403:
+                        # Premium endpoint not available on free FMP tier — skip silently
+                        logger.debug(
+                            f"[{ticker}] ⚠️ FMP {endpoint}: 403 (premium tier required, skipping)"
+                        )
                     else:
                         logger.error(
                             f"[{ticker}] ❌ FMP Error {endpoint}: {response.status}"
