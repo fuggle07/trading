@@ -128,3 +128,167 @@ resource "google_logging_metric" "prediction_confidence" {
     }
   }
 }
+
+resource "google_logging_metric" "rsi" {
+  name   = "trading/rsi"
+  filter = "resource.type=\"cloud_run_revision\" AND jsonPayload.event=\"WATCHLIST_LOG\" AND jsonPayload.rsi!=\"\""
+  metric_descriptor {
+    metric_kind = "DELTA"
+    value_type  = "DISTRIBUTION"
+    unit        = "1"
+    labels {
+      key        = "ticker"
+      value_type = "STRING"
+    }
+  }
+  label_extractors = {
+    "ticker" = "EXTRACT(jsonPayload.ticker)"
+  }
+  value_extractor = "EXTRACT(jsonPayload.rsi)"
+  bucket_options {
+    linear_buckets {
+      num_finite_buckets = 20
+      width              = 5.0
+      offset             = 0.0
+    }
+  }
+}
+
+resource "google_logging_metric" "sma_20" {
+  name   = "trading/sma_20"
+  filter = "resource.type=\"cloud_run_revision\" AND jsonPayload.event=\"WATCHLIST_LOG\" AND jsonPayload.sma_20!=\"\""
+  metric_descriptor {
+    metric_kind = "DELTA"
+    value_type  = "DISTRIBUTION"
+    unit        = "1"
+    labels {
+      key        = "ticker"
+      value_type = "STRING"
+    }
+  }
+  label_extractors = { "ticker" = "EXTRACT(jsonPayload.ticker)" }
+  value_extractor  = "EXTRACT(jsonPayload.sma_20)"
+  bucket_options {
+    exponential_buckets {
+      num_finite_buckets = 64
+      growth_factor      = 2
+      scale              = 0.01
+    }
+  }
+}
+
+resource "google_logging_metric" "sma_50" {
+  name   = "trading/sma_50"
+  filter = "resource.type=\"cloud_run_revision\" AND jsonPayload.event=\"WATCHLIST_LOG\" AND jsonPayload.sma_50!=\"\""
+  metric_descriptor {
+    metric_kind = "DELTA"
+    value_type  = "DISTRIBUTION"
+    unit        = "1"
+    labels {
+      key        = "ticker"
+      value_type = "STRING"
+    }
+  }
+  label_extractors = { "ticker" = "EXTRACT(jsonPayload.ticker)" }
+  value_extractor  = "EXTRACT(jsonPayload.sma_50)"
+  bucket_options {
+    exponential_buckets {
+      num_finite_buckets = 64
+      growth_factor      = 2
+      scale              = 0.01
+    }
+  }
+}
+
+resource "google_logging_metric" "bb_upper" {
+  name   = "trading/bb_upper"
+  filter = "resource.type=\"cloud_run_revision\" AND jsonPayload.event=\"WATCHLIST_LOG\" AND jsonPayload.bb_upper!=\"\""
+  metric_descriptor {
+    metric_kind = "DELTA"
+    value_type  = "DISTRIBUTION"
+    unit        = "1"
+    labels {
+      key        = "ticker"
+      value_type = "STRING"
+    }
+  }
+  label_extractors = { "ticker" = "EXTRACT(jsonPayload.ticker)" }
+  value_extractor  = "EXTRACT(jsonPayload.bb_upper)"
+  bucket_options {
+    exponential_buckets {
+      num_finite_buckets = 64
+      growth_factor      = 2
+      scale              = 0.01
+    }
+  }
+}
+
+resource "google_logging_metric" "bb_lower" {
+  name   = "trading/bb_lower"
+  filter = "resource.type=\"cloud_run_revision\" AND jsonPayload.event=\"WATCHLIST_LOG\" AND jsonPayload.bb_lower!=\"\""
+  metric_descriptor {
+    metric_kind = "DELTA"
+    value_type  = "DISTRIBUTION"
+    unit        = "1"
+    labels {
+      key        = "ticker"
+      value_type = "STRING"
+    }
+  }
+  label_extractors = { "ticker" = "EXTRACT(jsonPayload.ticker)" }
+  value_extractor  = "EXTRACT(jsonPayload.bb_lower)"
+  bucket_options {
+    exponential_buckets {
+      num_finite_buckets = 64
+      growth_factor      = 2
+      scale              = 0.01
+    }
+  }
+}
+
+resource "google_logging_metric" "f_score" {
+  name   = "trading/f_score"
+  filter = "resource.type=\"cloud_run_revision\" AND jsonPayload.event=\"WATCHLIST_LOG\" AND jsonPayload.f_score!=\"\""
+  metric_descriptor {
+    metric_kind = "DELTA"
+    value_type  = "DISTRIBUTION"
+    unit        = "1"
+    labels {
+      key        = "ticker"
+      value_type = "STRING"
+    }
+  }
+  label_extractors = { "ticker" = "EXTRACT(jsonPayload.ticker)" }
+  value_extractor  = "EXTRACT(jsonPayload.f_score)"
+  bucket_options {
+    linear_buckets {
+      num_finite_buckets = 9
+      width              = 1.0
+      offset             = 0.0
+    }
+  }
+}
+
+resource "google_logging_metric" "conviction" {
+  name   = "trading/conviction"
+  filter = "resource.type=\"cloud_run_revision\" AND jsonPayload.event=\"WATCHLIST_LOG\" AND jsonPayload.conviction!=\"\""
+  metric_descriptor {
+    metric_kind = "DELTA"
+    value_type  = "DISTRIBUTION"
+    unit        = "1"
+    labels {
+      key        = "ticker"
+      value_type = "STRING"
+    }
+  }
+  label_extractors = { "ticker" = "EXTRACT(jsonPayload.ticker)" }
+  value_extractor  = "EXTRACT(jsonPayload.conviction)"
+  bucket_options {
+    linear_buckets {
+      num_finite_buckets = 10
+      width              = 10.0
+      offset             = 0.0
+    }
+  }
+}
+

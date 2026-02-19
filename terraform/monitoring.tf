@@ -1,177 +1,949 @@
 # monitoring.tf
 
+locals {
+  tickers = ["NVDA", "TSLA", "AMD", "PLTR", "COIN", "META", "MSTR"]
+}
+
 resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
   dashboard_json = jsonencode({
     displayName = "Aberfeldie Node: NASDAQ Monitor"
     mosaicLayout = {
       columns = 12
-      tiles = [
-        # WIDGET 1: Cloud Run Success/Failure Rate
-        {
-          width = 4, height = 4, xPos = 0, yPos = 0
-          widget = {
-            title = "Cloud Run: Request Status (2xx vs 4xx/5xx)"
-            xyChart = {
-              chartOptions = { mode = "COLOR" }
-              dataSets = [{
-                timeSeriesQuery = {
-                  timeSeriesFilter = {
-                    filter = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"trading-audit-agent\" AND metric.type=\"run.googleapis.com/request_count\""
-                    aggregation = {
-                      alignmentPeriod    = "60s"
-                      perSeriesAligner   = "ALIGN_RATE"
-                      crossSeriesReducer = "REDUCE_SUM"
-                      groupByFields      = ["metric.label.response_code_class"]
-                    }
-                  }
-                }
-              }]
-            }
-          }
-        },
-        # WIDGET 2: Total Equity (Primary KPI)
-        {
-          width = 8, height = 4, xPos = 4, yPos = 0
-          widget = {
-            title = "💰 Paper Equity ($)"
-            xyChart = {
-              chartOptions = { mode = "COLOR" }
-              dataSets = [{
-                timeSeriesQuery = {
-                  timeSeriesFilter = {
-                    filter = "metric.type=\"logging.googleapis.com/user/trading/paper_equity\""
-                    aggregation = {
-                      alignmentPeriod  = "60s"
-                      perSeriesAligner = "ALIGN_PERCENTILE_50"
-                    }
-                  }
-                }
-              }]
-            }
-          }
-        },
-        # WIDGET 3: Capital Allocation (Cash vs Market Value)
-        {
-          width = 6, height = 4, xPos = 0, yPos = 4
-          widget = {
-            title = "⚖️ Capital Allocation"
-            xyChart = {
-              chartOptions = { mode = "COLOR" }
-              dataSets = [
-                {
+      tiles = concat(
+        # ── SYSTEM OVERVIEW ─────────────────────────────────────────────────
+        [
+          # WIDGET 1: Cloud Run Success/Failure Rate
+          {
+            width = 4, height = 4, xPos = 0, yPos = 0
+            widget = {
+              title = "Cloud Run: Request Status (2xx vs 4xx/5xx)"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [{
                   timeSeriesQuery = {
                     timeSeriesFilter = {
-                      filter = "metric.type=\"logging.googleapis.com/user/trading/total_cash\""
+                      filter = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"trading-audit-agent\" AND metric.type=\"run.googleapis.com/request_count\""
+                      aggregation = {
+                        alignmentPeriod    = "60s"
+                        perSeriesAligner   = "ALIGN_RATE"
+                        crossSeriesReducer = "REDUCE_SUM"
+                        groupByFields      = ["metric.label.response_code_class"]
+                      }
+                    }
+                  }
+                }]
+              }
+            }
+          },
+          # WIDGET 2: Paper Equity
+          {
+            width = 8, height = 4, xPos = 4, yPos = 0
+            widget = {
+              title = "💰 Paper Equity ($)"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [{
+                  timeSeriesQuery = {
+                    timeSeriesFilter = {
+                      filter = "metric.type=\"logging.googleapis.com/user/trading/paper_equity\""
+                      aggregation = {
+                        alignmentPeriod  = "60s"
+                        perSeriesAligner = "ALIGN_PERCENTILE_50"
+                      }
+                    }
+                  }
+                }]
+              }
+            }
+          },
+          # WIDGET 3: Capital Allocation
+          {
+            width = 6, height = 4, xPos = 0, yPos = 4
+            widget = {
+              title = "⚖️ Capital Allocation"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/total_cash\""
+                        aggregation = { alignmentPeriod = "60s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    targetAxis    = "Y1"
+                    plotType      = "STACKED_AREA"
+                    legendTemplate = "Cash"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/market_value\""
+                        aggregation = { alignmentPeriod = "60s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    targetAxis    = "Y1"
+                    plotType      = "STACKED_AREA"
+                    legendTemplate = "Assets Value"
+                  }
+                ]
+              }
+            }
+          },
+          # WIDGET 4: Exposure Meter
+          {
+            width = 6, height = 4, xPos = 6, yPos = 4
+            widget = {
+              title = "🚜 Portfolio Exposure (%)"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [{
+                  timeSeriesQuery = {
+                    timeSeriesFilter = {
+                      filter = "metric.type=\"logging.googleapis.com/user/trading/exposure_pct\""
                       aggregation = { alignmentPeriod = "60s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                     }
                   }
-                  targetAxis = "Y1"
-                  plotType   = "STACKED_AREA"
-                  legendTemplate = "Cash"
-                },
-                {
+                }]
+              }
+            }
+          },
+          # WIDGET 5: AI Conviction (all tickers)
+          {
+            width = 6, height = 4, xPos = 0, yPos = 8
+            widget = {
+              title = "🧠 AI Conviction (Confidence %)"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [{
                   timeSeriesQuery = {
                     timeSeriesFilter = {
-                      filter = "metric.type=\"logging.googleapis.com/user/trading/market_value\""
-                      aggregation = { alignmentPeriod = "60s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      filter = "metric.type=\"logging.googleapis.com/user/trading/prediction_confidence\""
+                      aggregation = {
+                        alignmentPeriod  = "600s"
+                        perSeriesAligner = "ALIGN_PERCENTILE_50"
+                        groupByFields    = ["metric.label.ticker"]
+                      }
                     }
                   }
-                  targetAxis = "Y1"
-                  plotType   = "STACKED_AREA"
-                  legendTemplate = "Assets Value"
-                }
-              ]
+                }]
+              }
             }
-          }
-        },
-        # WIDGET 4: Exposure Meter (%)
-        {
-          width = 6, height = 4, xPos = 6, yPos = 4
-          widget = {
-            title = "🚜 Portfolio Exposure (%)"
-            xyChart = {
-              chartOptions = { mode = "COLOR" }
-              dataSets = [{
-                timeSeriesQuery = {
-                  timeSeriesFilter = {
-                    filter = "metric.type=\"logging.googleapis.com/user/trading/exposure_pct\""
-                    aggregation = { alignmentPeriod = "60s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
-                  }
-                }
-              }]
-            }
-          }
-        },
-        # WIDGET 5: Conviction Breakdown (Confidence Heatmap)
-        {
-          width = 6, height = 4, xPos = 0, yPos = 8
-          widget = {
-            title = "🧠 AI Conviction (Confidence %)"
-            xyChart = {
-              chartOptions = { mode = "COLOR" }
-              dataSets = [{
-                timeSeriesQuery = {
-                  timeSeriesFilter = {
-                    filter = "metric.type=\"logging.googleapis.com/user/trading/prediction_confidence\""
-                    aggregation = {
-                      alignmentPeriod  = "600s"
-                      perSeriesAligner = "ALIGN_PERCENTILE_50"
-                      groupByFields    = ["metric.label.ticker"]
+          },
+          # WIDGET 6: Market Sentiment (all tickers)
+          {
+            width = 6, height = 4, xPos = 6, yPos = 8
+            widget = {
+              title = "📰 Market Sentiment (-1 to +1)"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [{
+                  timeSeriesQuery = {
+                    timeSeriesFilter = {
+                      filter = "metric.type=\"logging.googleapis.com/user/trading/sentiment_score\""
+                      aggregation = {
+                        alignmentPeriod  = "600s"
+                        perSeriesAligner = "ALIGN_PERCENTILE_50"
+                        groupByFields    = ["metric.label.ticker"]
+                      }
                     }
                   }
-                }
-              }]
+                }]
+              }
             }
-          }
-        },
-        # WIDGET 6: Market Sentiment Heatmap
-        {
-          width = 6, height = 4, xPos = 6, yPos = 8
-          widget = {
-            title = "📰 Market Sentiment (-1 to +1)"
-            xyChart = {
-              chartOptions = { mode = "COLOR" }
-              dataSets = [{
-                timeSeriesQuery = {
-                  timeSeriesFilter = {
-                    filter = "metric.type=\"logging.googleapis.com/user/trading/sentiment_score\""
-                    aggregation = {
-                      alignmentPeriod  = "600s"
-                      perSeriesAligner = "ALIGN_PERCENTILE_50"
-                      groupByFields    = ["metric.label.ticker"]
+          },
+          # WIDGET 7: Latency
+          {
+            width = 12, height = 4, xPos = 0, yPos = 12
+            widget = {
+              title = "⏳ Execution Latency (ms)"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [{
+                  timeSeriesQuery = {
+                    timeSeriesFilter = {
+                      filter = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"trading-audit-agent\" AND metric.type=\"run.googleapis.com/request_latencies\""
+                      aggregation = {
+                        alignmentPeriod  = "60s"
+                        perSeriesAligner = "ALIGN_PERCENTILE_99"
+                      }
                     }
                   }
-                }
-              }]
+                }]
+              }
+            }
+          },
+
+          # ── SECTION HEADER: PER-STOCK METRICS ───────────────────────────
+          {
+            width = 12, height = 1, xPos = 0, yPos = 16
+            widget = {
+              title = "━━━━━━━━━━  PER-STOCK TECHNICAL METRICS  ━━━━━━━━━━"
+              text  = { content = "" }
             }
           }
-        },
-        # WIDGET 7: Latency (ms)
-        {
-          width = 12, height = 4, xPos = 0, yPos = 12
-          widget = {
-            title = "⏳ Execution Latency (ms)"
-            xyChart = {
-              chartOptions = { mode = "COLOR" }
-              dataSets = [{
-                timeSeriesQuery = {
-                  timeSeriesFilter = {
-                    filter = "resource.type=\"cloud_run_revision\" AND resource.labels.service_name=\"trading-audit-agent\" AND metric.type=\"run.googleapis.com/request_latencies\""
-                    aggregation = {
-                      alignmentPeriod  = "60s"
-                      perSeriesAligner = "ALIGN_PERCENTILE_99"
+        ],
+
+        # ── PER-TICKER ROWS (3 charts × 7 tickers) ──────────────────────────
+        # Each ticker occupies 5 rows (4 chart height + 1 spacing). Start at yPos 17.
+        # Layout per ticker: [Price+Sentiment | BB+SMAs | RSI+Conviction+FScore]
+
+        # NVDA — yPos 17
+        [
+          {
+            width = 4, height = 4, xPos = 0, yPos = 17
+            widget = {
+              title = "NVDA — Price & Sentiment"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/sentiment_score\" AND metric.labels.ticker=\"NVDA\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    targetAxis    = "Y1"
+                    legendTemplate = "Sentiment"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            width = 4, height = 4, xPos = 4, yPos = 17
+            widget = {
+              title = "NVDA — Bollinger Bands & SMAs"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_upper\" AND metric.labels.ticker=\"NVDA\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "BB Upper"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_20\" AND metric.labels.ticker=\"NVDA\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "SMA-20"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_50\" AND metric.labels.ticker=\"NVDA\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "SMA-50"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_lower\" AND metric.labels.ticker=\"NVDA\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "BB Lower"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            width = 4, height = 4, xPos = 8, yPos = 17
+            widget = {
+              title = "NVDA — RSI / Conviction / F-Score"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/rsi\" AND metric.labels.ticker=\"NVDA\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "RSI"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/conviction\" AND metric.labels.ticker=\"NVDA\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "Conviction"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/f_score\" AND metric.labels.ticker=\"NVDA\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "F-Score"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+
+        # TSLA — yPos 22
+        [
+          {
+            width = 4, height = 4, xPos = 0, yPos = 22
+            widget = {
+              title = "TSLA — Price & Sentiment"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [{
+                  timeSeriesQuery = {
+                    timeSeriesFilter = {
+                      filter = "metric.type=\"logging.googleapis.com/user/trading/sentiment_score\" AND metric.labels.ticker=\"TSLA\""
+                      aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                     }
                   }
-                }
-              }]
+                  legendTemplate = "Sentiment"
+                }]
+              }
+            }
+          },
+          {
+            width = 4, height = 4, xPos = 4, yPos = 22
+            widget = {
+              title = "TSLA — Bollinger Bands & SMAs"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_upper\" AND metric.labels.ticker=\"TSLA\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "BB Upper"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_20\" AND metric.labels.ticker=\"TSLA\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "SMA-20"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_50\" AND metric.labels.ticker=\"TSLA\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "SMA-50"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_lower\" AND metric.labels.ticker=\"TSLA\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "BB Lower"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            width = 4, height = 4, xPos = 8, yPos = 22
+            widget = {
+              title = "TSLA — RSI / Conviction / F-Score"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/rsi\" AND metric.labels.ticker=\"TSLA\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "RSI"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/conviction\" AND metric.labels.ticker=\"TSLA\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "Conviction"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/f_score\" AND metric.labels.ticker=\"TSLA\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "F-Score"
+                  }
+                ]
+              }
             }
           }
-        }
-      ]
+        ],
+
+        # AMD — yPos 27
+        [
+          {
+            width = 4, height = 4, xPos = 0, yPos = 27
+            widget = {
+              title = "AMD — Price & Sentiment"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [{
+                  timeSeriesQuery = {
+                    timeSeriesFilter = {
+                      filter = "metric.type=\"logging.googleapis.com/user/trading/sentiment_score\" AND metric.labels.ticker=\"AMD\""
+                      aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                    }
+                  }
+                  legendTemplate = "Sentiment"
+                }]
+              }
+            }
+          },
+          {
+            width = 4, height = 4, xPos = 4, yPos = 27
+            widget = {
+              title = "AMD — Bollinger Bands & SMAs"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_upper\" AND metric.labels.ticker=\"AMD\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "BB Upper"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_20\" AND metric.labels.ticker=\"AMD\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "SMA-20"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_50\" AND metric.labels.ticker=\"AMD\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "SMA-50"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_lower\" AND metric.labels.ticker=\"AMD\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "BB Lower"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            width = 4, height = 4, xPos = 8, yPos = 27
+            widget = {
+              title = "AMD — RSI / Conviction / F-Score"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/rsi\" AND metric.labels.ticker=\"AMD\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "RSI"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/conviction\" AND metric.labels.ticker=\"AMD\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "Conviction"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/f_score\" AND metric.labels.ticker=\"AMD\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "F-Score"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+
+        # PLTR — yPos 32
+        [
+          {
+            width = 4, height = 4, xPos = 0, yPos = 32
+            widget = {
+              title = "PLTR — Price & Sentiment"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [{
+                  timeSeriesQuery = {
+                    timeSeriesFilter = {
+                      filter = "metric.type=\"logging.googleapis.com/user/trading/sentiment_score\" AND metric.labels.ticker=\"PLTR\""
+                      aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                    }
+                  }
+                  legendTemplate = "Sentiment"
+                }]
+              }
+            }
+          },
+          {
+            width = 4, height = 4, xPos = 4, yPos = 32
+            widget = {
+              title = "PLTR — Bollinger Bands & SMAs"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_upper\" AND metric.labels.ticker=\"PLTR\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "BB Upper"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_20\" AND metric.labels.ticker=\"PLTR\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "SMA-20"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_50\" AND metric.labels.ticker=\"PLTR\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "SMA-50"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_lower\" AND metric.labels.ticker=\"PLTR\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "BB Lower"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            width = 4, height = 4, xPos = 8, yPos = 32
+            widget = {
+              title = "PLTR — RSI / Conviction / F-Score"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/rsi\" AND metric.labels.ticker=\"PLTR\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "RSI"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/conviction\" AND metric.labels.ticker=\"PLTR\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "Conviction"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/f_score\" AND metric.labels.ticker=\"PLTR\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "F-Score"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+
+        # COIN — yPos 37
+        [
+          {
+            width = 4, height = 4, xPos = 0, yPos = 37
+            widget = {
+              title = "COIN — Price & Sentiment"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [{
+                  timeSeriesQuery = {
+                    timeSeriesFilter = {
+                      filter = "metric.type=\"logging.googleapis.com/user/trading/sentiment_score\" AND metric.labels.ticker=\"COIN\""
+                      aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                    }
+                  }
+                  legendTemplate = "Sentiment"
+                }]
+              }
+            }
+          },
+          {
+            width = 4, height = 4, xPos = 4, yPos = 37
+            widget = {
+              title = "COIN — Bollinger Bands & SMAs"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_upper\" AND metric.labels.ticker=\"COIN\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "BB Upper"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_20\" AND metric.labels.ticker=\"COIN\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "SMA-20"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_50\" AND metric.labels.ticker=\"COIN\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "SMA-50"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_lower\" AND metric.labels.ticker=\"COIN\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "BB Lower"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            width = 4, height = 4, xPos = 8, yPos = 37
+            widget = {
+              title = "COIN — RSI / Conviction / F-Score"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/rsi\" AND metric.labels.ticker=\"COIN\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "RSI"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/conviction\" AND metric.labels.ticker=\"COIN\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "Conviction"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/f_score\" AND metric.labels.ticker=\"COIN\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "F-Score"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+
+        # META — yPos 42
+        [
+          {
+            width = 4, height = 4, xPos = 0, yPos = 42
+            widget = {
+              title = "META — Price & Sentiment"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [{
+                  timeSeriesQuery = {
+                    timeSeriesFilter = {
+                      filter = "metric.type=\"logging.googleapis.com/user/trading/sentiment_score\" AND metric.labels.ticker=\"META\""
+                      aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                    }
+                  }
+                  legendTemplate = "Sentiment"
+                }]
+              }
+            }
+          },
+          {
+            width = 4, height = 4, xPos = 4, yPos = 42
+            widget = {
+              title = "META — Bollinger Bands & SMAs"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_upper\" AND metric.labels.ticker=\"META\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "BB Upper"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_20\" AND metric.labels.ticker=\"META\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "SMA-20"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_50\" AND metric.labels.ticker=\"META\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "SMA-50"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_lower\" AND metric.labels.ticker=\"META\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "BB Lower"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            width = 4, height = 4, xPos = 8, yPos = 42
+            widget = {
+              title = "META — RSI / Conviction / F-Score"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/rsi\" AND metric.labels.ticker=\"META\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "RSI"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/conviction\" AND metric.labels.ticker=\"META\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "Conviction"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/f_score\" AND metric.labels.ticker=\"META\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "F-Score"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+
+        # MSTR — yPos 47
+        [
+          {
+            width = 4, height = 4, xPos = 0, yPos = 47
+            widget = {
+              title = "MSTR — Price & Sentiment"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [{
+                  timeSeriesQuery = {
+                    timeSeriesFilter = {
+                      filter = "metric.type=\"logging.googleapis.com/user/trading/sentiment_score\" AND metric.labels.ticker=\"MSTR\""
+                      aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                    }
+                  }
+                  legendTemplate = "Sentiment"
+                }]
+              }
+            }
+          },
+          {
+            width = 4, height = 4, xPos = 4, yPos = 47
+            widget = {
+              title = "MSTR — Bollinger Bands & SMAs"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_upper\" AND metric.labels.ticker=\"MSTR\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "BB Upper"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_20\" AND metric.labels.ticker=\"MSTR\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "SMA-20"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_50\" AND metric.labels.ticker=\"MSTR\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "SMA-50"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_lower\" AND metric.labels.ticker=\"MSTR\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "BB Lower"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            width = 4, height = 4, xPos = 8, yPos = 47
+            widget = {
+              title = "MSTR — RSI / Conviction / F-Score"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/rsi\" AND metric.labels.ticker=\"MSTR\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "RSI"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/conviction\" AND metric.labels.ticker=\"MSTR\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "Conviction"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/f_score\" AND metric.labels.ticker=\"MSTR\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "F-Score"
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      )
     }
   })
-
 }
+
 # A. Notification Channel (Where the alert goes)
 resource "google_monitoring_notification_channel" "email_me" {
   display_name = "Trading Bot Alerts"
