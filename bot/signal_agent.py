@@ -182,11 +182,21 @@ class SignalAgent:
                 technical_signal = "REJECT_UNHEALTHY"  # Update log
 
             # HURDLE 2: Deep Financial Health (F-Score)
-            elif f_score < 5:
-                # F-Score range is 0-9. < 5 implies mixed/poor signals.
-                final_action = "IDLE"
-                conviction = 0
-                technical_signal = f"REJECT_WEAK_FSCORE_{f_score}"
+            # F-Score range is 0-9. < 5 implies mixed/poor signals.
+            # ENHANCEMENT: Relaxed hurdles during low exposure or high AI conviction
+            f_score_threshold = 3 if is_low_exposure else 5
+            ai_confidence = fundamentals.get("score", 0)
+
+            if f_score < f_score_threshold:
+                # SPECIAL BYPASS: If AI Confidence is elite (> 80), buy anyway 
+                # (covers turnarounds or data gaps where F-score might be transiently 0)
+                if ai_confidence > 80:
+                    technical_signal = f"BUY_FSCORE_{f_score}_BYPASS_HIGH_CONF"
+                    conviction = max(conviction, 80)
+                else:
+                    final_action = "IDLE"
+                    conviction = 0
+                    technical_signal = f"REJECT_WEAK_FSCORE_{f_score}"
 
             # BONUS: Boost for Elite Health
             elif f_score >= 7:
