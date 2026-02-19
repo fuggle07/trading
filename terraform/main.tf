@@ -784,11 +784,6 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
     }
   })
 
-  # Ignore changes to the dashboard JSON to prevent perpetual diffs caused by
-  # Google Cloud API normalizing the JSON (e.g. adding defaults, reordering keys).
-  lifecycle {
-    ignore_changes = [dashboard_json]
-  }
 }
 # A. Notification Channel (Where the alert goes)
 resource "google_monitoring_notification_channel" "email_me" {
