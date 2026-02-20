@@ -631,6 +631,12 @@ class FundamentalAgent:
             else:
                 missed.append("Eff_Dec(Turnover)")
 
+            if score == 0:
+                print(f"‼️ F-SCORE ZERO [{ticker}]: RAW DATA INSPECTION")
+                print(f"   inc0: {i0}")
+                print(f"   bal0: {b0}")
+                print(f"   cash0: {c0}")
+
             if score <= 2:
                 # USE PRINT FOR TERMINAL VISIBILITY
                 print(f"📉 F-SCORE DRILLDOWN [{ticker}]: Score={score}. Missed: {', '.join(missed)}")
@@ -744,34 +750,41 @@ class FundamentalAgent:
             logger.info(f"[{ticker}] 💾 Using cached health for {ticker}")
             
             # Extract f_score from metrics_json if available
-            import json
-            metrics = {}
-            f_score = 0
+        # 1. Check Cache (Disabled for debugging F-Score issues)
+        # cached = await asyncio.to_thread(self._get_cached_evaluation, ticker)
+        # if cached:
+        #     logger.info(f"[{ticker}] 💾 Using cached health for {ticker}")
             
-            # The get_cached_evaluation query doesn't pull metrics_json? 
-            # Let's check the query in _get_cached_evaluation.
-            # (Self-correction: I need to check _get_cached_evaluation definition)
+        #     # Extract f_score from metrics_json if available
+        #     import json
+        #     metrics = {}
+        #     f_score = 0
             
-            # Actually, I'll update _get_cached_evaluation to include metrics_json
-            # and then parse it here.
+        #     # The get_cached_evaluation query doesn't pull metrics_json? 
+        #     # Let's check the query in _get_cached_evaluation.
+        #     # (Self-correction: I need to check _get_cached_evaluation definition)
             
-            # For now, if we match cache:
-            try:
-                # We need to extract the F-Score part from the reason if we don't have metrics_json
-                import re
-                d_reason = cached["deep_health_reason"]
-                f_score_match = re.search(r"F-Score (\d+)/9", d_reason)
-                f_score = int(f_score_match.group(1)) if f_score_match else 0
-            except Exception:
-                f_score = 0
+        #     # Actually, I'll update _get_cached_evaluation to include metrics_json
+        #     # and then parse it here.
+            
+        #     # For now, if we match cache:
+        #     try:
+        #         # We need to extract the F-Score part from the reason if we don't have metrics_json
+        #         import re
+        #         d_reason = cached["deep_health_reason"]
+        #         f_score_match = re.search(r"F-Score (\d+)/9", d_reason)
+        #         f_score = int(f_score_match.group(1)) if f_score_match else 0
+        #     except Exception:
+        #         f_score = 0
                 
-            return (
-                cached["is_healthy"], 
-                cached["health_reason"], 
-                cached["is_deep_healthy"], 
-                cached["deep_health_reason"], 
-                f_score
-            )
+        #     return (
+        #         cached["is_healthy"], 
+        #         cached["health_reason"], 
+        #         cached["is_deep_healthy"], 
+        #         cached["deep_health_reason"], 
+        #         f_score
+        #     )
+        cached = None
 
         # 2. No Cache -> Proceed to analysis
         # --- Initialize Variables ---
