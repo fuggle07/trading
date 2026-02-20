@@ -201,25 +201,35 @@ class FundamentalAgent:
 
         try:
             # 1. Analyst Estimates (FMP /stable/analyst-estimates)
-            # This replaces the legacy analyst-stock-recommendations
-            ratings_task = self._fetch_fmp("analyst-estimates", ticker)
+            # REQUIRED: period parameter
+            ratings_task = self._fetch_fmp(
+                "analyst-estimates", ticker, params={"period": "annual", "limit": 1}
+            )
 
-            # 2. Institutional Ownership % (FMP /stable/institutional-ownership/symbol-positions-summary)
+            # 2. Price Target Consensus (FMP /stable/price-target-consensus)
+            target_task = self._fetch_fmp("price-target-consensus", ticker)
+
+            # 3. Institutional Ownership % (FMP /stable/institutional-ownership/symbol-positions-summary)
             # This is often restricted (402) on free tiers, handle gracefully.
             inst_task = self._fetch_fmp(
                 "institutional-ownership/symbol-positions-summary", ticker
             )
 
-            ratings_data, inst_data = await asyncio.gather(ratings_task, inst_task)
+            ratings_data, target_data, inst_data = await asyncio.gather(
+                ratings_task, target_task, inst_task
+            )
 
             if ratings_data and isinstance(ratings_data, list):
                 r = ratings_data[0]
                 intelligence["analyst_consensus"] = (
                     f"{r.get('estimatedEpsAvg', 'Neutral')} (Avg Est EPS)"
                 )
-                # If there's a specific recommendation field in analyst-estimates let's try to map it
-                if r.get("recommendation"):
-                    intelligence["analyst_consensus"] = f"{r.get('recommendation')} ({r.get('numberAnalysts', 0)} analysts)"
+            
+            if target_data and isinstance(target_data, list):
+                t = target_data[0]
+                cons = t.get("consensus", "Neutral")
+                targets = f"Target: ${t.get('targetHigh', 0)} / Consensus: {cons}"
+                intelligence["analyst_consensus"] = f"{cons} ({targets})"
 
             if inst_data and isinstance(inst_data, list):
                 pct = float(inst_data[0].get("totalOwnershipPercentage") or inst_data[0].get("ownershipPercentage", 0) or 0)
