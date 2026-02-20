@@ -200,11 +200,12 @@ class FundamentalAgent:
             return intelligence
 
         try:
-            # 1. Analyst Ratings (FMP /stable/analyst-stock-recommendations)
-            ratings_task = self._fetch_fmp("analyst-stock-recommendations", ticker)
+            # 1. Analyst Estimates (FMP /stable/analyst-estimates)
+            # This replaces the legacy analyst-stock-recommendations
+            ratings_task = self._fetch_fmp("analyst-estimates", ticker)
 
             # 2. Institutional Ownership % (FMP /stable/institutional-ownership/symbol-positions-summary)
-            # Use the stable Positions Summary for reliability
+            # This is often restricted (402) on free tiers, handle gracefully.
             inst_task = self._fetch_fmp(
                 "institutional-ownership/symbol-positions-summary", ticker
             )
@@ -214,16 +215,20 @@ class FundamentalAgent:
             if ratings_data and isinstance(ratings_data, list):
                 r = ratings_data[0]
                 intelligence["analyst_consensus"] = (
-                    f"{r.get('recommendation', 'Neutral')} (Consensus of {r.get('analystRatingsTotal', 0)} analysts)"
+                    f"{r.get('estimatedEpsAvg', 'Neutral')} (Avg Est EPS)"
                 )
+                # If there's a specific recommendation field in analyst-estimates let's try to map it
+                if r.get("recommendation"):
+                    intelligence["analyst_consensus"] = f"{r.get('recommendation')} ({r.get('numberAnalysts', 0)} analysts)"
 
             if inst_data and isinstance(inst_data, list):
-                # The stable Positions Summary might have different field names
-                # Try both totalOwnershipPercentage and the snapshot summary field
                 pct = float(inst_data[0].get("totalOwnershipPercentage") or inst_data[0].get("ownershipPercentage", 0) or 0)
                 intelligence["institutional_momentum"] = (
                     f"{pct:.1f}% Institutional Ownership"
                 )
+            elif inst_data is None:
+                # Handle 402 Restricted gracefully
+                intelligence["institutional_momentum"] = "Restricted (Pro/Premium)"
 
         except Exception as e:
             logger.error(f"[{ticker}] ⚠️ Failed to fetch intelligence metrics: {e}")
@@ -570,10 +575,9 @@ class FundamentalAgent:
             b0, b1 = bal[0], bal[1]
             c0, _c1 = cfs[0], cfs[1]
 
-            # SURGICAL LOGGING: Inspect fields for NVDA/MU to catch schema shifts
-            logger.info(f"[{ticker}] F-Score Drilldown: inc0 keys={list(i0.keys())[:5]}")
-            logger.debug(f"[{ticker}] i0: NetInc={i0.get('netIncome')}, Rev={i0.get('revenue')}")
-            logger.debug(f"[{ticker}] b0: Assets={b0.get('totalAssets')}, Liab={b0.get('totalLiabilities')}")
+            # SURGICAL LOGGING: Inspect ALL fields to verify stable schema
+            logger.info(f"[{ticker}] F-Score Drilldown: inc0 keys={list(i0.keys())}")
+            logger.debug(f"[{ticker}] i0 full: {i0}")
 
             # --- Profitability (4 pts) ---
             net_income = float(i0.get("netIncome", 0))
