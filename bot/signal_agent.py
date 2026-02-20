@@ -61,7 +61,7 @@ class SignalAgent:
 
         return False
 
-    def evaluate_bands(self, current_price: float, upper: float, lower: float) -> str:
+    def evaluate_bands(self, current_price: float, upper: float, lower: float, is_low_exposure: bool = False) -> str:
         """
         Calculates signal based on Bollinger Bands.
         Includes a Volatility Filter (vol_threshold).
@@ -72,7 +72,13 @@ class SignalAgent:
 
         # Calculate Band Width % (Volatility Filter)
         band_width = (up - lo) / price
-        if band_width > self.vol_threshold:
+        
+        effective_vol_threshold = self.vol_threshold
+        if is_low_exposure:
+            # Relax volatility filter by 50% when exposure is low to force activity
+            effective_vol_threshold *= Decimal("1.5")
+
+        if band_width > effective_vol_threshold:
             return "VOLATILE_IGNORE"
 
         if price >= up:
@@ -113,7 +119,7 @@ class SignalAgent:
         lessons = ""  # Placeholder for now
 
         technical_signal = self.evaluate_bands(
-            current_price, indicators.get("upper", 0), indicators.get("lower", 0)
+            current_price, indicators.get("upper", 0), indicators.get("lower", 0), is_low_exposure
         )
 
         # Logic for Final Decision
@@ -136,13 +142,16 @@ class SignalAgent:
             # ENHANCEMENT: Low Exposure Aggression
             # If we are in cash, we don't wait for price to hit the bottom band
             # if the narrative (sentiment) and health (fundamentals) are solid.
-            if is_low_exposure and sentiment > 0.4:
-                # 'score' is the Gemini/LLM prediction confidence
-                confidence_score = fundamentals.get("score", 0)
-                if confidence_score > 50:
-                    final_action = "BUY"
-                    conviction = 70  # Aggressive entry conviction
-                    technical_signal = "LOW_EXPOSURE_PROACTIVE_ENTRY"
+            if is_low_exposure:
+                # Lower hurdles for proactive entry
+                if sentiment > 0.3:
+                    confidence_score = fundamentals.get("score", 0)
+                    if confidence_score > 50:
+                        final_action = "BUY"
+                        conviction = 70  # Aggressive entry conviction
+                        technical_signal = "LOW_EXPOSURE_PROACTIVE_ENTRY"
+            
+            # (Rest of strategy logic remains, lower thresholds already applied)
 
             # --- RSI OVERLAY (Oversold Aggression) ---
             if rsi <= 30 and sentiment > 0.4:
@@ -184,14 +193,15 @@ class SignalAgent:
             # HURDLE 2: Deep Financial Health (F-Score)
             # F-Score range is 0-9. < 5 implies mixed/poor signals.
             # ENHANCEMENT: Relaxed hurdles during low exposure or high AI conviction
-            f_score_threshold = 3 if is_low_exposure else 5
+            f_score_threshold = 2 if is_low_exposure else 5
             ai_confidence = fundamentals.get("score", 0)
+            bypass_threshold = 65 if is_low_exposure else 80
 
             if f_score < f_score_threshold:
-                # SPECIAL BYPASS: If AI Confidence is elite (> 80), buy anyway 
+                # SPECIAL BYPASS: If AI Confidence is elite, buy anyway 
                 # (covers turnarounds or data gaps where F-score might be transiently 0)
-                if ai_confidence > 80:
-                    technical_signal = f"BUY_FSCORE_{f_score}_BYPASS_HIGH_CONF"
+                if ai_confidence > bypass_threshold:
+                    technical_signal = f"BUY_FSCORE_{f_score}_BYPASS_CONF_{ai_confidence}"
                     conviction = max(conviction, 80)
                 else:
                     final_action = "IDLE"

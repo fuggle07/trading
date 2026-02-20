@@ -10,9 +10,10 @@ from bot.telemetry import log_watchlist_data, log_macro_snapshot, log_decision
 import pytz
 import traceback
 from google.cloud import bigquery
-from alpaca.data.historical import StockHistoricalDataClient
-from alpaca.data.requests import StockBarsRequest
+from alpaca.data.requests import StockBarsRequest, StockQuotesRequest
 from alpaca.data.timeframe import TimeFrame
+from alpaca.data.live.stock import StockDataClient
+from alpaca.data.historical import StockHistoricalDataClient
 from bot.signal_agent import SignalAgent
 from bot.execution_manager import ExecutionManager
 from bot.portfolio_manager import PortfolioManager
@@ -342,6 +343,28 @@ async def run_audit():
     # --- Phase 1: Portfolio Awareness & Intel Gathering ---
     print("🔄 Fetching Portfolio & Intel...")
     held_tickers = portfolio_manager.get_held_tickers()
+
+    # Preliminary Commitment Log (Requested by user to see early in run)
+    try:
+        if held_tickers:
+            # Quick quote fetch for just held assets to show commitment
+            held_symbols = list(held_tickers.keys())
+            early_quotes_req = StockQuotesRequest(symbol_or_symbols=held_symbols)
+            early_quotes = stock_data_client.get_stock_quotes(early_quotes_req)
+            
+            p_market_val = 0.0
+            for s, q in early_quotes.data.items():
+                p_market_val += float(held_tickers[s]) * float(q.ask_price)
+            
+            p_cash = portfolio_manager.get_cash_balance()
+            p_equity = p_cash + p_market_val
+            p_commitment = (p_market_val / p_equity) * 100 if p_equity > 0 else 0
+            
+            print(f"📊 Preliminary Commitment: {p_commitment:.1f}% (${p_market_val:,.2f} / ${p_equity:,.2f})")
+        else:
+            print("📊 Preliminary Commitment: 0.0% (Cash Account)")
+    except Exception as e:
+        print(f"⚠️ Preliminary commitment check failed: {e}")
 
     # Audit all monitored tickers PLUS anything we currently hold (safety first)
     tickers = list(set(base_tickers + list(held_tickers.keys())))
