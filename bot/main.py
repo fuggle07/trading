@@ -808,12 +808,28 @@ async def run_audit():
             )
 
     # 2. Execute BUYs
+    # Exposure tracking to respect 65% baseline vs Star Reserve
+    running_exposure = exposure
+
     for ticker, sig in signals.items():
         if sig.get("action") == "BUY":
             reason = sig.get("reason", "Strategy Signal")
+            is_star = sig.get("meta", {}).get("is_star", False)
+            
+            # 65/35 Allocation Strategy
+            # If exposure >= 65%, only allow BUY if ticker is "Star Rated"
+            if running_exposure >= 0.65 and not is_star:
+                log_decision(
+                    ticker, 
+                    "SKIP", 
+                    f"Baseline Exposure Hit ({running_exposure:.1%}). {ticker} is not 'Star Rated'."
+                )
+                continue
 
-            # Calculate Allocation regardless of DRY RUN
+            # Calculate Allocation
             cash_pool = portfolio_manager.get_cash_balance()
+            
+            # Max 25% per ticker, but also leave room for others if we are filling the 65%
             room_to_buy = total_equity * 0.25 - held_tickers.get(ticker, {}).get(
                 "market_value", 0.0
             )
@@ -822,12 +838,18 @@ async def run_audit():
             intel = ticker_intel.get(ticker, {})
             sentiment = float(intel.get("sentiment", 0.0))
             multiplier = 1.0 + max(0.0, sentiment)
+            if is_star:
+                multiplier *= 1.5  # Stars get 50% bigger allocation
+                
             allocation = min(base_unit * multiplier, room_to_buy, cash_pool)
 
             if not effective_enabled:
                 if allocation >= 1000:
-                    log_decision(ticker, "BUY", f"🧊 DRY RUN: Intent BUY ${allocation:,.2f} ({reason})")
+                    star_prefix = "⭐ STAR: " if is_star else ""
+                    log_decision(ticker, "BUY", f"🧊 DRY RUN: {star_prefix}Intent BUY ${allocation:,.2f} ({reason})")
                     status = "dry_run_buy"
+                    # Update running exposure for logic flow
+                    running_exposure += (allocation / total_equity) if total_equity > 0 else 0
                 else:
                     log_decision(ticker, "SKIP", f"🧊 DRY RUN: Intent BUY rejected (Insufficient Allocation ${allocation:.2f} < $1000)")
                     status = "skipped_insufficient_funds"
@@ -842,11 +864,13 @@ async def run_audit():
                         reason=reason,
                     )
                     status = f"executed_{exec_res.get('status', 'FAIL')}"
+                    star_prefix = "⭐ STAR: " if is_star else ""
                     log_decision(
                         ticker,
                         "BUY",
-                        f"Execution Status: {status} | Alloc: ${allocation:.2f} | Reason: {reason}",
+                        f"Execution Status: {status} | {star_prefix}Alloc: ${allocation:.2f} | Reason: {reason}",
                     )
+                    running_exposure += (allocation / total_equity) if total_equity > 0 else 0
                 else:
                     log_decision(
                         ticker,

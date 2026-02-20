@@ -244,6 +244,18 @@ class SignalAgent:
             # We keep the core action (BUY/SELL) so the bot logs the intent clearly.
             # main.py handles the actual execution avoidance via is_market_open().
 
+        # 5. Star Rating Classification
+        # Star = High AI Conviction (90+) + Elite Fundamentals (F-Score 7+) + Deeply Healthy
+        is_star = False
+        if (
+            fundamentals.get("score", 0) >= 90
+            and fundamentals.get("f_score") is not None
+            and fundamentals.get("f_score", 0) >= 7
+            and fundamentals.get("is_deep_healthy", True)
+        ):
+            is_star = True
+            technical_signal = f"STAR_{technical_signal}"
+
         decision = {
             "ticker": ticker,
             "action": final_action,
@@ -256,6 +268,7 @@ class SignalAgent:
                 "rsi": rsi,
                 "fundamentals_analyzed": fundamentals is not None,
                 "is_open": is_open,
+                "is_star": is_star,
             },
         }
 
@@ -333,8 +346,8 @@ class SignalAgent:
                 return False
 
         # 2. Confidence Hurdle (Switching Cost buffer)
-        # hurdle_rate might be 15-20% confidence difference
-        if potential_conf > (current_conf + 15):
+        # Increased to 25% for 65/35 strategy to minimize churn
+        if potential_conf > (current_conf + 25):
             return True
 
         return False

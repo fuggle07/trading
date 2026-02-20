@@ -23,16 +23,30 @@ class FundamentalAgent:
     async def _fetch_fmp(
         self, endpoint: str, ticker: str, params: dict = None, version: str = "v3"
     ):
-        """Helper to fetch data from FMP API. Supports path-based ticker or query-based."""
+        """
+        Helper to fetch data from FMP API.
+        - v3/v4: Mostly path-based (e.g., /v3/income-statement/AAPL)
+        - stable: Mostly query-based (e.g., /stable/technical-indicators/sma?symbol=AAPL)
+        """
         if not self.fmp_key:
             return None
 
-        # Build URL: Most v3 endpoints use path-based ticker (e.g., /quote/AAPL)
-        # Exception: Some discovery endpoints or bulk endpoints. We'll default to path-based.
-        url = f"https://financialmodelingprep.com/{version}/{endpoint}/{ticker}"
+        # Build URL and Query Params based on version
         query_params = {"apikey": self.fmp_key}
         if params:
             query_params.update(params)
+
+        if version == "stable":
+            # Stable indicators usually require ?symbol=TICKER
+            url = f"https://financialmodelingprep.com/{version}/{endpoint}"
+            if ticker:
+                query_params["symbol"] = ticker
+        else:
+            # v3/v4 usually uses path-based (e.g., /v3/quote/AAPL)
+            if ticker:
+                url = f"https://financialmodelingprep.com/{version}/{endpoint}/{ticker}"
+            else:
+                url = f"https://financialmodelingprep.com/{version}/{endpoint}"
 
         try:
             async with aiohttp.ClientSession() as session:
