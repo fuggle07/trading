@@ -361,7 +361,11 @@ async def run_audit():
                 p_market_val += float(held_tickers[s]) * float(q.ask_price)
             
             p_cash = portfolio_manager.get_cash_balance()
-            p_equity = p_cash + p_market_val
+            
+            # Fetch Account Equity directly from Alpaca for source-of-truth accuracy
+            alpaca_account = (await asyncio.to_thread(reconciler.trading_client.get_account)) if reconciler.trading_client else None
+            p_equity = float(alpaca_account.equity) if alpaca_account else (p_cash + p_market_val)
+            
             p_commitment = (p_market_val / p_equity) * 100 if p_equity > 0 else 0
             
             print(f"📊 Preliminary Commitment: {p_commitment:.1f}% (${p_market_val:,.2f} / ${p_equity:,.2f})")

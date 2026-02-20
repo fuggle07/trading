@@ -144,7 +144,7 @@ class SignalAgent:
             # if the narrative (sentiment) and health (fundamentals) are solid.
             if is_low_exposure:
                 # Proactive Entry: Allow "HOLD" technical signals if narrative and internals are high quality
-                if sentiment > 0.5 and fundamentals.get("score", 0) > 70:
+                if sentiment >= 0.4 and fundamentals.get("score", 0) >= 70:
                     final_action = "BUY"
                     conviction = 70
                     technical_signal = "PROACTIVE_WARRANTED_ENTRY"
@@ -205,7 +205,7 @@ class SignalAgent:
 
             elif f_score <= 1:
                 # CASE B: Confirmed Bad Fundamentals -> Turnaround Play requirements
-                if ai_confidence > 80 and sentiment > 0.6:
+                if ai_confidence >= 80 and sentiment >= 0.6:
                     technical_signal = f"TURNAROUND_PLAY_FSCORE_{f_score}"
                     conviction = max(conviction, 80)
                 else:
@@ -220,7 +220,7 @@ class SignalAgent:
                 if f_score < f_score_threshold:
                     # Check for bypass if low-ish score but high AI confidence
                     bypass_threshold = 65 if is_low_exposure else 80
-                    if ai_confidence > bypass_threshold:
+                    if ai_confidence >= bypass_threshold:
                         technical_signal = f"BUY_FSCORE_{f_score}_BYPASS"
                         conviction = max(conviction, 80)
                     else:
