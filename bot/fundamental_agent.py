@@ -23,12 +23,14 @@ class FundamentalAgent:
     async def _fetch_fmp(
         self, endpoint: str, ticker: str, params: dict = None, version: str = "v3"
     ):
-        """Helper to fetch data from FMP API."""
+        """Helper to fetch data from FMP API. Supports path-based ticker or query-based."""
         if not self.fmp_key:
             return None
 
-        url = f"https://financialmodelingprep.com/{version}/{endpoint}"
-        query_params = {"symbol": ticker, "apikey": self.fmp_key}
+        # Build URL: Most v3 endpoints use path-based ticker (e.g., /quote/AAPL)
+        # Exception: Some discovery endpoints or bulk endpoints. We'll default to path-based.
+        url = f"https://financialmodelingprep.com/{version}/{endpoint}/{ticker}"
+        query_params = {"apikey": self.fmp_key}
         if params:
             query_params.update(params)
 
@@ -504,9 +506,9 @@ class FundamentalAgent:
         total_enterprise_value = sum(future_cash_flows) + discounted_terminal_value
         fair_value = total_enterprise_value / shares_outstanding
 
-        return round(fair_value, 2)
+        return float(round(fair_value, 2))
 
-    def calculate_piotroski_f_score(self, financials):
+    def calculate_piotroski_f_score(self, financials, ticker: str):
         """
         Calculates Piotroski F-Score (0-9) using Annual Data.
         Requires at least 2 years of data in 'income', 'balance', 'cash'.
@@ -519,13 +521,18 @@ class FundamentalAgent:
 
             if len(inc) < 2 or len(bal) < 2 or len(cfs) < 2:
                 # Log specific counts to help debug "None" results vs "0"
-                logger.debug(f"F-Score Data Gaps: Inc={len(inc)}, Bal={len(bal)}, Cash={len(cfs)}")
+                logger.debug(f"[{ticker}] F-Score Data Gaps: Inc={len(inc)}, Bal={len(bal)}, Cash={len(cfs)}")
                 return None  # Distinguish: None=Missing, 0=Poor Fundamentals
 
             # Year 0 (Current/Most Recent), Year 1 (Previous)
             i0, i1 = inc[0], inc[1]
             b0, b1 = bal[0], bal[1]
             c0, _c1 = cfs[0], cfs[1]
+
+            # SURGICAL LOGGING: Inspect fields for NVDA/MU to catch schema shifts
+            logger.info(f"[{ticker}] F-Score Drilldown: inc0 keys={list(i0.keys())[:5]}")
+            logger.debug(f"[{ticker}] i0: NetInc={i0.get('netIncome')}, Rev={i0.get('revenue')}")
+            logger.debug(f"[{ticker}] b0: Assets={b0.get('totalAssets')}, Liab={b0.get('totalLiabilities')}")
 
             # --- Profitability (4 pts) ---
             net_income = float(i0.get("netIncome", 0))
@@ -759,7 +766,7 @@ class FundamentalAgent:
                     price = float(quote_data[0].get("price", 0))
 
                 # --- A. Piotroski F-Score ---
-                f_score = self.calculate_piotroski_f_score(financials)
+                f_score = self.calculate_piotroski_f_score(financials, ticker)
 
                 # --- B. DCF Valuation ---
                 fair_value = 0.0
@@ -798,9 +805,12 @@ class FundamentalAgent:
 
                 # --- Rating Logic ---
                 # 1. Financial Strength (F-Score)
-                if f_score < 4:
+                # Safeguard against NoneType comparison
+                if f_score is not None and f_score < 4:
                     is_deep = False
                     d_reason_parts.append(f"Weak Financials (F-Score {f_score}/9)")
+                elif f_score is None:
+                    d_reason_parts.append("F-Score N/A (Insufficient Data)")
                 else:
                     d_reason_parts.append(f"F-Score {f_score}/9")
 

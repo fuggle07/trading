@@ -182,6 +182,7 @@ async def get_macro_context() -> dict:
     macro_data = {
         "indices": {},
         "rates": {},
+        "calendar": [],
         "vix": 0.0,
         "formatted": "Market Context: Stable",
     }
@@ -196,18 +197,28 @@ async def get_macro_context() -> dict:
             indices_task, rates_task, calendar_task
         )
 
+        indices = indices or {}
+        rates = rates or {}
+        calendar = calendar or []
+
         macro_data["indices"] = indices
         macro_data["rates"] = rates
         macro_data["calendar"] = calendar
-        macro_data["vix"] = indices.get("vix", 0.0)
+        
+        # Explicit cast and safe retrieval to prevent type comparison errors
+        vix_val = indices.get("vix") or indices.get("vix_proxy_vxx") or 0.0
+        macro_data["vix"] = float(vix_val)
 
         parts = []
-        if "spy_perf" in indices:
-            parts.append(f"SPY: {indices['spy_perf']:.2f}%")
-        if "qqq_perf" in indices:
-            parts.append(f"QQQ: {indices['qqq_perf']:.2f}%")
-        if "10Y" in rates:
-            parts.append(f"10Y Yield: {rates['10Y']:.2f}%")
+        if isinstance(indices, dict):
+            if indices.get("spy_perf") is not None:
+                parts.append(f"SPY: {float(indices['spy_perf']):.2f}%")
+            if indices.get("qqq_perf") is not None:
+                parts.append(f"QQQ: {float(indices['qqq_perf']):.2f}%")
+        
+        if isinstance(rates, dict) and rates.get("10Y") is not None:
+            parts.append(f"10Y Yield: {float(rates['10Y']):.2f}%")
+            
         if macro_data["vix"] > 0:
             parts.append(f"VIX: {macro_data['vix']:.2f}")
 
