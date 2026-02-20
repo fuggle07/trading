@@ -36,8 +36,8 @@ class FundamentalAgent:
         if params:
             query_params.update(params)
 
-        # USE api. SUBDOMAIN FOR MAXIMUM RELIABILITY
-        base_url = "https://api.financialmodelingprep.com"
+        # MAIN DOMAIN IS MORE COMPATIBLE WITH STABLE
+        base_url = "https://financialmodelingprep.com"
 
         if version == "stable":
             # Stable endpoints use query params for symbols
@@ -235,9 +235,9 @@ class FundamentalAgent:
         Fetches upcoming High-Impact US economic events.
         Fallbacks to Finnhub if FMP fails.
         """
-        # 1. Try FMP (v3)
+        # 1. Try FMP (stable)
         if self.fmp_key:
-            data = await self._fetch_fmp("economic_calendar", "", version="v3")
+            data = await self._fetch_fmp("economic-calendar", "", version="stable")
             if data and isinstance(data, list):
                 high_impact = [
                     ev
@@ -275,12 +275,12 @@ class FundamentalAgent:
 
     async def get_treasury_rates(self) -> dict:
         """
-        Fetches the latest US Treasury Rates (v4 /treasury_rates).
+        Fetches the latest US Treasury Rates (stable /treasury-rates).
         Fallbacks to Finnhub (MA-USA codes) if FMP fails.
         """
-        # 1. Try FMP (v4)
+        # 1. Try FMP (stable)
         if self.fmp_key:
-            data = await self._fetch_fmp("treasury_rates", "", version="v4")
+            data = await self._fetch_fmp("treasury-rates", "", version="stable")
             if data and isinstance(data, list):
                 latest = data[0]
                 return {
@@ -324,12 +324,11 @@ class FundamentalAgent:
                     }
             except Exception as e:
                 logger.error(f"⚠️ AlphaVantage Treasury Fallback failed: {e}")
-
         return {}
 
     async def get_market_indices(self) -> dict:
         """
-        Fetches VIX (Fear Index) and other major indices via /quote.
+        Fetches VIX (Fear Index) and other major indices via stable /quote.
         Fallbacks to Finnhub Index Quotes or Volatility ETF (VXX) if indices are restricted.
         """
         results = {"vix": 0.0, "spy_perf": 0.0, "qqq_perf": 0.0}
@@ -337,7 +336,7 @@ class FundamentalAgent:
         # 1. Try FMP (v3)
         if self.fmp_key:
             indices = "^VIX,SPY,QQQ"
-            data = await self._fetch_fmp("quote", indices, version="v3")
+            data = await self._fetch_fmp("quote", indices, version="stable")
             if data and isinstance(data, list):
                 for item in data:
                     sym = item.get("symbol")
@@ -472,24 +471,42 @@ class FundamentalAgent:
     async def fetch_annual_financials(self, ticker):
         """
         Fetches annual financial statements: Income, Balance Sheet, Cash Flow.
-        Uses the standard v3 API with a limit of 2 years for YoY comparison.
+        Uses the stable API with a limit of 2 years for YoY comparison.
         """
         financials = {"income": [], "balance": [], "cash": []}
         if not self.fmp_key:
             return financials
 
-        endpoints = {
-            "income": "income-statement",
-            "balance": "balance-sheet-statement",
-            "cash": "cash-flow-statement",
-        }
+        inc_task = self._fetch_fmp(
+            "income-statement", ticker, params={"limit": 2, "period": "annual"}
+        )
+        bal_task = self._fetch_fmp(
+            "balance-sheet-statement",
+            ticker,
+            params={"limit": 2, "period": "annual"},
+        )
+        cash_task = self._fetch_fmp(
+            "cash-flow-statement", ticker, params={"limit": 2, "period": "annual"}
+        )
 
-        for key, endpoint in endpoints.items():
-            res = await self._fetch_fmp(endpoint, ticker, params={"limit": 2})
-            if res and isinstance(res, list):
-                financials[key] = res
-            else:
-                logger.warning(f"[{ticker}] ⚠️ FMP {key} returned no list-based data.")
+        income_data, balance_data, cash_data = await asyncio.gather(
+            inc_task, bal_task, cash_task
+        )
+
+        if income_data and isinstance(income_data, list):
+            financials["income"] = income_data
+        else:
+            logger.warning(f"[{ticker}] ⚠️ FMP income-statement returned no list-based data.")
+
+        if balance_data and isinstance(balance_data, list):
+            financials["balance"] = balance_data
+        else:
+            logger.warning(f"[{ticker}] ⚠️ FMP balance-sheet-statement returned no list-based data.")
+
+        if cash_data and isinstance(cash_data, list):
+            financials["cash"] = cash_data
+        else:
+            logger.warning(f"[{ticker}] ⚠️ FMP cash-flow-statement returned no list-based data.")
 
         return financials
 
@@ -746,7 +763,7 @@ class FundamentalAgent:
 
     async def evaluate_deep_health(self, ticker: str):
         """
-        Returns (is_healthy, h_reason, is_deep_healthy, d_reason, f_score) 
+        Returns (is_healthy, h_reason, is_deep_healthy, d_reason, f_score)
         using Advanced Fundamental Analysis.
         Integrates DCF, Piotroski F-Score, and Growth.
         Consolidated to check cache once.
@@ -755,19 +772,8 @@ class FundamentalAgent:
         cached = await asyncio.to_thread(self._get_cached_evaluation, ticker)
         if cached:
             logger.info(f"[{ticker}] 💾 Using cached health for {ticker}")
-            
+
             # Extract f_score from metrics_json if available
-        # 1. Check Cache (Disabled for debugging F-Score issues)
-        # cached = await asyncio.to_thread(self._get_cached_evaluation, ticker)
-        # if cached:
-        #     logger.info(f"[{ticker}] 💾 Using cached health for {ticker}")
-            
-        #     # Extract f_score from metrics_json if available
-        #     import json
-        #     metrics = {}
-        #     f_score = 0
-            
-        #     # The get_cached_evaluation query doesn't pull metrics_json? 
         #     # Let's check the query in _get_cached_evaluation.
         #     # (Self-correction: I need to check _get_cached_evaluation definition)
             
