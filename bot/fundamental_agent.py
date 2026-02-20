@@ -31,7 +31,7 @@ class FundamentalAgent:
         if not self.fmp_key:
             return None
 
-        # Build URL and Query Params based on version
+        ticker = ticker.upper() if ticker else ""
         query_params = {"apikey": self.fmp_key}
         if params:
             query_params.update(params)
@@ -42,35 +42,37 @@ class FundamentalAgent:
             if ticker:
                 query_params["symbol"] = ticker
         else:
-            # Revert /api/ prefix — FMP often prefers direct version paths for statement endpoints
+            # v3/v4 MUST use /api/ prefix for reliable routing
+            prefix = "api/" if version.startswith("v") else ""
             if ticker:
-                url = f"https://financialmodelingprep.com/{version}/{endpoint}/{ticker}"
+                url = f"https://financialmodelingprep.com/{prefix}{version}/{endpoint}/{ticker}"
             else:
-                url = f"https://financialmodelingprep.com/{version}/{endpoint}"
+                url = f"https://financialmodelingprep.com/{prefix}{version}/{endpoint}"
 
         # HIGH VISIBILITY DEBUG
-        print(f"🔍 DEBUG: FMP Fetching {ticker} via {url}")
+        print(f"🔍 FMP REQ: {url} | Params: {list(params.keys()) if params else []}")
 
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
                     url, params=query_params, timeout=10
                 ) as response:
-                    if response.status == 200:
+                    status = response.status
+                    if status == 200:
                         data = await response.json()
                         if data:
                             return data
-                    elif response.status == 403:
-                        # Premium endpoint not available on free FMP tier — skip silently
-                        logger.debug(
-                            f"[{ticker}] ⚠️ FMP {endpoint}: 403 (premium tier required, skipping)"
-                        )
-                    else:
-                        logger.error(
-                            f"[{ticker}] ❌ FMP Error {endpoint}: {response.status}"
-                        )
+                        print(f"⚠️ FMP EMPTY: {url} returned empty data.")
+                        return []
+                    
+                    # Log failure details
+                    try:
+                        err_text = await response.text()
+                        print(f"❌ FMP FAIL [{status}]: {url} | Body: {err_text[:100]}")
+                    except:
+                        print(f"❌ FMP FAIL [{status}]: {url}")
         except Exception as e:
-            logger.error(f"[{ticker}] ⚠️ FMP Exception {endpoint}: {e}")
+            print(f"⚠️ FMP EXCEPTION: {url} | {e}")
         return None
 
     async def _fetch_alphavantage(self, function: str, params: dict = None):

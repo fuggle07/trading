@@ -204,8 +204,16 @@ class SignalAgent:
                     conviction = 0
                     technical_signal = "REJECT_INSUFFICIENT_DATA"
                 else:
-                    technical_signal = f"{technical_signal}_DATA_MISSING_BYPASS"
-                    conviction = max(conviction, 70)
+                    # Proceed with "PROACTIVE" but with lower conviction since data is missing
+                    # If sentiment is good, allow it. Standardizing on 0.2 hurdle
+                    if sentiment >= 0.2:
+                        final_action = "BUY"
+                        conviction = 70
+                        technical_signal = "PROACTIVE_WARRANTED_DATA_MISSING_BYPASS"
+                    else:
+                        final_action = "IDLE"
+                        conviction = 0
+                        technical_signal = "REJECT_LOW_SENTIMENT_DATA_MISSING"
 
             elif f_score <= 1:
                 # CASE B: Confirmed Bad Fundamentals -> Turnaround Play requirements
