@@ -215,8 +215,14 @@ class FundamentalAgent:
                 "institutional-ownership/symbol-positions-summary", ticker
             )
 
-            ratings_data, target_data, inst_data = await asyncio.gather(
-                ratings_task, target_task, inst_task
+            # 4. Insider Trading (FMP /stable/insider-trading/search)
+            # Available on free tiers. Provides high-signal Buy vs Sell context.
+            insider_task = self._fetch_fmp(
+                "insider-trading/search", ticker, params={"limit": 100}
+            )
+
+            ratings_data, target_data, inst_data, insider_data = await asyncio.gather(
+                ratings_task, target_task, inst_task, insider_task
             )
 
             if ratings_data and isinstance(ratings_data, list):
@@ -230,6 +236,19 @@ class FundamentalAgent:
                 cons = t.get("consensus", "Neutral")
                 targets = f"Target: ${t.get('targetHigh', 0)} / Consensus: {cons}"
                 intelligence["analyst_consensus"] = f"{cons} ({targets})"
+
+            if insider_data and isinstance(insider_data, list):
+                # Calculate Insider Momentum: Buy vs Sell ratio in recent trades
+                buys = len([t for t in insider_data if "Buy" in t.get("transactionType", "")])
+                sells = len([t for t in insider_data if "Sale" in t.get("transactionType", "")])
+                total = buys + sells
+                if total > 0:
+                    ratio = (buys / total) * 100
+                    intelligence["insider_momentum"] = (
+                        f"{ratio:.1f}% Insider Buy-Side (Over {total} trades)"
+                    )
+                else:
+                    intelligence["insider_momentum"] = "No Recent Activity"
 
             if inst_data and isinstance(inst_data, list):
                 pct = float(inst_data[0].get("totalOwnershipPercentage") or inst_data[0].get("ownershipPercentage", 0) or 0)

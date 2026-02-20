@@ -511,6 +511,7 @@ async def run_audit():
                     "institutional_flow": res_intel.get(
                         "institutional_momentum", "Neutral"
                     ),
+                    "insider_momentum": res_intel.get("insider_momentum", "N/A"),
                     "rsi": float(res_rsi.get("rsi", 50)) if res_rsi else 50.0,
                     "sma_stretch_pct": round(sma_stretch, 2),
                 }

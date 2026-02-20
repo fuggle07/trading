@@ -47,6 +47,7 @@ class SentimentAnalyzer:
             Market-Wide Context: {context.get('macro', 'Stable')}
             Analyst Consensus: {context.get('analyst_consensus', 'Neutral')}
             Institutional Flow: {context.get('institutional_flow', 'Neutral')}
+            Insider Momentum: {context.get('insider_momentum', 'N/A')}
             Technical RSI (14): {context.get('rsi', 'N/A')}
             SMA-20 Stretch: {context.get('sma_stretch_pct', '0')}% from baseline
             """
@@ -63,7 +64,7 @@ class SentimentAnalyzer:
         {news_text if news_items else "No recent news found for this ticker."}
 
         Task:
-        Synthesize technical momentum (RSI, SMA Stretch), analyst ratings, institutional flow, and news sentiment into a single conviction score.
+        Synthesize technical momentum (RSI, SMA Stretch), analyst ratings, institutional flow, insider trading, and news sentiment into a single conviction score.
         A score of 1.0 means extreme upside with positive momentum and narrative; -1.0 means high risk/overbought with toxic news.
 
         Return a single JSON object with the following keys:
