@@ -979,6 +979,80 @@ async def run_hindsight_endpoint():
 # --- 4. FLASK ROUTES ---
 
 
+@app.route("/equity")
+def equity_snapshot():
+    """
+    Returns live portfolio equity calculated directly from BigQuery.
+    Bypasses performance_logs cache — always reflects the latest state.
+    """
+    try:
+        # 1. Fetch all portfolio rows
+        query = f"""
+            SELECT asset_name, holdings, cash_balance, avg_price, last_updated
+            FROM `{portfolio_table_id}`
+            ORDER BY asset_name
+        """
+        rows = list(bq_client.query(query).result())
+
+        # 2. Get latest prices from watchlist_logs for held tickers
+        price_query = f"""
+            SELECT ticker, price
+            FROM (
+                SELECT ticker, price,
+                    ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY timestamp DESC) as rn
+                FROM `{table_id}`
+            )
+            WHERE rn = 1
+        """
+        price_rows = list(bq_client.query(price_query).result())
+        latest_prices = {{r.ticker: float(r.price) for r in price_rows}}
+
+        # 3. Build breakdown
+        total_cash = 0.0
+        total_market_value = 0.0
+        positions = []
+
+        for row in rows:
+            ticker = row.asset_name
+            if ticker == "USD":
+                total_cash = float(row.cash_balance)
+                continue
+
+            holdings = float(row.holdings)
+            avg_price = float(row.avg_price or 0)
+            current_price = latest_prices.get(ticker, 0.0)
+            market_value = holdings * current_price
+            cost_basis = holdings * avg_price
+            unrealized_pnl = market_value - cost_basis
+
+            if holdings > 0:
+                total_market_value += market_value
+                positions.append({
+                    "ticker": ticker,
+                    "holdings": holdings,
+                    "avg_price": round(avg_price, 4),
+                    "current_price": round(current_price, 4),
+                    "market_value": round(market_value, 2),
+                    "unrealized_pnl": round(unrealized_pnl, 2),
+                    "last_updated": row.last_updated.isoformat() if row.last_updated else None,
+                })
+
+        total_equity = total_cash + total_market_value
+        exposure_pct = (total_market_value / total_equity * 100) if total_equity > 0 else 0.0
+
+        return jsonify({
+            "total_equity_usd": round(total_equity, 2),
+            "total_cash_usd": round(total_cash, 2),
+            "total_market_value_usd": round(total_market_value, 2),
+            "exposure_pct": round(exposure_pct, 1),
+            "positions": positions,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/health")
 def health():
     return (

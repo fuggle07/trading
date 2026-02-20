@@ -51,8 +51,6 @@ class FundamentalAgent:
             else:
                 url = f"{base_url}/{version}/{endpoint}"
 
-        # HIGH VISIBILITY DEBUG
-        print(f"🔍 FMP REQ: {url} | Params: {list(params.keys()) if params else []}")
 
         try:
             async with aiohttp.ClientSession() as session:
@@ -64,17 +62,16 @@ class FundamentalAgent:
                         data = await response.json()
                         if data:
                             return data
-                        print(f"⚠️ FMP EMPTY: {url} returned empty data.")
                         return []
-                    
-                    # Log failure details
+
+                    # Log failure details (kept for production troubleshooting)
                     try:
                         err_text = await response.text()
-                        print(f"❌ FMP FAIL [{status}]: {url} | Body: {err_text[:100]}")
+                        logger.warning(f"FMP [{status}]: {url} | {err_text[:120]}")
                     except:
-                        print(f"❌ FMP FAIL [{status}]: {url}")
+                        logger.warning(f"FMP [{status}]: {url}")
         except Exception as e:
-            print(f"⚠️ FMP EXCEPTION: {url} | {e}")
+            logger.warning(f"FMP exception: {url} | {e}")
         return None
 
     async def _fetch_alphavantage(self, function: str, params: dict = None):
@@ -209,20 +206,14 @@ class FundamentalAgent:
             # 2. Price Target Consensus (FMP /stable/price-target-consensus)
             target_task = self._fetch_fmp("price-target-consensus", ticker)
 
-            # 3. Institutional Ownership % (FMP /stable/institutional-ownership/symbol-positions-summary)
-            # This is often restricted (402) on free tiers, handle gracefully.
-            inst_task = self._fetch_fmp(
-                "institutional-ownership/symbol-positions-summary", ticker
-            )
-
-            # 4. Insider Trading (FMP /stable/insider-trading/search)
+            # 3. Insider Trading (FMP /stable/insider-trading/search)
             # Available on free tiers. Provides high-signal Buy vs Sell context.
             insider_task = self._fetch_fmp(
                 "insider-trading/search", ticker, params={"limit": 100}
             )
 
-            ratings_data, target_data, inst_data, insider_data = await asyncio.gather(
-                ratings_task, target_task, inst_task, insider_task
+            ratings_data, target_data, insider_data = await asyncio.gather(
+                ratings_task, target_task, insider_task
             )
 
             if ratings_data and isinstance(ratings_data, list):
@@ -250,14 +241,6 @@ class FundamentalAgent:
                 else:
                     intelligence["insider_momentum"] = "No Recent Activity"
 
-            if inst_data and isinstance(inst_data, list):
-                pct = float(inst_data[0].get("totalOwnershipPercentage") or inst_data[0].get("ownershipPercentage", 0) or 0)
-                intelligence["institutional_momentum"] = (
-                    f"{pct:.1f}% Institutional Ownership"
-                )
-            elif inst_data is None:
-                # Handle 402 Restricted gracefully
-                intelligence["institutional_momentum"] = "Restricted (Pro/Premium)"
 
         except Exception as e:
             logger.error(f"[{ticker}] ⚠️ Failed to fetch intelligence metrics: {e}")
@@ -603,10 +586,6 @@ class FundamentalAgent:
             i0, i1 = inc[0], inc[1]
             b0, b1 = bal[0], bal[1]
             c0, _c1 = cfs[0], cfs[1]
-
-            # SURGICAL LOGGING: Inspect ALL fields to verify stable schema
-            logger.info(f"[{ticker}] F-Score Drilldown: inc0 keys={list(i0.keys())}")
-            logger.debug(f"[{ticker}] i0 full: {i0}")
 
             # --- Profitability (4 pts) ---
             net_income = float(i0.get("netIncome", 0))
