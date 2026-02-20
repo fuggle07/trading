@@ -21,12 +21,12 @@ class FundamentalAgent:
             logger.info("✅ Financial Modeling Prep (FMP) Connected")
 
     async def _fetch_fmp(
-        self, endpoint: str, ticker: str, params: dict = None, version: str = "v3"
+        self, endpoint: str, ticker: str, params: dict = None, version: str = "stable"
     ):
         """
         Helper to fetch data from FMP API.
-        - v3/v4: Mostly path-based (e.g., /api/v3/income-statement/AAPL)
-        - stable: Mostly query-based (e.g., /stable/technical-indicators/sma?symbol=AAPL)
+        - stable: Query-based (e.g., /stable/income-statement?symbol=AAPL)
+        - v3/v4: Path-based (e.g., /v3/economic_calendar)
         """
         if not self.fmp_key:
             return None
@@ -36,18 +36,20 @@ class FundamentalAgent:
         if params:
             query_params.update(params)
 
+        # USE api. SUBDOMAIN FOR MAXIMUM RELIABILITY
+        base_url = "https://api.financialmodelingprep.com"
+
         if version == "stable":
-            # Stable indicators usually require ?symbol=TICKER
-            url = f"https://financialmodelingprep.com/{version}/{endpoint}"
+            # Stable endpoints use query params for symbols
+            url = f"{base_url}/{version}/{endpoint}"
             if ticker:
                 query_params["symbol"] = ticker
         else:
-            # v3/v4 MUST use /api/ prefix for reliable routing
-            prefix = "api/" if version.startswith("v") else ""
+            # v3/v4 usually use path-based symbols
             if ticker:
-                url = f"https://financialmodelingprep.com/{prefix}{version}/{endpoint}/{ticker}"
+                url = f"{base_url}/{version}/{endpoint}/{ticker}"
             else:
-                url = f"https://financialmodelingprep.com/{prefix}{version}/{endpoint}"
+                url = f"{base_url}/{version}/{endpoint}"
 
         # HIGH VISIBILITY DEBUG
         print(f"🔍 FMP REQ: {url} | Params: {list(params.keys()) if params else []}")
@@ -198,12 +200,13 @@ class FundamentalAgent:
             return intelligence
 
         try:
-            # 1. Analyst Ratings (FMP /analyst-stock-recommendations)
+            # 1. Analyst Ratings (FMP /stable/analyst-stock-recommendations)
             ratings_task = self._fetch_fmp("analyst-stock-recommendations", ticker)
 
-            # 2. Institutional Ownership %
+            # 2. Institutional Ownership % (FMP /stable/institutional-ownership/symbol-positions-summary)
+            # Use the stable Positions Summary for reliability
             inst_task = self._fetch_fmp(
-                "institutional-ownership/symbol-ownership-percent", ticker
+                "institutional-ownership/symbol-positions-summary", ticker
             )
 
             ratings_data, inst_data = await asyncio.gather(ratings_task, inst_task)
@@ -215,7 +218,9 @@ class FundamentalAgent:
                 )
 
             if inst_data and isinstance(inst_data, list):
-                pct = float(inst_data[0].get("totalOwnershipPercentage", 0) or 0)
+                # The stable Positions Summary might have different field names
+                # Try both totalOwnershipPercentage and the snapshot summary field
+                pct = float(inst_data[0].get("totalOwnershipPercentage") or inst_data[0].get("ownershipPercentage", 0) or 0)
                 intelligence["institutional_momentum"] = (
                     f"{pct:.1f}% Institutional Ownership"
                 )
