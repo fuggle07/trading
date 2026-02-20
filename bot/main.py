@@ -10,10 +10,9 @@ from bot.telemetry import log_watchlist_data, log_macro_snapshot, log_decision
 import pytz
 import traceback
 from google.cloud import bigquery
-from alpaca.data.requests import StockBarsRequest, StockQuotesRequest
-from alpaca.data.timeframe import TimeFrame
-from alpaca.data.live.stock import StockDataClient
 from alpaca.data.historical import StockHistoricalDataClient
+from alpaca.data.requests import StockBarsRequest, StockLatestQuoteRequest
+from alpaca.data.timeframe import TimeFrame
 from bot.signal_agent import SignalAgent
 from bot.execution_manager import ExecutionManager
 from bot.portfolio_manager import PortfolioManager
@@ -97,6 +96,9 @@ def _get_ny_time():
 ALPACA_KEY = os.environ.get("ALPACA_API_KEY")
 ALPACA_SECRET = os.environ.get("ALPACA_API_SECRET")
 
+# Alpaca Data Client
+stock_historical_client = StockHistoricalDataClient(ALPACA_KEY, ALPACA_SECRET) if ALPACA_KEY and ALPACA_SECRET else None
+
 
 async def fetch_historical_data(ticker):
     """Fetches daily candles for the last 60 days using Alpaca."""
@@ -108,7 +110,9 @@ async def fetch_historical_data(ticker):
             return None
 
         try:
-            client = StockHistoricalDataClient(ALPACA_KEY, ALPACA_SECRET)
+            # client = StockHistoricalDataClient(ALPACA_KEY, ALPACA_SECRET) # Use global client
+            if not stock_historical_client:
+                return None
 
             # Alpaca expects datetime objects
             end = datetime.now(timezone.utc)
@@ -122,7 +126,7 @@ async def fetch_historical_data(ticker):
                 feed="iex",
             )
 
-            bars = client.get_stock_bars(request_params)
+            bars = stock_historical_client.get_stock_bars(request_params)
 
             if not bars.data:
                 print(f"⚠️  Alpaca returned no data for {ticker}")
@@ -346,14 +350,14 @@ async def run_audit():
 
     # Preliminary Commitment Log (Requested by user to see early in run)
     try:
-        if held_tickers:
+        if held_tickers and stock_historical_client:
             # Quick quote fetch for just held assets to show commitment
             held_symbols = list(held_tickers.keys())
-            early_quotes_req = StockQuotesRequest(symbol_or_symbols=held_symbols)
-            early_quotes = stock_data_client.get_stock_quotes(early_quotes_req)
+            early_quotes_req = StockLatestQuoteRequest(symbol_or_symbols=held_symbols)
+            early_quotes = stock_historical_client.get_stock_latest_quote(early_quotes_req)
             
             p_market_val = 0.0
-            for s, q in early_quotes.data.items():
+            for s, q in early_quotes.items():
                 p_market_val += float(held_tickers[s]) * float(q.ask_price)
             
             p_cash = portfolio_manager.get_cash_balance()
