@@ -194,8 +194,6 @@ class SignalAgent:
             f_score = fundamentals.get("f_score")
             ai_confidence = fundamentals.get("score", 0)
 
-            # HIGH VISIBILITY DEBUG
-            print(f"🕵️ SIGNAL DEBUG [{ticker}]: f_score={f_score}, ai={ai_confidence}, sent={sentiment}")
 
             if f_score is None:
                 # CASE A: Missing Data -> Require reasonable AI Confidence to proceed blindly

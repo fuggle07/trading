@@ -8,86 +8,109 @@
 
 ## 1. Lifecycle Management
 
-To maintain the node, use the standardized `setup_node.sh` orchestrator. It handles the dependency chain in the correct order:
-
-1.  **Build**: `docker buildx build ...`
-2.  **Push**: `docker push ...` (to Artifact Registry)
-3.  **Deploy**: Updates Cloud Run service with new image and environment variables.
-4.  **Provision**: Applies Terraform configuration for BigQuery and Secret Manager.
-
 ### Deployment Command
+Deploy infrastructure and bot together using the CI/CD pipeline or manually:
+
 ```bash
-./scripts/01_deploy_infra.sh
+# Deploy infrastructure (BigQuery tables, Monitoring, Secrets)
+cd terraform && terraform apply
+
+# Deploy bot (build Docker image and push to Cloud Run)
+./scripts/04_deploy_bot.sh
 ```
+
+The standard sequence is:
+1.  **Build**: `docker buildx build ...`
+2.  **Push**: `docker push ...` (Artifact Registry)
+3.  **Deploy**: Update Cloud Run service with new image and environment variables.
+4.  **Provision**: `terraform apply` to update BigQuery / Monitoring / Secrets.
 
 ---
 
 ## 2. Secrets Management
 
-The bot relies on the following secrets, stored securely in **GCP Secret Manager** and injected as environment variables at runtime.
+The bot relies on the following secrets, stored in **GCP Secret Manager** and injected as environment variables at runtime.
 
 | Secret Name | Provider | Purpose |
 | --- | --- | --- |
-| `FINNHUB_KEY` | Finnhub.io | News Sentiment & Filing Data |
+| `FMP_KEY` | Financial Modeling Prep | Fundamentals, Technicals, Insider Data (primary source) |
+| `EXCHANGE_API_KEY` | Finnhub.io | News Sentiment & Macro fallback |
 | `ALPACA_API_KEY` | Alpaca | Market Data & Order Execution |
 | `ALPACA_API_SECRET` | Alpaca | Market Data & Order Execution |
-| `ALPHA_VANTAGE_KEY` | Alpha Vantage | Fundamental Data (PE/EPS) |
 
-**Sync Protocol**:
-To update or inject new keys, ensure they are in your local `.env` file (or exported in your shell) and run:
+**Optional / Legacy:**
+
+| Secret Name | Provider | Purpose |
+| --- | --- | --- |
+| `ALPHA_VANTAGE_KEY` | Alpha Vantage | Supplementary fundamental data (fallback) |
+| `MORTGAGE_RATE` | — | Annualised home loan rate (e.g., `0.054`) |
+| `INITIAL_CASH` | — | Starting cash pool (default `50000.0`) |
+| `BASE_TICKERS` | — | Comma-separated watchlist (default `TSLA,NVDA,MU,AMD,PLTR,COIN,META,MSTR`) |
+| `MIN_EXPOSURE_THRESHOLD` | — | Min portfolio exposure before aggression (default `0.65`) |
+| `VOLATILITY_SENSITIVITY` | — | Multiplier on the vol threshold (default `1.0`) |
+
+**Sync local secrets to GCP Secret Manager:**
 ```bash
-# Example:
-export ALPACA_API_KEY="your_key"
-export ALPACA_API_SECRET="your_secret"
-export ALPHA_VANTAGE_KEY="your_key"
-./setup_node.sh
+./scripts/sync_secrets.sh
 ```
-*Note: `setup_node.sh` has logic to sync local variables to Secret Manager.*
 
 ---
 
-## 3. Operational Costs & Hurdles
+## 3. Operational Constraints
 
 ### The "Aberfeldie" Constraint
-The system operates under strict financial performance hurdles:
+*   **Capital Pool**: **$100,000 USD** (Paper Trading / Simulation mode via Alpaca).
+*   **Hurdle Rate**: Set via `MORTGAGE_RATE` env var (e.g., `0.054` = 5.4%).
+    *   Tax-adjusted effective hurdle: `Rate × (1 - 0.35)` ≈ **3.5%** annualised.
+    *   The bot only deploys capital for opportunities with a high probability of beating this benchmark.
 
-*   **Capital Pool**: **$100,000 USD** (Paper Trading / Simulation).
-*   **Hurdle Rate**: **5.2%** Annualized (Home Loan Offset Benchmark).
-    *   The bot must outperform this rate to justify its deployed capital.
-*   **Tax Deductibility**: **35%** deductibility of interest on capital, lowering the effective hurdle.
+### API Rate Limits
+*   **FMP Free Tier**: ~250 requests/day. The bot fetches 3 financial statement endpoints + 3 intelligence metrics + per-ticker technicals per cycle. Monitor usage during heavy cycles.
+*   **Finnhub Free Tier**: 60 calls/min. Used primarily for news and macro fallback.
+*   **Alpaca**: No practical limit for paper trading data.
 
 ---
 
 ## 4. Monitoring & Telemetry
 
-### A. Health Checks & Live Monitoring
-**Stream Live Logs (Best for Trading Hours):**
+### A. Live Log Streaming
 ```bash
-./scripts/live_logs.sh
-```
-*Tip: Keeps a real-time connection to the Cloud Run service output.*
-
-**Standard Connectivity Test:**
-```bash
-curl -X GET "$(terraform output -no-color -raw service_url)" \
-  -H "Authorization: Bearer $(gcloud auth print-identity-token)"
+gcloud run services logs tail trading-audit-agent --region us-central1
 ```
 
-**Force Audit Trigger:**
+### B. Health Check
 ```bash
-./scripts/trigger_bot.sh
+curl -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  "$(cd terraform && terraform output -no-color -raw service_url)/health"
 ```
 
-### B. BigQuery Analytics
-All operational data is streamed to the `trading_data` dataset.
+### C. Live Equity Endpoint
+Returns real-time portfolio equity (direct from BigQuery, not cached):
+```bash
+curl -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  "$(cd terraform && terraform output -no-color -raw service_url)/equity"
+```
+Returns JSON with `total_equity_usd`, `total_cash_usd`, `total_market_value_usd`, `exposure_pct`, and per-position breakdown with unrealized P&L.
 
-**Key Tables**:
-*   `portfolio`: Real-time state of Cash and Holdings.
-*   `executions`: History of all filled orders.
-*   `performance_logs`: Snapshot of Total Equity over time.
-*   `watchlist_logs`: Detailed decision log (Signal, Sentiment, Volatility).
+### D. Force Audit Trigger
+```bash
+curl -X POST -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  "$(cd terraform && terraform output -no-color -raw service_url)/run-audit"
+```
 
-**Verification Query (Performance):**
+### E. Portfolio State (BigQuery)
+```bash
+bash scripts/check_portfolio.sh
+```
+
+### F. Dashboard
+Google Cloud Monitoring: **Aberfeldie Node: NASDAQ Monitor**
+- **Paper Equity ($)**: Aggregated with `REDUCE_MAX` across all Cloud Run revisions — shows a single accurate equity line.
+- **Capital Allocation**: Cash vs. Assets stacked area — same aggregation fix applied.
+- **Portfolio Exposure (%)**: Live exposure percentage.
+- **Per-Ticker**: Sentiment, Bollinger Bands, RSI, Conviction, F-Score for each stock.
+
+**Key `performance_logs` Query:**
 ```sql
 SELECT timestamp, paper_equity, node_id
 FROM `utopian-calling-429014-r9.trading_data.performance_logs`
@@ -102,12 +125,27 @@ LIMIT 5;
 ### Immediate Liquidation
 To flatten all positions immediately (move to 100% Cash):
 ```bash
-python3 bot/liquidate.py
+# Alpaca paper: cancel all open orders, close all positions
+python3 -c "
+from alpaca.trading.client import TradingClient
+import os
+c = TradingClient(os.environ['ALPACA_API_KEY'], os.environ['ALPACA_API_SECRET'], paper=True)
+c.cancel_orders()
+c.close_all_positions(cancel_orders=True)
+print('All positions closed.')
+"
 ```
-*Note: This script requires `ALPACA_API_KEY` and `ALPACA_API_SECRET` to be set in your local environment.*
+*Requires `ALPACA_API_KEY` and `ALPACA_API_SECRET` set in your environment.*
+
+### Force Portfolio Resync
+If the BigQuery ledger drifts from Alpaca:
+```bash
+curl -X POST -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+  "$(cd terraform && terraform output -no-color -raw service_url)/run-audit"
+```
+The first phase of every audit cycle is a full reconciliation against Alpaca.
 
 ### Service Hard-Stop
-To delete the Cloud Run service and stop all execution:
 ```bash
 gcloud run services delete trading-audit-agent --region us-central1
 ```
@@ -116,7 +154,21 @@ gcloud run services delete trading-audit-agent --region us-central1
 
 ## 6. Known Limitations & Troubleshooting
 
-### Finnhub Free Tier Constraints
-*   **Restriction**: The free tier has strict rate limits and restricted access to historical data.
-*   **Symptom**: You may see `403 Forbidden` errors in the logs for "Historical Data".
-*   **Handling**: The bot gracefully handles this by logging the price and skipping the trade strategy for that cycle. Data from Alpaca is used for the primary decision making, so this is non-critical.
+### FMP Free Tier Endpoint Restrictions
+*   **Symptom**: `FMP [402]: ...` warning in logs for `institutional-ownership/symbol-positions-summary`.
+*   **Status**: Expected and handled — this pro-tier endpoint is excluded from free-tier calls. The bot uses **Insider Trading data** (`/stable/insider-trading/search`) as a free-tier alternative.
+*   **Action needed**: None. It is silently skipped.
+
+### FMP Free Tier Daily Limit
+*   **Symptom**: `FMP [429]` or empty data late in trading day.
+*   **Action**: The bot falls back to Finnhub/AlphaVantage for most data. Fundamental health uses caching to reduce calls.
+
+### Dashboard Equity Showing Incorrect Value
+*   **Cause**: Cloud Monitoring was summing metrics across all Cloud Run revisions.
+*   **Fix**: Applied `REDUCE_MAX` with empty `groupByFields` in `monitoring.tf` — deploys via `terraform apply`.
+*   **Quick Check**: Hit the `/equity` endpoint directly for source-of-truth equity.
+
+### Reconciler Not Syncing
+*   **Symptom**: BigQuery `portfolio` table drifts from Alpaca positions.
+*   **Check**: Look for `❌ Portfolio Sync Failed` in logs. Usually caused by missing Alpaca API keys in Secret Manager.
+*   **Fix**: Run `./scripts/sync_secrets.sh` then redeploy.

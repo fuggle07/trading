@@ -830,8 +830,8 @@ async def run_audit():
             # Calculate Allocation
             cash_pool = portfolio_manager.get_cash_balance()
             
-            # Max 25% per ticker, but also leave room for others if we are filling the 65%
-            room_to_buy = total_equity * 0.25 - held_tickers.get(ticker, {}).get(
+            # Max 33% per ticker, but also leave room for others if we are filling the 65%
+            room_to_buy = total_equity * 0.33 - held_tickers.get(ticker, {}).get(
                 "market_value", 0.0
             )
 
