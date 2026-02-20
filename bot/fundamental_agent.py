@@ -25,7 +25,7 @@ class FundamentalAgent:
     ):
         """
         Helper to fetch data from FMP API.
-        - v3/v4: Mostly path-based (e.g., /v3/income-statement/AAPL)
+        - v3/v4: Mostly path-based (e.g., /api/v3/income-statement/AAPL)
         - stable: Mostly query-based (e.g., /stable/technical-indicators/sma?symbol=AAPL)
         """
         if not self.fmp_key:
@@ -37,16 +37,19 @@ class FundamentalAgent:
             query_params.update(params)
 
         if version == "stable":
-            # Stable indicators usually require ?symbol=TICKER
+            # Stable indicators usually require ?symbol=TICKER (No /api/ prefix usually)
             url = f"https://financialmodelingprep.com/{version}/{endpoint}"
             if ticker:
                 query_params["symbol"] = ticker
         else:
-            # v3/v4 usually uses path-based (e.g., /v3/quote/AAPL)
+            # v3/v4 usually uses path-based with /api/ prefix
+            prefix = "api/" if version.startswith("v") else ""
             if ticker:
-                url = f"https://financialmodelingprep.com/{version}/{endpoint}/{ticker}"
+                url = f"https://financialmodelingprep.com/{prefix}{version}/{endpoint}/{ticker}"
             else:
-                url = f"https://financialmodelingprep.com/{version}/{endpoint}"
+                url = f"https://financialmodelingprep.com/{prefix}{version}/{endpoint}"
+
+        logger.debug(f"FMP Fetch: {url} | Params: {list(params.keys()) if params else []}")
 
         try:
             async with aiohttp.ClientSession() as session:
