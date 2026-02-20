@@ -443,16 +443,15 @@ class FundamentalAgent:
 
         return True, f"Healthy (PE {pe}, EPS {eps})"
 
-    async def fetch_annual_financials(self, ticker: str):
+    async def fetch_annual_financials(self, ticker):
         """
-        Fetches last 2 years of Annual Income, Balance, and Cash Flow statements.
-        Returns a dict with 'income', 'balance', 'cash' lists (sorted desc date).
+        Fetches annual financial statements: Income, Balance Sheet, Cash Flow.
+        Uses the standard v3 API with a limit of 2 years for YoY comparison.
         """
         financials = {"income": [], "balance": [], "cash": []}
         if not self.fmp_key:
             return financials
 
-        # Limit to 2 years to minimize data transfer / processing (we only need YoY)
         endpoints = {
             "income": "income-statement",
             "balance": "balance-sheet-statement",
@@ -460,16 +459,11 @@ class FundamentalAgent:
         }
 
         for key, endpoint in endpoints.items():
-            url = f"https://financialmodelingprep.com/stable/{endpoint}?symbol={ticker}&limit=2&apikey={self.fmp_key}"  # Switch to stable/query param
-            try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.get(url, timeout=10) as response:
-                        if response.status == 200:
-                            data = await response.json()
-                            if data and isinstance(data, list):
-                                financials[key] = data
-            except Exception as e:
-                logger.error(f"[{ticker}] ⚠️ Failed to fetch annual {key}: {e}")
+            res = await self._fetch_fmp(endpoint, ticker, params={"limit": 2})
+            if res and isinstance(res, list):
+                financials[key] = res
+            else:
+                logger.warning(f"[{ticker}] ⚠️ FMP {key} returned no list-based data.")
 
         return financials
 
@@ -524,6 +518,8 @@ class FundamentalAgent:
             cfs = financials.get("cash", [])
 
             if len(inc) < 2 or len(bal) < 2 or len(cfs) < 2:
+                # Log specific counts to help debug "None" results vs "0"
+                logger.debug(f"F-Score Data Gaps: Inc={len(inc)}, Bal={len(bal)}, Cash={len(cfs)}")
                 return None  # Distinguish: None=Missing, 0=Poor Fundamentals
 
             # Year 0 (Current/Most Recent), Year 1 (Previous)

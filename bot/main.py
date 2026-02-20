@@ -333,7 +333,7 @@ async def run_audit():
     Phase 2: Portfolio Analysis & Conviction Swapping
     Phase 3: Execution (SELLs first, then BUYs)
     """
-    tickers_env = os.environ.get("BASE_TICKERS", "NVDA,MU,TSLA,AMD,PLTR,COIN,META,MSTR")
+    tickers_env = os.environ.get("BASE_TICKERS", "TSLA,NVDA,MU,AMD,PLTR,COIN,META,MSTR")
     base_tickers = [t.strip() for t in tickers_env.split(",") if t.strip()]
 
     # --- Phase 0: Reconciliation (Source of Truth) ---
@@ -917,7 +917,7 @@ async def get_latest_confidence(ticker: str) -> Optional[int]:
 @app.route("/rank-tickers", methods=["POST"])
 async def run_ranker_endpoint():
     """Trigger the morning ticker ranking job."""
-    base = os.environ.get("BASE_TICKERS", "NVDA,MU,TSLA,AMD,PLTR,COIN,META,MSTR").split(",")
+    base = os.environ.get("BASE_TICKERS", "TSLA,NVDA,MU,AMD,PLTR,COIN,META,MSTR").split(",")
     held = list(portfolio_manager.get_held_tickers().keys())
     tickers = list(set(base + held))
     try:

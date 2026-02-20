@@ -16,7 +16,7 @@ DOT_ENV="$SCRIPT_DIR/../.env"
 # 2. Define Mandatory Parameters (The "Surgical Baseline")
 # These are the variables required for the VIX, Tax, and Hurdle logic.
 PROJECT_ID=$(gcloud config get-value project)
-BASE_TICKERS="NVDA,MU,TSLA,AMD,PLTR,COIN,META,MSTR"
+BASE_TICKERS="TSLA,NVDA,MU,AMD,PLTR,COIN,META,MSTR"
 VIX_THRESHOLD_HIGH="30.0"
 VOLATILITY_SENSITIVITY="1.0"
 MORTGAGE_HURDLE_RATE="0.054" # 5.4%
