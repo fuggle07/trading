@@ -451,7 +451,7 @@ async def run_audit():
             res_consolidated_health = (
                 intel_results[2]
                 if not isinstance(intel_results[2], Exception)
-                else (False, "Health fail", False, "Deep fail", 0)
+                else (False, "Health fail", False, "Deep fail", None)
             )
             res_history = (
                 intel_results[3]
@@ -556,7 +556,7 @@ async def run_audit():
                     sma_50=ind.get("sma_50"),
                     bb_upper=ind.get("bb_upper"),
                     bb_lower=ind.get("bb_lower"),
-                    f_score=int(res_consolidated_health[4])
+                    f_score=res_consolidated_health[4]
                     if len(res_consolidated_health) > 4
                     else None,
                     conviction=int(res_conf or 0),
@@ -760,41 +760,6 @@ async def run_audit():
                     "price": ticker_intel[rising_star]["price"],
                 }
 
-    # Fallback Deployment: If we still have low exposure and no valid rising star was bought
-    # Find the *next best* available candidate (conf > 60) that isn't volatile/sell
-    if exposure < MIN_EXPOSURE_THRESHOLD and not any(
-        s.get("reason") == "INITIAL_DEPLOYMENT" for s in signals.values()
-    ):
-        best_deploy_candidate = None
-        best_deploy_conf = 0
-
-        for t in non_held_tickers:
-            intel = ticker_intel.get(t)
-            if not intel:
-                continue
-
-            conf = intel.get("confidence", 0)
-            sig = signals.get(t, {})
-            action = sig.get("action", "IDLE")
-            tech_sig = sig.get("meta", {}).get("technical", "UNKNOWN")
-
-            # Must be > 60 conf, not volatile, not sell
-            if conf > 60 and action != "SELL" and tech_sig != "VOLATILE_IGNORE":
-                if conf > best_deploy_conf:
-                    best_deploy_conf = conf
-                    best_deploy_candidate = t
-
-        if best_deploy_candidate:
-            log_decision(
-                best_deploy_candidate,
-                "BUY",
-                f"Initial Deployment: Best Available Candidate ({best_deploy_conf}%)",
-            )
-            signals[best_deploy_candidate] = {
-                "action": "BUY",
-                "reason": "INITIAL_DEPLOYMENT",
-                "price": ticker_intel[best_deploy_candidate]["price"],
-            }
 
     # --- Phase 3: Coordinated Execution ---
     print("🚀 Executing Coordinated Trades...")
@@ -808,8 +773,11 @@ async def run_audit():
     for ticker, sig in signals.items():
         if sig.get("action") == "SELL":
             reason = sig.get("reason", "Strategy Signal")
+            # Extract position value for logging
+            position_val = held_tickers.get(ticker, {}).get("market_value", 0.0)
+
             if not effective_enabled:
-                log_decision(ticker, "SELL", f"🧊 DRY RUN: Intent SELL ({reason})")
+                log_decision(ticker, "SELL", f"🧊 DRY RUN: Intent SELL ${position_val:,.2f} ({reason})")
                 status = "dry_run_sell"
             else:
                 exec_res = execution_manager.place_order(
@@ -817,7 +785,7 @@ async def run_audit():
                 )
                 status = f"executed_{exec_res.get('status', 'FAIL')}"
                 log_decision(
-                    ticker, "SELL", f"Execution Status: {status} | Reason: {reason}"
+                    ticker, "SELL", f"Execution Status: {status} | Value: ${position_val:,.2f} | Reason: {reason}"
                 )
 
             execution_results.append(
@@ -828,21 +796,27 @@ async def run_audit():
     for ticker, sig in signals.items():
         if sig.get("action") == "BUY":
             reason = sig.get("reason", "Strategy Signal")
+
+            # Calculate Allocation regardless of DRY RUN
+            cash_pool = portfolio_manager.get_cash_balance()
+            room_to_buy = total_equity * 0.25 - held_tickers.get(ticker, {}).get(
+                "market_value", 0.0
+            )
+
+            base_unit = total_equity * 0.05
+            intel = ticker_intel.get(ticker, {})
+            sentiment = float(intel.get("sentiment", 0.0))
+            multiplier = 1.0 + max(0.0, sentiment)
+            allocation = min(base_unit * multiplier, room_to_buy, cash_pool)
+
             if not effective_enabled:
-                log_decision(ticker, "BUY", f"🧊 DRY RUN: Intent BUY ({reason})")
-                status = "dry_run_buy"
+                if allocation >= 1000:
+                    log_decision(ticker, "BUY", f"🧊 DRY RUN: Intent BUY ${allocation:,.2f} ({reason})")
+                    status = "dry_run_buy"
+                else:
+                    log_decision(ticker, "SKIP", f"🧊 DRY RUN: Intent BUY rejected (Insufficient Allocation ${allocation:.2f} < $1000)")
+                    status = "skipped_insufficient_funds"
             else:
-                cash_pool = portfolio_manager.get_cash_balance()
-                room_to_buy = total_equity * 0.25 - held_tickers.get(ticker, {}).get(
-                    "market_value", 0.0
-                )
-
-                base_unit = total_equity * 0.05
-                intel = ticker_intel.get(ticker, {})
-                sentiment = float(intel.get("sentiment", 0.0))
-                multiplier = 1.0 + max(0.0, sentiment)
-                allocation = min(base_unit * multiplier, room_to_buy, cash_pool)
-
                 if allocation >= 1000:
                     exec_res = execution_manager.place_order(
                         ticker,

@@ -524,7 +524,7 @@ class FundamentalAgent:
             cfs = financials.get("cash", [])
 
             if len(inc) < 2 or len(bal) < 2 or len(cfs) < 2:
-                return 0  # Not enough data
+                return None  # Distinguish: None=Missing, 0=Poor Fundamentals
 
             # Year 0 (Current/Most Recent), Year 1 (Previous)
             i0, i1 = inc[0], inc[1]
@@ -594,7 +594,7 @@ class FundamentalAgent:
 
         except Exception as e:
             logger.error(f"F-Score Logic Error: {e}")
-            return 0
+            return None
 
         return score
 
@@ -839,9 +839,9 @@ class FundamentalAgent:
                 # FALLBACK TO BASIC HEALTH IF FMP FAILS
                 if is_healthy:
                     d_reason = "Basic Health Only (FMP Failed)"
-                    # Set a passing F-Score (5/9) to avoid blocking trades due to API failure
+                    # Set a "Neutral/Missing" F-Score (None) to avoid blocking trades due to API failure
                     # We assume "Innocent until proven guilty" if basic health passes
-                    f_score = 5
+                    f_score = None
                 else:
                     d_reason = f"Unhealthy Basic (FMP Failed): {h_reason}"
                     is_deep = False
@@ -849,7 +849,7 @@ class FundamentalAgent:
             # NO FMP KEY -> Check basic health only
             if is_healthy:
                 d_reason = "Basic Health Only (No FMP Key)"
-                f_score = 5  # Pass if basic health is good
+                f_score = None  # Neutral if data missing
             else:
                 d_reason = f"Unhealthy Basic: {h_reason}"
                 is_deep = False

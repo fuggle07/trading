@@ -143,13 +143,11 @@ class SignalAgent:
             # If we are in cash, we don't wait for price to hit the bottom band
             # if the narrative (sentiment) and health (fundamentals) are solid.
             if is_low_exposure:
-                # Lower hurdles for proactive entry
-                if sentiment > 0.3:
-                    confidence_score = fundamentals.get("score", 0)
-                    if confidence_score > 50:
-                        final_action = "BUY"
-                        conviction = 70  # Aggressive entry conviction
-                        technical_signal = "LOW_EXPOSURE_PROACTIVE_ENTRY"
+                # Proactive Entry: Allow "HOLD" technical signals if narrative and internals are high quality
+                if sentiment > 0.5 and fundamentals.get("score", 0) > 70:
+                    final_action = "BUY"
+                    conviction = 70
+                    technical_signal = "PROACTIVE_WARRANTED_ENTRY"
             
             # (Rest of strategy logic remains, lower thresholds already applied)
 
@@ -191,25 +189,47 @@ class SignalAgent:
                 technical_signal = "REJECT_UNHEALTHY"  # Update log
 
             # HURDLE 2: Deep Financial Health (F-Score)
-            # F-Score range is 0-9. < 5 implies mixed/poor signals.
-            # ENHANCEMENT: Relaxed hurdles during low exposure or high AI conviction
-            f_score_threshold = 2 if is_low_exposure else 5
+            # F-Score is 0-9. None = Data Missing.
+            f_score = fundamentals.get("f_score")
             ai_confidence = fundamentals.get("score", 0)
-            bypass_threshold = 65 if is_low_exposure else 80
 
-            if f_score < f_score_threshold:
-                # SPECIAL BYPASS: If AI Confidence is elite, buy anyway 
-                # (covers turnarounds or data gaps where F-score might be transiently 0)
-                if ai_confidence > bypass_threshold:
-                    technical_signal = f"BUY_FSCORE_{f_score}_BYPASS_CONF_{ai_confidence}"
+            if f_score is None:
+                # CASE A: Missing Data -> Require reasonable AI Confidence to proceed blindly
+                if ai_confidence < 70:
+                    final_action = "IDLE"
+                    conviction = 0
+                    technical_signal = "REJECT_INSUFFICIENT_DATA"
+                else:
+                    technical_signal = f"{technical_signal}_DATA_MISSING_BYPASS"
+                    conviction = max(conviction, 70)
+
+            elif f_score <= 1:
+                # CASE B: Confirmed Bad Fundamentals -> Turnaround Play requirements
+                if ai_confidence > 80 and sentiment > 0.6:
+                    technical_signal = f"TURNAROUND_PLAY_FSCORE_{f_score}"
                     conviction = max(conviction, 80)
                 else:
                     final_action = "IDLE"
                     conviction = 0
-                    technical_signal = f"REJECT_WEAK_FSCORE_{f_score}"
+                    technical_signal = f"REJECT_CONFIRMED_BAD_FSCORE_{f_score}"
+
+            else:
+                # CASE C: Normal/Good Fundamentals -> Use dynamic threshold
+                f_score_threshold = 2 if is_low_exposure else 5
+                
+                if f_score < f_score_threshold:
+                    # Check for bypass if low-ish score but high AI confidence
+                    bypass_threshold = 65 if is_low_exposure else 80
+                    if ai_confidence > bypass_threshold:
+                        technical_signal = f"BUY_FSCORE_{f_score}_BYPASS"
+                        conviction = max(conviction, 80)
+                    else:
+                        final_action = "IDLE"
+                        conviction = 0
+                        technical_signal = f"REJECT_LOW_FSCORE_{f_score}"
 
             # BONUS: Boost for Elite Health
-            elif f_score >= 7:
+            if f_score is not None and f_score >= 7:
                 conviction = min(100, conviction + 10)
 
         # 4. Conviction Enhancement via 'Lessons Learned'
