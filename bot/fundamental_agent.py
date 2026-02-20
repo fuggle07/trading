@@ -37,19 +37,19 @@ class FundamentalAgent:
             query_params.update(params)
 
         if version == "stable":
-            # Stable indicators usually require ?symbol=TICKER (No /api/ prefix usually)
+            # Stable indicators usually require ?symbol=TICKER
             url = f"https://financialmodelingprep.com/{version}/{endpoint}"
             if ticker:
                 query_params["symbol"] = ticker
         else:
-            # v3/v4 usually uses path-based with /api/ prefix
-            prefix = "api/" if version.startswith("v") else ""
+            # Revert /api/ prefix — FMP often prefers direct version paths for statement endpoints
             if ticker:
-                url = f"https://financialmodelingprep.com/{prefix}{version}/{endpoint}/{ticker}"
+                url = f"https://financialmodelingprep.com/{version}/{endpoint}/{ticker}"
             else:
-                url = f"https://financialmodelingprep.com/{prefix}{version}/{endpoint}"
+                url = f"https://financialmodelingprep.com/{version}/{endpoint}"
 
-        logger.debug(f"FMP Fetch: {url} | Params: {list(params.keys()) if params else []}")
+        # HIGH VISIBILITY DEBUG
+        print(f"🔍 DEBUG: FMP Fetching {ticker} via {url}")
 
         try:
             async with aiohttp.ClientSession() as session:
@@ -632,7 +632,10 @@ class FundamentalAgent:
                 missed.append("Eff_Dec(Turnover)")
 
             if score <= 2:
-                logger.info(f"[{ticker}] F-Score Drilldown FAIL: Score={score}. Missed: {', '.join(missed)}")
+                # USE PRINT FOR TERMINAL VISIBILITY
+                print(f"📉 F-SCORE DRILLDOWN [{ticker}]: Score={score}. Missed: {', '.join(missed)}")
+                if i0:
+                    print(f"   Sample Keys: {list(i0.keys())[:10]}")
 
         except Exception as e:
             logger.error(f"F-Score Logic Error: {e}")

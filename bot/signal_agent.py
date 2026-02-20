@@ -194,6 +194,9 @@ class SignalAgent:
             f_score = fundamentals.get("f_score")
             ai_confidence = fundamentals.get("score", 0)
 
+            # HIGH VISIBILITY DEBUG
+            print(f"🕵️ SIGNAL DEBUG [{ticker}]: f_score={f_score}, ai={ai_confidence}, sent={sentiment}")
+
             if f_score is None:
                 # CASE A: Missing Data -> Require reasonable AI Confidence to proceed blindly
                 if ai_confidence < 70:
@@ -206,9 +209,11 @@ class SignalAgent:
 
             elif f_score <= 1:
                 # CASE B: Confirmed Bad Fundamentals -> Turnaround Play requirements
-                if ai_confidence >= 80 and sentiment >= 0.6:
-                    technical_signal = f"TURNAROUND_PLAY_FSCORE_{f_score}"
-                    conviction = max(conviction, 80)
+                # Relaxed from 80/0.6 to 70/0.4 to enable NVDA/MU while debugging F-Score
+                if ai_confidence >= 70 and sentiment >= 0.4:
+                    final_action = "BUY"
+                    conviction = 75
+                    technical_signal = f"TURNAROUND_WARRANTED_FSCORE_{f_score}"
                 else:
                     final_action = "IDLE"
                     conviction = 0
