@@ -555,14 +555,23 @@ class FundamentalAgent:
 
             roa_prev = float(i1.get("netIncome", 0)) / float(b1.get("totalAssets", 1))
 
+            missed = []
             if net_income > 0:
                 score += 1  # 1. Positive Net Income
+            else:
+                missed.append("NetInc<=0")
             if cfo > 0:
                 score += 1  # 2. Positive Operating Cash Flow
+            else:
+                missed.append("CFO<=0")
             if roa > roa_prev:
                 score += 1  # 3. Higher ROA YoY
+            else:
+                missed.append(f"ROA_Decl({roa:.2f}<{roa_prev:.2f})")
             if cfo > net_income:
                 score += 1  # 4. Cash Flow > Net Income (Quality of Earnings)
+            else:
+                missed.append("Accruals(CFO<=NI)")
 
             # --- Leverage / Liquidity / Source of Funds (3 pts) ---
             leverage = float(b0.get("totalLiabilities", 0)) / float(
@@ -584,10 +593,16 @@ class FundamentalAgent:
 
             if leverage < leverage_prev:
                 score += 1  # 5. Lower Leverage
+            else:
+                missed.append(f"Lev_Inc({leverage:.2f}>{leverage_prev:.2f})")
             if current_ratio > current_ratio_prev:
                 score += 1  # 6. Higher Current Ratio
+            else:
+                missed.append(f"Liq_Dec({current_ratio:.2f}<{current_ratio_prev:.2f})")
             if shares <= shares_prev:
                 score += 1  # 7. No Dilution (Shares flat or down)
+            else:
+                missed.append(f"Dilution({shares/1e6:.0f}M>{shares_prev/1e6:.0f}M)")
 
             # --- Operating Efficiency (2 pts) ---
             gross_margin = (
@@ -606,8 +621,15 @@ class FundamentalAgent:
 
             if gross_margin > gross_margin_prev:
                 score += 1  # 8. Higher Gross Margin
+            else:
+                missed.append(f"GM_Dec({gross_margin:.2%}<{gross_margin_prev:.2%})")
             if asset_turnover > asset_turnover_prev:
                 score += 1  # 9. Higher Asset Turnover
+            else:
+                missed.append("Eff_Dec(Turnover)")
+
+            if score <= 2:
+                logger.info(f"[{ticker}] F-Score Drilldown FAIL: Score={score}. Missed: {', '.join(missed)}")
 
         except Exception as e:
             logger.error(f"F-Score Logic Error: {e}")

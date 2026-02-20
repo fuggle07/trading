@@ -144,7 +144,8 @@ class SignalAgent:
             # if the narrative (sentiment) and health (fundamentals) are solid.
             if is_low_exposure:
                 # Proactive Entry: Allow "HOLD" technical signals if narrative and internals are high quality
-                if sentiment >= 0.4 and fundamentals.get("score", 0) >= 70:
+                # Lowered from 0.4 to 0.2 to leader baseline filling (NVDA/META)
+                if sentiment >= 0.2 and fundamentals.get("score", 0) >= 70:
                     final_action = "BUY"
                     conviction = 70
                     technical_signal = "PROACTIVE_WARRANTED_ENTRY"
@@ -274,7 +275,8 @@ class SignalAgent:
 
         # Log it using the correct signature: (ticker, action, reason, details)
         ai_score = fundamentals.get("score", 0)
-        reason = f"{dry_run_prefix}Signal: {technical_signal} | Sent: {sentiment:.2f} | AI: {ai_score} | Conf: {conviction}"
+        # Reorder: Signal column at the end for readability
+        reason = f"{dry_run_prefix}Sent: {sentiment:.2f} | AI: {ai_score} | Conf: {conviction} | Signal: {technical_signal}"
         log_decision(ticker, final_action, reason, decision)
 
         return decision
