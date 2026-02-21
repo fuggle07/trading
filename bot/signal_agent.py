@@ -110,6 +110,11 @@ class SignalAgent:
         avg_volume = float(market_data.get("avg_volume") if market_data.get("avg_volume") is not None else 1.0)
         days_to_earnings = market_data.get("days_to_earnings") # None if unknown
 
+        # Calculate Volatility (Band Width %)
+        up = float(market_data.get("bb_upper") or 0.0)
+        lo = float(market_data.get("bb_lower") or 0.0)
+        volatility_pct = ((up - lo) / current_price * 100.0) if current_price > 0 else 0.0
+
         fundamentals = {
             "is_healthy": market_data.get("is_healthy", True),
             "health_reason": market_data.get("health_reason", ""),
@@ -305,6 +310,7 @@ class SignalAgent:
             "meta": {
                 "sentiment": sentiment,
                 "ai_score": ai_score,
+                "volatility": volatility_pct,
                 "technical": technical_signal,
                 "rsi": rsi,
                 "fundamentals_analyzed": fundamentals is not None,
@@ -314,7 +320,7 @@ class SignalAgent:
         }
 
         # Reorder: Signal column at the end for readability
-        reason = f"{dry_run_prefix}AI: {ai_score} | Sent: {sentiment:.2f} | Conf: {conviction} | Signal: {technical_signal}"
+        reason = f"{dry_run_prefix}AI: {ai_score} | Sent: {sentiment:.2f} | Vlty: {volatility_pct:.1f}% | Conf: {conviction} | Signal: {technical_signal}"
         decision["reason"] = reason
 
         # Log it using the correct signature: (ticker, action, reason, details)

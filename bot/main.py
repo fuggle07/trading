@@ -655,11 +655,15 @@ async def run_audit():
         )
 
         if should_swap:
-            weakest_conf = ticker_intel[weakest_link].get("confidence", 0)
+            star_meta = star_intel.get("meta", {})
+            star_sent = star_meta.get("sentiment", 0.0)
+            star_vol = star_meta.get("volatility", 0.0)
+            star_ai = star_meta.get("ai_score", 0)
+            
             log_decision(
                 rising_star,
                 "SWAP",
-                f"Rotating out of {weakest_link} (eff:{weakest_link_effective_conf}) into {rising_star} (eff:{best_star_effective_conf})",
+                f"Rotating out of {weakest_link} into {rising_star} | AI: {star_ai} | Sent: {star_sent:.2f} | Vlty: {star_vol:.1f}% | Eff: {best_star_effective_conf}",
             )
             signals[weakest_link] = {
                 "action": "SELL",
@@ -705,10 +709,16 @@ async def run_audit():
             elif existing_action == "SELL":
                 logger.debug(f"Initial Deployment: Skipping {rising_star} due to SELL signal.")
             else:
+                star_intel_data = ticker_intel[rising_star]
+                star_meta = star_intel_data.get("meta", {})
+                star_sent = star_meta.get("sentiment", 0.0)
+                star_vol = star_meta.get("volatility", 0.0)
+                star_ai = star_meta.get("ai_score", 0)
+
                 log_decision(
                     rising_star,
                     "BUY",
-                    f"Initial Deployment: High Conviction Rising Star (eff:{best_star_effective_conf})",
+                    f"Initial Deployment: AI: {star_ai} | Sent: {star_sent:.2f} | Vlty: {star_vol:.1f}% | Eff: {best_star_effective_conf}",
                 )
                 signals[rising_star] = {
                     "action": "BUY",
