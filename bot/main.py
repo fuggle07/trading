@@ -386,10 +386,19 @@ async def run_audit():
     print("🔄 Fetching Portfolio & Intel...")
     held_tickers = portfolio_manager.get_held_tickers()
 
-    # Preliminary Commitment Log (Requested by user to see early in run)
+    # Preliminary Commitment Log (Source of Truth from Alpaca)
     try:
-        if held_tickers and stock_historical_client:
-            # Quick quote fetch for just held assets to show commitment
+        # Fetch Account Details directly from Alpaca for source-of-truth accuracy
+        alpaca_account = (await asyncio.to_thread(reconciler.trading_client.get_account)) if reconciler.trading_client else None
+        
+        if alpaca_account:
+            p_equity = float(alpaca_account.equity)
+            p_market_val = float(alpaca_account.long_market_value) + float(alpaca_account.short_market_value)
+            p_cash = float(alpaca_account.cash)
+            p_commitment = (p_market_val / p_equity) * 100 if p_equity > 0 else 0
+            print(f"📊 Preliminary Commitment: {p_commitment:.1f}% (${p_market_val:,.2f} / ${p_equity:,.2f})")
+        elif held_tickers and stock_historical_client:
+            # Fallback to manual sum if Alpaca account fetch failed
             held_symbols = list(held_tickers.keys())
             early_quotes_req = StockLatestQuoteRequest(symbol_or_symbols=held_symbols)
             early_quotes = stock_historical_client.get_stock_latest_quote(early_quotes_req)
@@ -399,16 +408,11 @@ async def run_audit():
                 p_market_val += float(held_tickers[s]) * float(q.ask_price)
             
             p_cash = portfolio_manager.get_cash_balance()
-            
-            # Fetch Account Equity directly from Alpaca for source-of-truth accuracy
-            alpaca_account = (await asyncio.to_thread(reconciler.trading_client.get_account)) if reconciler.trading_client else None
-            p_equity = float(alpaca_account.equity) if alpaca_account else (p_cash + p_market_val)
-            
+            p_equity = p_cash + p_market_val
             p_commitment = (p_market_val / p_equity) * 100 if p_equity > 0 else 0
-            
             print(f"📊 Preliminary Commitment: {p_commitment:.1f}% (${p_market_val:,.2f} / ${p_equity:,.2f})")
         else:
-            print("📊 Preliminary Commitment: 0.0% (Cash Account)")
+            print("📊 Preliminary Commitment: 0.0% (No account connection)")
     except Exception as e:
         print(f"⚠️ Preliminary commitment check failed: {e}")
 
