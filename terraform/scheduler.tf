@@ -50,8 +50,8 @@ resource "google_cloud_scheduler_job" "ticker_rank_midday" {
 
 resource "google_cloud_scheduler_job" "ticker_rank_power_hour" {
   name             = "trading-ticker-ranker-power-hour"
-  description      = "Power hour ticker re-rank (3:00 PM ET) — final-hour conviction refresh"
-  schedule         = "0 15 * * 1-5"
+  description      = "Pre-power-hour ticker re-rank (2:00 PM ET) — 90-min runway before close"
+  schedule         = "0 14 * * 1-5"
   time_zone        = "America/New_York"
   attempt_deadline = "320s"
 

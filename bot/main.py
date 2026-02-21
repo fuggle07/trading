@@ -349,7 +349,7 @@ async def run_audit():
     Phase 2: Portfolio Analysis & Conviction Swapping
     Phase 3: Execution (SELLs first, then BUYs)
     """
-    tickers_env = os.environ.get("BASE_TICKERS", "TSLA,NVDA,AMD,PLTR,COIN,META,GOOG,MSFT,GOLD,NEM")
+    tickers_env = os.environ.get("BASE_TICKERS", "TSLA,NVDA,AMD,PLTR,COIN,META,GOOG,MSFT,GOLD,NEM,AMZN,AVGO,CRM,ORCL,LMT")
     base_tickers = [t.strip() for t in tickers_env.split(",") if t.strip()]
 
     # --- Phase 0: Reconciliation (Source of Truth) ---
@@ -416,15 +416,22 @@ async def run_audit():
     except Exception as e:
         print(f"⚠️ Macro snapshot log failed: {e}")
 
+    # Fetch all quotes in one FMP batch call — 1 request instead of N Finnhub calls.
+    # Falls back to per-ticker Finnhub inside the loop if FMP batch fails.
+    batch_quotes = await fundamental_agent.get_batch_quotes(tickers)
+    logger.info(f"Batch quotes received for {len(batch_quotes)} tickers")
+
     for ticker in tickers:
         print(f"[{ticker}] 📡 Gathering Intel for {ticker}...")
         try:
-            # Parallel fetch for a single ticker to save time
-            quote_task = (
-                asyncio.to_thread(finnhub_client.quote, ticker)
-                if finnhub_client
-                else None
-            )
+            # Quote: use pre-fetched batch result; fall back to Finnhub if missing
+            res_quote = batch_quotes.get(ticker)
+            if not res_quote and finnhub_client:
+                try:
+                    res_quote = await asyncio.to_thread(finnhub_client.quote, ticker)
+                except Exception:
+                    res_quote = None
+
             intelligence_task = fundamental_agent.get_intelligence_metrics(ticker)
             deep_health_task = fundamental_agent.evaluate_deep_health(ticker)
             history_task = fetch_historical_data(ticker)
@@ -444,9 +451,8 @@ async def run_audit():
                 ticker, "standarddeviation", period=20
             )
 
-            # Execute gather with error handling
+            # Execute gather with error handling (quote already resolved above)
             intel_results = await asyncio.gather(
-                quote_task,
                 intelligence_task,
                 deep_health_task,
                 history_task,
@@ -458,47 +464,42 @@ async def run_audit():
                 return_exceptions=True,
             )
 
-            # --- UNPACK ALL RESULTS ---
-            res_quote = (
-                intel_results[0]
-                if not isinstance(intel_results[0], Exception)
-                else None
-            )
+            # --- UNPACK ALL RESULTS --- (quote already in res_quote above)
             res_intel = (
-                intel_results[1] if not isinstance(intel_results[1], Exception) else {}
+                intel_results[0] if not isinstance(intel_results[0], Exception) else {}
             )
-            # res_deep now returns (is_healthy, h_reason, is_deep, d_reason, f_score)
+            # res_deep returns (is_healthy, h_reason, is_deep, d_reason, f_score)
             res_consolidated_health = (
-                intel_results[2]
-                if not isinstance(intel_results[2], Exception)
+                intel_results[1]
+                if not isinstance(intel_results[1], Exception)
                 else (False, "Health fail", False, "Deep fail", None)
             )
             res_history = (
-                intel_results[3]
-                if not isinstance(intel_results[3], Exception)
+                intel_results[2]
+                if not isinstance(intel_results[2], Exception)
                 else None
             )
             res_conf = (
-                intel_results[4] if not isinstance(intel_results[4], Exception) else 0
+                intel_results[3] if not isinstance(intel_results[3], Exception) else 0
             )
             res_sma20 = (
+                intel_results[4]
+                if not isinstance(intel_results[4], Exception)
+                else None
+            )
+            res_sma50 = (
                 intel_results[5]
                 if not isinstance(intel_results[5], Exception)
                 else None
             )
-            res_sma50 = (
+            res_rsi = (
                 intel_results[6]
                 if not isinstance(intel_results[6], Exception)
                 else None
             )
-            res_rsi = (
+            res_std = (
                 intel_results[7]
                 if not isinstance(intel_results[7], Exception)
-                else None
-            )
-            res_std = (
-                intel_results[8]
-                if not isinstance(intel_results[8], Exception)
                 else None
             )
 
@@ -1027,7 +1028,7 @@ async def get_latest_confidence(ticker: str) -> Optional[int]:
 @app.route("/rank-tickers", methods=["POST"])
 async def run_ranker_endpoint():
     """Trigger the morning ticker ranking job."""
-    base = os.environ.get("BASE_TICKERS", "TSLA,NVDA,AMD,PLTR,COIN,META,GOOG,MSFT,GOLD,NEM").split(",")
+    base = os.environ.get("BASE_TICKERS", "TSLA,NVDA,AMD,PLTR,COIN,META,GOOG,MSFT,GOLD,NEM,AMZN,AVGO,CRM,ORCL,LMT").split(",")
     held = list(portfolio_manager.get_held_tickers().keys())
     tickers = list(set(base + held))
     try:

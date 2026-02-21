@@ -118,6 +118,52 @@ class FundamentalAgent:
             return data[0]
         return None
 
+    async def get_batch_quotes(self, tickers: list) -> dict:
+        """
+        Fetches real-time quotes for ALL tickers in a single FMP API call.
+        Returns {ticker: {"c": price, "h": high, "l": low, "o": open, "pc": prevClose}}
+        matching the Finnhub quote dict format so callers need no changes.
+        Returns empty dict on any error — callers should then fall back to Finnhub.
+        """
+        if not self.fmp_key or not tickers:
+            return {}
+
+        symbols = ",".join(tickers)
+        url = (
+            f"https://financialmodelingprep.com/stable/quote"
+            f"?symbol={symbols}&apikey={self.fmp_key}"
+        )
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(
+                    url, timeout=aiohttp.ClientTimeout(total=10)
+                ) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        result = {}
+                        for item in data:
+                            symbol = item.get("symbol")
+                            if symbol:
+                                result[symbol] = {
+                                    "c": float(item.get("price", 0) or 0),
+                                    "h": float(item.get("dayHigh", 0) or 0),
+                                    "l": float(item.get("dayLow", 0) or 0),
+                                    "o": float(item.get("open", 0) or 0),
+                                    "pc": float(item.get("previousClose", 0) or 0),
+                                }
+                        logger.info(
+                            f"Batch quotes: {len(result)}/{len(tickers)} tickers fetched"
+                        )
+                        return result
+                    else:
+                        logger.warning(
+                            f"Batch quotes HTTP {resp.status} — falling back to Finnhub per-ticker"
+                        )
+                        return {}
+        except Exception as e:
+            logger.warning(f"Batch quotes exception: {e} — falling back to Finnhub per-ticker")
+            return {}
+
     async def get_fundamentals(self, ticker: str):
         """
         Fetches core fundamentals: PE, EPS, Market Cap via FMP /quote or /key-metrics-ttm.
