@@ -314,7 +314,7 @@ class SignalAgent:
         }
 
         # Reorder: Signal column at the end for readability
-        reason = f"{dry_run_prefix}Sent: {sentiment:.2f} | AI: {ai_score} | Conf: {conviction} | Signal: {technical_signal}"
+        reason = f"{dry_run_prefix}AI: {ai_score} | Sent: {sentiment:.2f} | Conf: {conviction} | Signal: {technical_signal}"
         decision["reason"] = reason
 
         # Log it using the correct signature: (ticker, action, reason, details)
