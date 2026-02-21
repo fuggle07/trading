@@ -57,13 +57,13 @@ sentiment_analyzer = SentimentAnalyzer(PROJECT_ID)
 # Load Mortgage Rate and calculate Tax-Adjusted Hurdle
 # Assuming 35% tax deductibility as per user request
 raw_mortgage_rate = float(os.environ.get("MORTGAGE_RATE", 0.0))
-tax_adjusted_hurdle = raw_mortgage_rate * (1 - 0.35)
+tax_adjusted_hurdle = 0.0  # Cash is at Alpaca (external to offset). No hurdle gate.
 
 print(f"🏦 Mortgage Rate: {raw_mortgage_rate:.2%}")
 print(f"📉 Tax-Adjusted Hurdle: {tax_adjusted_hurdle:.2%}")
 
 # Handle Volatility Sensitivity
-base_vol_threshold = 0.25
+base_vol_threshold = 0.35
 vol_sensitivity = float(os.environ.get("VOLATILITY_SENSITIVITY", 1.0))
 final_vol_threshold = base_vol_threshold * vol_sensitivity
 
@@ -75,7 +75,7 @@ signal_agent = SignalAgent(
 )
 
 # Exposure Threshold
-MIN_EXPOSURE_THRESHOLD = float(os.environ.get("MIN_EXPOSURE_THRESHOLD", 0.65))
+MIN_EXPOSURE_THRESHOLD = float(os.environ.get("MIN_EXPOSURE_THRESHOLD", 0.85))
 print(f"📊 Minimum Portfolio Exposure Threshold: {MIN_EXPOSURE_THRESHOLD:.1%}")
 
 # Stop-loss cooldown registry — prevents re-entering a position within
