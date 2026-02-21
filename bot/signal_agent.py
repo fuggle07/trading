@@ -92,6 +92,7 @@ class SignalAgent:
         self,
         market_data: Dict,
         force_eval: bool = False,
+        log_results: bool = True,
     ) -> Dict:
         """
         Orchestrates Signal Selection by combining technicals, sentiment, and fundamental conviction.
@@ -284,8 +285,10 @@ class SignalAgent:
         # 5. Star Rating Classification
         # Star = High AI Conviction (90+) + Elite Fundamentals (F-Score 7+) + Deeply Healthy
         is_star = False
+        ai_score = fundamentals.get("score", 0)
+        
         if (
-            fundamentals.get("score", 0) >= 90
+            ai_score >= 90
             and fundamentals.get("f_score") is not None
             and fundamentals.get("f_score", 0) >= 7
             and fundamentals.get("is_deep_healthy", True)
@@ -301,6 +304,7 @@ class SignalAgent:
             "timestamp": datetime.now().isoformat(),
             "meta": {
                 "sentiment": sentiment,
+                "ai_score": ai_score,
                 "technical": technical_signal,
                 "rsi": rsi,
                 "fundamentals_analyzed": fundamentals is not None,
@@ -309,11 +313,13 @@ class SignalAgent:
             },
         }
 
-        # Log it using the correct signature: (ticker, action, reason, details)
-        ai_score = fundamentals.get("score", 0)
         # Reorder: Signal column at the end for readability
         reason = f"{dry_run_prefix}Sent: {sentiment:.2f} | AI: {ai_score} | Conf: {conviction} | Signal: {technical_signal}"
-        log_decision(ticker, final_action, reason, decision)
+        decision["reason"] = reason
+
+        # Log it using the correct signature: (ticker, action, reason, details)
+        if log_results:
+            log_decision(ticker, final_action, reason, decision)
 
         return decision
 

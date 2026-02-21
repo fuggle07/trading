@@ -484,6 +484,9 @@ async def run_audit():
 
     # Generate Initial Signals
     signals = {}
+    eval_results = []
+    skipped_results = []
+
     for ticker, intel in ticker_intel.items():
         if intel is None:
             continue
@@ -517,9 +520,10 @@ async def run_audit():
                 "days_to_earnings": earnings_calendar.get(ticker) if earnings_calendar else None,
             }
 
-            sig = signal_agent.evaluate_strategy(market_data, force_eval=True)
+            # Call evaluate_strategy with log_results=False so we can sort first
+            sig = signal_agent.evaluate_strategy(market_data, force_eval=True, log_results=False)
             if sig:
-                signals[ticker] = sig
+                eval_results.append(sig)
         else:
             # Identify why indicators are missing
             history_res = intel.get("history_res")
@@ -528,15 +532,30 @@ async def run_audit():
             elif history_res is None:
                 reason_msg = "Alpaca returned None (Check API Keys/Feed)"
             else:
-                # If we get here and indicators is None, it's likely calculate_technical_indicators returned None
                 rows = len(history_res) if history_res is not None else 0
                 reason_msg = f"Insufficient history ({rows} rows)"
 
-            log_decision(
-                ticker,
-                "SKIP",
-                f"Missing Technical Data ({reason_msg})",
-            )
+            skipped_results.append({
+                "ticker": ticker,
+                "action": "SKIP",
+                "reason": f"Missing Technical Data ({reason_msg})",
+                "details": {}
+            })
+
+    # Sort eval_results: AI Score desc, then Sentiment desc
+    eval_results.sort(
+        key=lambda x: (x.get("meta", {}).get("ai_score", 0), x.get("meta", {}).get("sentiment", 0.0)),
+        reverse=True
+    )
+
+    # Log all sorted decisions
+    for sig in eval_results:
+        log_decision(sig["ticker"], sig["action"], sig["reason"], sig)
+        signals[sig["ticker"]] = sig
+
+    # Log skipped ones (usually less important, so they go at the bottom)
+    for skip in skipped_results:
+        log_decision(skip["ticker"], skip["action"], skip["reason"], skip["details"])
 
     # REBALANCING LOGIC: The Conviction Swap
     # We find the weakest link in our portfolio and potentially swap it for a rising star
