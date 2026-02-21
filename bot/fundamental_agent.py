@@ -121,9 +121,8 @@ class FundamentalAgent:
     async def get_batch_quotes(self, tickers: list) -> dict:
         """
         Fetches real-time quotes for ALL tickers in a single FMP API call.
-        Returns {ticker: {"c": price, "h": high, "l": low, "o": open, "pc": prevClose}}
-        matching the Finnhub quote dict format so callers need no changes.
-        Returns empty dict on any error — callers should then fall back to Finnhub.
+        Returns {ticker: {"c": price, "h": high, "l": low, "o": open, "pc": prevClose, "v": vol, "av": avgVol}}
+        matching the Finnhub quote dict format + volume extensions.
         """
         if not self.fmp_key or not tickers:
             return {}
@@ -150,6 +149,8 @@ class FundamentalAgent:
                                     "l": float(item.get("dayLow", 0) or 0),
                                     "o": float(item.get("open", 0) or 0),
                                     "pc": float(item.get("previousClose", 0) or 0),
+                                    "v": float(item.get("volume", 0) or 0),
+                                    "av": float(item.get("avgVolume", 0) or 1),
                                 }
                         logger.info(
                             f"Batch quotes: {len(result)}/{len(tickers)} tickers fetched"
@@ -163,6 +164,38 @@ class FundamentalAgent:
         except Exception as e:
             logger.warning(f"Batch quotes exception: {e} — falling back to Finnhub per-ticker")
             return {}
+
+    async def get_upcoming_earnings(self, tickers: list, window_days: int = 3) -> dict:
+        """
+        Checks FMP Earnings Calendar for upcoming earnings reports within the window.
+        Returns {ticker: days_until_report}
+        """
+        if not self.fmp_key or not tickers:
+            return {}
+
+        # FMP Earnings Calendar v3
+        from_date = datetime.now().strftime("%Y-%m-%d")
+        to_date = (datetime.now() + timedelta(days=window_days)).strftime("%Y-%m-%d")
+        
+        endpoint = "earning_calendar"
+        # We can't filter by symbol in the path for this v3 endpoint in a clean way for batch, 
+        # so we fetch the general calendar and filter.
+        data = await self._fetch_fmp(endpoint, "", params={"from": from_date, "to": to_date}, version="v3")
+        
+        results = {}
+        if data and isinstance(data, list):
+            for item in data:
+                symbol = item.get("symbol")
+                if symbol in tickers:
+                    report_date_str = item.get("date")
+                    if report_date_str:
+                        try:
+                            report_date = datetime.strptime(report_date_str, "%Y-%m-%d")
+                            days_diff = (report_date - datetime.now()).days
+                            results[symbol] = max(0, days_diff)
+                        except Exception:
+                            results[symbol] = 0 # Assume today if parse fails
+        return results
 
     async def get_fundamentals(self, ticker: str):
         """
@@ -394,7 +427,7 @@ class FundamentalAgent:
         Fetches VIX (Fear Index) and other major indices via stable /quote.
         Fallbacks to Finnhub Index Quotes or Volatility ETF (VXX) if indices are restricted.
         """
-        results = {"vix": 0.0, "spy_perf": 0.0, "qqq_perf": 0.0}
+        results = {"vix": 0.0, "spy_perf": 0.0, "qqq_perf": 0.0, "qqq_price": 0.0, "spy_price": 0.0}
 
         # 1. Try FMP (v3)
         if self.fmp_key:
@@ -403,16 +436,15 @@ class FundamentalAgent:
             if data and isinstance(data, list):
                 for item in data:
                     sym = item.get("symbol")
+                    price = float(item.get("price", 0) or 0)
                     if sym == "^VIX":
-                        results["vix"] = float(item.get("price", 0) or 0)
+                        results["vix"] = price
                     elif sym == "SPY":
-                        results["spy_perf"] = float(
-                            item.get("changesPercentage", 0) or 0
-                        )
+                        results["spy_perf"] = float(item.get("changesPercentage", 0) or 0)
+                        results["spy_price"] = price
                     elif sym == "QQQ":
-                        results["qqq_perf"] = float(
-                            item.get("changesPercentage", 0) or 0
-                        )
+                        results["qqq_perf"] = float(item.get("changesPercentage", 0) or 0)
+                        results["qqq_price"] = price
                 if results["vix"] > 0:
                     return results
 
@@ -438,13 +470,27 @@ class FundamentalAgent:
 
                 if spy_res and "dp" in spy_res:
                     results["spy_perf"] = float(spy_res["dp"])
+                    results["spy_price"] = float(spy_res["c"])
                 if qqq_res and "dp" in qqq_res:
                     results["qqq_perf"] = float(qqq_res["dp"])
+                    results["qqq_price"] = float(qqq_res["c"])
 
             except Exception as e:
                 logger.error(f"⚠️ Finnhub Indices Fallback failed: {e}")
 
         return results
+
+    async def get_index_technicals(self, ticker: str, window: int = 50) -> float:
+        """
+        Fetches technical SMA for an index/ETF.
+        Used primarily for QQQ SMA-50 Trend analysis.
+        """
+        if self.fmp_key:
+            endpoint = f"technical_indicator/1day/{ticker}"
+            data = await self._fetch_fmp(endpoint, "", params={"type": "sma", "period": window}, version="v3")
+            if data and isinstance(data, list) and len(data) > 0:
+                return float(data[0].get("sma", 0.0))
+        return 0.0
 
     def _get_cached_evaluation(self, ticker: str):
         """Checks BigQuery for today's evaluation of this ticker."""

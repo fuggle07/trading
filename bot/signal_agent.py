@@ -105,6 +105,10 @@ class SignalAgent:
             "sma_50": market_data.get("sma_50", 0.0),
         }
         sentiment = market_data.get("sentiment_score", 0.0)
+        volume = float(market_data.get("volume", 0.0))
+        avg_volume = float(market_data.get("avg_volume", 1.0))
+        days_to_earnings = market_data.get("days_to_earnings") # None if unknown
+
         fundamentals = {
             "is_healthy": market_data.get("is_healthy", True),
             "health_reason": market_data.get("health_reason", ""),
@@ -122,6 +126,12 @@ class SignalAgent:
             current_price, indicators.get("upper", 0), indicators.get("lower", 0), is_low_exposure
         )
 
+        # --- MOMENTUM BREAKOUT OVERLAY ---
+        # If breaking ABOVE upper band on 1.5x volume, this is a MOMENTUM BUY, not a SELL.
+        # This overrides the default mean-reversion SELL signal.
+        if current_price >= indicators.get("upper", 0) and volume > (1.5 * avg_volume):
+            technical_signal = "MOMENTUM_BREAKOUT"
+
         # Logic for Final Decision
         final_action = "IDLE"
         conviction = 0
@@ -131,6 +141,10 @@ class SignalAgent:
         if technical_signal == "BUY" and sentiment >= sentiment_gate:
             final_action = "BUY"
             conviction = 60 + int(sentiment * 40)  # [60 - 100]
+        elif technical_signal == "MOMENTUM_BREAKOUT" and sentiment >= 0.5:
+            # Momentum requires even stronger sentiment confirmation
+            final_action = "BUY"
+            conviction = 80 + int(sentiment * 20)
         elif technical_signal == "SELL":
             final_action = "SELL"
             conviction = 80
@@ -140,42 +154,53 @@ class SignalAgent:
         else:
             final_action = "IDLE"
             # ENHANCEMENT: Low Exposure Aggression
-            # If we are in cash, we don't wait for price to hit the bottom band
-            # if the narrative (sentiment) and health (fundamentals) are solid.
             if is_low_exposure:
-                # Proactive Entry: Allow "HOLD" technical signals if narrative and internals are high quality
-                # Lowered from 0.4 to 0.2 to leader baseline filling (NVDA/META)
                 if sentiment >= 0.2 and fundamentals.get("score", 0) >= 70:
                     final_action = "BUY"
                     conviction = 70
                     technical_signal = "PROACTIVE_WARRANTED_ENTRY"
             
-            # (Rest of strategy logic remains, lower thresholds already applied)
-
             # --- RSI OVERLAY (Oversold Aggression) ---
             if rsi <= 30 and sentiment > 0.4:
                 final_action = "BUY"
                 conviction = max(conviction, 75)
                 technical_signal = "RSI_OVERSOLD_BUY"
 
+        # --- EARNINGS CALENDAR AVOIDANCE ---
+        # Skip BUY signals if earnings are within 3 days (binary event risk)
+        if final_action == "BUY" and days_to_earnings is not None and days_to_earnings <= 3:
+            final_action = "IDLE"
+            conviction = 0
+            technical_signal = f"SKIP_EARNINGS_AVOIDANCE_{days_to_earnings}D"
+
         # 2. Strategic Exit Check (THE OVERRIDE)
         # If we already hold the stock, we check for Profit Target or Stop Loss FIRST.
-        # This prevents the bot from "ignoring" a win just because the chart still looks good.
         if avg_price > 0:
-            if self.should_exit(ticker, avg_price, current_price, sentiment):
-                p_change = (current_price - avg_price) / avg_price
-                final_action = "SELL"
-                conviction = 100  # Exit is mandatory
-                exit_type = (
-                    "PROFIT_TARGET" if p_change >= 0.05 else "STOP_LOSS/SENTIMENT"
-                )
-                technical_signal = f"EXIT_{exit_type}"  # Update for the log line
+            hwm = market_data.get("hwm", 0.0)
+            vix = market_data.get("vix", 0.0)
+            band_width = market_data.get("band_width", 0.0)
+            has_scaled_out = market_data.get("has_scaled_out", False)
 
-            # RSI Overbought Exit
-            elif rsi >= 80:
-                final_action = "SELL"
+            exit_signal = self.should_exit(
+                ticker, 
+                avg_price, 
+                current_price, 
+                sentiment, 
+                band_width, 
+                vix, 
+                hwm, 
+                has_scaled_out
+            )
+
+            if exit_signal != "HOLD":
+                final_action = exit_signal # "SELL_ALL" or "SELL_PARTIAL_50"
                 conviction = 100
-                technical_signal = "RSI_OVERBOUGHT_EXIT"
+                technical_signal = f"EXIT_{exit_signal}"
+
+                # Double check for RSI overbought even if should_exit said HOLD
+                if rsi >= 85:
+                    final_action = "SELL_ALL"
+                    technical_signal = "RSI_EXTREME_OVERBOUGHT"
 
         # 3. Fundamental Overlay (The Gatekeeper)
         # We now BLOCK buys if fundamentals are weak.
@@ -293,23 +318,51 @@ class SignalAgent:
         return decision
 
     def calculate_position_size(
-        self, ticker: str, cash_available: float, volatility: float = 0.02
+        self, 
+        total_equity: float, 
+        conviction: int, 
+        vix: float = 20.0, 
+        band_width: float = 0.02,
+        is_star: bool = False
     ) -> float:
         """
-        Determines how much to buy using a pseudo-Kelly Criterion / Fixed Fractional.
-        Returns the dollar amount to allocate.
+        Dynamic Position Sizing.
+        Determines allocation such that the risk taken scales with conviction:
+        - Baseline: 60 Conviction -> Risk 0.5% of equity if stopped at 2.5%.
+        - Elite: 100 Conviction -> Risk 1.0% of equity (max 40% position).
+        - VIX Damper: Reduces risk budget by 20% for every 10 points above VIX 20.
         """
-        # Risk no more than 2% of available cash on a single trade baseline
-        # adjusted by volatility (lower vol -> higher size, but capped)
-        allocation = Decimal(str(cash_available)) * self.risk_per_trade
+        equity = Decimal(str(total_equity))
+        
+        # 1. Determine Risk Budget (% of equity to lose if stopped at 2.5%)
+        # Scale risk linearly from 0.4% (at 50 conf) to 1.0% (at 100 conf)
+        risk_pct = Decimal(str(max(0.004, min(0.01, (conviction / 100.0) * 0.01))))
+        
+        # 2. VIX Damper (Fear Adjustment)
+        # If VIX > 20, reduce risk budget. E.g., VIX 40 reduces risk by 40%.
+        if vix > 20:
+            fear_factor = Decimal(str(max(0.5, 1.0 - ((vix - 20) / 100.0))))
+            risk_pct *= fear_factor
 
-        # Volatility Scaling (simplified)
-        if volatility < 0.01:
-            allocation *= Decimal("1.2")
-        elif volatility > 0.03:
-            allocation *= Decimal("0.8")
+        # 3. Ticker Volatility Damper
+        # If Band Width > 5%, reduce risk budget (less certainty in wide bands)
+        if band_width > 0.05:
+            vol_damper = Decimal(str(max(0.6, 1.0 - (band_width - 0.05))))
+            risk_pct *= vol_damper
 
-        return float(allocation)
+        # 4. Derive Position Size from Risk Budget
+        # Since our stop is ~2.5% (dynamic), we solve: Size * 0.025 = Equity * risk_pct
+        # Size = (Equity * risk_pct) / 0.025
+        # We use 0.025 as the standard stop-loss distance for sizing math.
+        allocation = (equity * risk_pct) / Decimal("0.025")
+
+        # 5. Elite/Star Minimums
+        if is_star and allocation < (equity * Decimal("0.20")):
+            allocation = equity * Decimal("0.20")
+
+        # 6. Hard Caps (Max 40% per stock)
+        max_cap = equity * Decimal("0.40")
+        return float(min(allocation, max_cap))
 
     def should_exit(
         self,
@@ -319,33 +372,42 @@ class SignalAgent:
         sentiment: float,
         band_width: float = 0.0,
         vix: float = 0.0,
-    ) -> bool:
+        hwm: float = 0.0,
+        has_scaled_out: bool = False,
+    ) -> str:
         """
-        Exit logic with dynamic ATR-based stop loss.
-        band_width = (bb_upper - bb_lower) / price — used as a volatility proxy.
+        Exit logic with Trailing Stop and partial profit-taking (Scale Out).
+        Returns: "HOLD", "SELL_ALL", or "SELL_PARTIAL_50"
         """
         p_change = (current_price - hold_price) / hold_price
 
-        # 1. Profit target: always hard at +5%
-        if p_change >= 0.05:
-            return True
+        # 1. Partial Profit Taking (Scale Out): Sell 50% at +5% profit
+        #    Only if we haven't already scaled out.
+        if p_change >= 0.05 and not has_scaled_out:
+            return "SELL_PARTIAL_50"
 
-        # 2. Dynamic stop loss: scale with volatility so we don't whipsaw on COIN/MSTR.
-        #    Base = 2.5%. Volatile stocks (band_width > 0) get a wider stop, capped at 6%.
-        #    Formula: stop = clamp(band_width * 0.30, 2.5%, 6%)
+        # 2. Trailing Stop: Activates after +3% gain. 
+        #    Sell remaining if pulls back 2% from peak (HWM).
+        if p_change >= 0.03 or hwm >= hold_price * 1.03:
+            if hwm > 0 and current_price <= hwm * 0.98:
+                return "SELL_ALL"
+
+        # 3. Dynamic stop loss: scale with volatility so we don't whipsaw on volatile stocks.
+        #    Base = 2.5%. Volatile stocks get a wider stop, capped at 6%.
         if band_width > 0:
-            dynamic_stop = max(0.025, min(0.06, band_width * 0.30))
+            dynamic_stop = max(0.025, min(0.06, band_width * 0.50))
         else:
             dynamic_stop = 0.025
+        
         if p_change <= -dynamic_stop:
-            return True
+            return "SELL_ALL"
 
-        # 3. Negative Sentiment Shift — tighten exit threshold if VIX is elevated
+        # 4. Negative Sentiment Shift — tighten exit threshold if VIX is elevated
         sentiment_exit_threshold = -0.3 if vix > 25 else -0.4
         if sentiment < sentiment_exit_threshold:
-            return True
+            return "SELL_ALL"
 
-        return False
+        return "HOLD"
 
     def check_conviction_swap(
         self,
@@ -377,3 +439,34 @@ class SignalAgent:
             return True
 
         return False
+
+    def evaluate_macro_hedge(self, macro_data: Dict) -> tuple[str, float]:
+        """
+        Determines the portfolio hedge status and target percentage based on market risk.
+        Returns: (status, target_percentage)
+        
+        Tiers:
+        - Panic (10%): VIX > 45
+        - Fear (5%):  QQQ < SMA-50 AND VIX > 35
+        - Caution (2%): QQQ < SMA-50 OR VIX > 30
+        - Minimal: Market is healthy
+        """
+        indices = macro_data.get("indices", {})
+        vix = float(macro_data.get("vix", 0.0))
+
+        # 1. Nasdaq Trend Check
+        qqq_price = indices.get("qqq_price", 0.0)
+        qqq_sma50 = indices.get("qqq_sma50", 0.0)
+        is_bearish_trend = qqq_price > 0 and qqq_sma50 > 0 and qqq_price < qqq_sma50
+
+        # --- DYNAMIC SCALING TIERS ---
+        if vix > 45.0:
+            return "BUY_HEDGE", 0.10  # Panic level
+        
+        if is_bearish_trend and vix > 35.0:
+            return "BUY_HEDGE", 0.05  # High Fear
+            
+        if is_bearish_trend or vix > 30.0:
+            return "BUY_HEDGE", 0.02  # Caution
+        
+        return "CLEAR_HEDGE", 0.0

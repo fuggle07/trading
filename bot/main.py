@@ -83,6 +83,18 @@ print(f"📊 Minimum Portfolio Exposure Threshold: {MIN_EXPOSURE_THRESHOLD:.1%}"
 STOP_LOSS_COOLDOWN_MINUTES = 30
 _stop_loss_cooldown: Dict[str, datetime] = {}
 
+# High-water-mark registry — tracks the peak intraday price for each held position.
+# Used by the trailing stop logic instead of a hard +5% profit target.
+_high_water_marks: Dict[str, float] = {}
+
+# Position entry-time registry — enforces a minimum hold period to prevent
+# the bot being shaken out of a good position by short-term noise.
+MIN_HOLD_MINUTES = 30
+_position_entry_times: Dict[str, datetime] = {}
+
+# Scaled-out registry — tracks positions that have already taken partial profits (50%).
+_scaled_out_tickers: set[str] = set()
+
 portfolio_manager = PortfolioManager(bq_client, portfolio_table_id)
 execution_manager = ExecutionManager(portfolio_manager)
 fundamental_agent = FundamentalAgent(finnhub_client=finnhub_client)
@@ -197,14 +209,18 @@ async def get_macro_context() -> dict:
         indices_task = fundamental_agent.get_market_indices()
         rates_task = fundamental_agent.get_treasury_rates()
         calendar_task = fundamental_agent.get_economic_calendar()
+        qqq_sma_task = fundamental_agent.get_index_technicals("QQQ", window=50)
 
-        indices, rates, calendar = await asyncio.gather(
-            indices_task, rates_task, calendar_task
+        indices, rates, calendar, qqq_sma50 = await asyncio.gather(
+            indices_task, rates_task, calendar_task, qqq_sma_task
         )
 
         indices = indices or {}
         rates = rates or {}
         calendar = calendar or []
+        
+        # Add technicals to the indices dict for the signal agent
+        indices["qqq_sma50"] = float(qqq_sma50 or 0.0)
 
         macro_data["indices"] = indices
         macro_data["rates"] = rates
@@ -220,6 +236,12 @@ async def get_macro_context() -> dict:
                 parts.append(f"SPY: {float(indices['spy_perf']):.2f}%")
             if indices.get("qqq_perf") is not None:
                 parts.append(f"QQQ: {float(indices['qqq_perf']):.2f}%")
+            
+            # Add trend info
+            qqq_price = indices.get("qqq_price", 0.0)
+            if qqq_price > 0 and qqq_sma50 > 0:
+                trend = "Bullish" if qqq_price > qqq_sma50 else "Bearish"
+                parts.append(f"Trend: {trend}")
         
         if isinstance(rates, dict) and rates.get("10Y") is not None:
             parts.append(f"10Y Yield: {float(rates['10Y']):.2f}%")
@@ -416,178 +438,33 @@ async def run_audit():
     except Exception as e:
         print(f"⚠️ Macro snapshot log failed: {e}")
 
-    # Fetch all quotes in one FMP batch call — 1 request instead of N Finnhub calls.
-    # Falls back to per-ticker Finnhub inside the loop if FMP batch fails.
-    batch_quotes = await fundamental_agent.get_batch_quotes(tickers)
-    logger.info(f"Batch quotes received for {len(batch_quotes)} tickers")
+    # Fetch all quotes in one FMP batch call
+    batch_quotes_task = fundamental_agent.get_batch_quotes(tickers)
+    earnings_task = fundamental_agent.get_upcoming_earnings(tickers)
 
-    for ticker in tickers:
-        print(f"[{ticker}] 📡 Gathering Intel for {ticker}...")
-        try:
-            # Quote: use pre-fetched batch result; fall back to Finnhub if missing
-            res_quote = batch_quotes.get(ticker)
-            if not res_quote and finnhub_client:
-                try:
-                    res_quote = await asyncio.to_thread(finnhub_client.quote, ticker)
-                except Exception:
-                    res_quote = None
+    batch_quotes, earnings_calendar = await asyncio.gather(batch_quotes_task, earnings_task)
+    logger.info(f"Batch quotes received for {len(batch_quotes)} tickers. Earnings alerts: {len(earnings_calendar)}")
 
-            intelligence_task = fundamental_agent.get_intelligence_metrics(ticker)
-            deep_health_task = fundamental_agent.evaluate_deep_health(ticker)
-            history_task = fetch_historical_data(ticker)
-            confidence_task = get_latest_confidence(ticker)
-
-            # FMP Technical Indicators
-            sma20_task = fundamental_agent.get_technical_indicator(
-                ticker, "sma", period=20
+    # Process all tickers in parallel
+    await asyncio.gather(
+        *[
+            process_ticker_intelligence(
+                t,
+                batch_quotes,
+                finnhub_client,
+                fundamental_agent,
+                macro_data,
+                lessons,
+                bq_client,
+                table_id,
+                current_prices,
+                ticker_intel,
+                held_tickers,
+                earnings_calendar,
             )
-            sma50_task = fundamental_agent.get_technical_indicator(
-                ticker, "sma", period=50
-            )
-            rsi_task = fundamental_agent.get_technical_indicator(
-                ticker, "rsi", period=14
-            )
-            std_task = fundamental_agent.get_technical_indicator(
-                ticker, "standarddeviation", period=20
-            )
-
-            # Execute gather with error handling (quote already resolved above)
-            intel_results = await asyncio.gather(
-                intelligence_task,
-                deep_health_task,
-                history_task,
-                confidence_task,
-                sma20_task,
-                sma50_task,
-                rsi_task,
-                std_task,
-                return_exceptions=True,
-            )
-
-            # --- UNPACK ALL RESULTS --- (quote already in res_quote above)
-            res_intel = (
-                intel_results[0] if not isinstance(intel_results[0], Exception) else {}
-            )
-            # res_deep returns (is_healthy, h_reason, is_deep, d_reason, f_score)
-            res_consolidated_health = (
-                intel_results[1]
-                if not isinstance(intel_results[1], Exception)
-                else (False, "Health fail", False, "Deep fail", None)
-            )
-            res_history = (
-                intel_results[2]
-                if not isinstance(intel_results[2], Exception)
-                else None
-            )
-            res_conf = (
-                intel_results[3] if not isinstance(intel_results[3], Exception) else 0
-            )
-            res_sma20 = (
-                intel_results[4]
-                if not isinstance(intel_results[4], Exception)
-                else None
-            )
-            res_sma50 = (
-                intel_results[5]
-                if not isinstance(intel_results[5], Exception)
-                else None
-            )
-            res_rsi = (
-                intel_results[6]
-                if not isinstance(intel_results[6], Exception)
-                else None
-            )
-            res_std = (
-                intel_results[7]
-                if not isinstance(intel_results[7], Exception)
-                else None
-            )
-
-            if res_quote and isinstance(res_quote, dict) and "c" in res_quote:
-                price = float(res_quote["c"])
-                current_prices[ticker] = price
-
-                # --- PREPARE ENRICHED CONTEXT FOR AI ---
-                sma20_val = float(res_sma20.get("sma", 0)) if res_sma20 else 0
-                sma_stretch = ((price / sma20_val) - 1) * 100 if sma20_val > 0 else 0
-
-                ai_context = {
-                    "macro": macro_data,  # Detailed macro dict for Gemini
-                    "analyst_consensus": res_intel.get("analyst_consensus", "Neutral"),
-                    "institutional_flow": res_intel.get(
-                        "institutional_momentum", "Neutral"
-                    ),
-                    "insider_momentum": res_intel.get("insider_momentum", "N/A"),
-                    "rsi": float(res_rsi.get("rsi", 50)) if res_rsi else 50.0,
-                    "sma_stretch_pct": round(sma_stretch, 2),
-                }
-
-                # Fetch sentiment with the enriched context
-                sentiment_result = await fetch_sentiment(
-                    ticker, lessons, context=ai_context
-                )
-                sentiment_score, gemini_reasoning = (
-                    sentiment_result
-                    if isinstance(sentiment_result, tuple)
-                    else (sentiment_result, "")
-                )
-
-                # Process technicals
-                indicators = calculate_technical_indicators(res_history, ticker)
-                if indicators:
-                    if res_sma20:
-                        indicators["sma_20"] = float(
-                            res_sma20.get("sma", indicators["sma_20"])
-                        )
-                    if res_sma50:
-                        indicators["sma_50"] = float(
-                            res_sma50.get("sma", indicators["sma_50"])
-                        )
-                    if res_sma20 and res_std:
-                        sma = float(res_sma20.get("sma", indicators["sma_20"]))
-                        std = float(res_std.get("standardDeviation", 0))
-                        indicators["bb_upper"] = sma + (std * 2)
-                        indicators["bb_lower"] = sma - (std * 2)
-
-                # Unpack consolidated health
-                is_h, h_re, is_d, d_re, f_sc = res_consolidated_health
-
-                ticker_intel[ticker] = {
-                    "price": price,
-                    "sentiment": sentiment_score,
-                    "is_healthy": is_h,
-                    "health_reason": h_re,
-                    "is_deep_healthy": is_d,
-                    "deep_health_reason": d_re,
-                    "f_score": f_sc,
-                    "confidence": int(res_conf or 0),
-                    "indicators": indicators,
-                    "history_res": res_history,
-                }
-                # Log to Watchlist — include all technical fields
-                ind = indicators or {}
-                log_watchlist_data(
-                    bq_client,
-                    table_id,
-                    ticker,
-                    price,
-                    sentiment_score,
-                    int(res_conf or 0),
-                    rsi=float(res_rsi.get("rsi", 0)) if res_rsi else None,
-                    sma_20=ind.get("sma_20"),
-                    sma_50=ind.get("sma_50"),
-                    bb_upper=ind.get("bb_upper"),
-                    bb_lower=ind.get("bb_lower"),
-                    f_score=res_consolidated_health[4]
-                    if len(res_consolidated_health) > 4
-                    else None,
-                    conviction=int(res_conf or 0),
-                    gemini_reasoning=gemini_reasoning,
-                )
-        except Exception as e:
-            print(f"[{ticker}] ⚠️ Failed to gather intel for {ticker}: {e}")
-
-        await asyncio.sleep(0.5)  # Rate limit spread
+            for t in tickers
+        ]
+    )
 
     # --- Phase 2: Portfolio Analysis & Conviction Swapping ---
     print("⚖️ Analyzing Portfolio Relative Strength...")
@@ -607,6 +484,8 @@ async def run_audit():
     # Generate Initial Signals
     signals = {}
     for ticker, intel in ticker_intel.items():
+        if intel is None:
+            continue
         indicators = intel.get("indicators")
         if indicators:
             total_market_val = val_data.get("total_market_value", 0.0)
@@ -627,6 +506,7 @@ async def run_audit():
                 "f_score": intel["f_score"],
                 "rsi": intel.get("rsi", 50.0),
                 "avg_price": held_tickers.get(ticker, {}).get("avg_price", 0.0),
+                "hwm": _high_water_marks.get(ticker, 0.0),
                 "prediction_confidence": intel["confidence"],
                 "is_low_exposure": exposure < MIN_EXPOSURE_THRESHOLD,
                 # Band-width as volatility proxy for dynamic stop (bb_upper-bb_lower)/price
@@ -635,6 +515,9 @@ async def run_audit():
                     if intel["price"] > 0 else 0.0
                 ),
                 "vix": float(macro_data.get("vix", 0.0)),
+                "volume": intel.get("volume", 0.0),
+                "avg_volume": intel.get("avg_volume", 1.0),
+                "days_to_earnings": earnings_calendar.get(ticker) if earnings_calendar else None,
             }
 
             sig = signal_agent.evaluate_strategy(market_data, force_eval=True)
@@ -667,46 +550,47 @@ async def run_audit():
     # 1. Identify Weakest Link (Lowest Confidence OR Failed Fundamentals OR Sentiment Collapse)
     for t in held_tickers:
         intel = ticker_intel.get(t)
-        if intel:
-            conf = intel.get("confidence", 0)
-            is_deep = intel.get("is_deep_healthy", True)
-            sentiment = float(intel.get("sentiment", 0.0))
+        if intel is None:
+            continue
+        conf = intel.get("confidence", 0)
+        is_deep = intel.get("is_deep_healthy", True)
+        sentiment = float(intel.get("sentiment", 0.0))
 
-            # Blended effective confidence: sentiment adjusts the score by up to ±15
-            sentiment_bonus = max(-15, min(15, int(sentiment * 20)))
-            effective_conf = conf + sentiment_bonus
+        # Blended effective confidence: sentiment adjusts the score by up to ±15
+        sentiment_bonus = max(-15, min(15, int(sentiment * 20)))
+        effective_conf = conf + sentiment_bonus
 
-            # SWAP TRIGGER: Low blended confidence, failed fundamentals, OR acute sentiment collapse
-            sentiment_collapse = sentiment < -0.3  # news has turned toxic right now
-            is_weak = effective_conf < 50 or not is_deep or sentiment_collapse
+        # SWAP TRIGGER: Low blended confidence, failed fundamentals, OR acute sentiment collapse
+        sentiment_collapse = sentiment < -0.3  # news has turned toxic right now
+        is_weak = effective_conf < 50 or not is_deep or sentiment_collapse
 
-            if is_weak:
-                # Prioritise: fundamental failure > sentiment collapse > low confidence
-                if weakest_link is None:
+        if is_weak:
+            # Prioritise: fundamental failure > sentiment collapse > low confidence
+            if weakest_link is None:
+                weakest_link = t
+                weakest_link_effective_conf = effective_conf
+            else:
+                current_is_deep = ticker_intel[weakest_link].get("is_deep_healthy", True)
+                current_sent = float(ticker_intel[weakest_link].get("sentiment", 0.0))
+                current_sent_collapse = current_sent < -0.3
+
+                # Fundamental failure always wins
+                if current_is_deep and not is_deep:
                     weakest_link = t
                     weakest_link_effective_conf = effective_conf
-                else:
-                    current_is_deep = ticker_intel[weakest_link].get("is_deep_healthy", True)
-                    current_sent = float(ticker_intel[weakest_link].get("sentiment", 0.0))
-                    current_sent_collapse = current_sent < -0.3
-
-                    # Fundamental failure always wins
-                    if current_is_deep and not is_deep:
+                # Both fundamental failures — pick lower blended conf
+                elif not current_is_deep and not is_deep:
+                    if effective_conf < weakest_link_effective_conf:
                         weakest_link = t
                         weakest_link_effective_conf = effective_conf
-                    # Both fundamental failures — pick lower blended conf
-                    elif not current_is_deep and not is_deep:
-                        if effective_conf < weakest_link_effective_conf:
-                            weakest_link = t
-                            weakest_link_effective_conf = effective_conf
-                    # Sentiment collapse beats purely low-confidence
-                    elif not current_sent_collapse and sentiment_collapse:
-                        weakest_link = t
-                        weakest_link_effective_conf = effective_conf
-                    # Same tier — pick lower blended confidence
-                    elif effective_conf < weakest_link_effective_conf:
-                        weakest_link = t
-                        weakest_link_effective_conf = effective_conf
+                # Sentiment collapse beats purely low-confidence
+                elif not current_sent_collapse and sentiment_collapse:
+                    weakest_link = t
+                    weakest_link_effective_conf = effective_conf
+                # Same tier — pick lower blended confidence
+                elif effective_conf < weakest_link_effective_conf:
+                    weakest_link = t
+                    weakest_link_effective_conf = effective_conf
 
     # 2. Identify Rising Star (Highest Blended Conviction across ALL tickers)
     # Exclude the weakest_link itself (can't sell and re-buy the same ticker).
@@ -720,7 +604,7 @@ async def run_audit():
             continue  # Can't be your own rising star
 
         intel = ticker_intel.get(t)
-        if not intel:
+        if intel is None:
             continue
 
         conf = intel.get("confidence", 0)
@@ -822,32 +706,109 @@ async def run_audit():
     effective_enabled = trading_enabled and is_market_open
 
     # 1. Execute SELLs First
-    for ticker, sig in signals.items():
-        if sig.get("action") == "SELL":
-            reason = sig.get("reason", "Strategy Signal")
-            # Extract position value for logging
-            position_val = held_tickers.get(ticker, {}).get("market_value", 0.0)
+    for ticker_obj, sig in signals.items():
+        ticker = str(ticker_obj)
+        action = str(sig.get("action"))
+        
+        if action in ["SELL", "SELL_ALL", "SELL_PARTIAL_50"]:
+            reason = str(sig.get("reason", "Strategy Signal"))
+            
+            # Extract position data
+            pos = held_tickers.get(ticker, {})
+            position_val = float(pos.get("market_value", 0.0))
+            current_qty = float(pos.get("qty", 0))
+
+            # Determine sell quantity
+            is_partial = action == "SELL_PARTIAL_50"
+            target_qty = 0 # Default to SELL ALL
+            
+            if is_partial:
+                # Scaled-out logic: sell 50%
+                target_qty = int(current_qty * 0.5)
+                # Safety: if we have shares but 50% is 0 (e.g. 1 share), sell at least 1
+                if target_qty == 0 and current_qty > 0:
+                    target_qty = int(current_qty)
+
+            # 1. Minimum Hold Time Guard — block non-emergency SELLs if held < 30m
+            # Emergency = Stop Loss, Sentiment Collapse, RSI, or Trailing Stop
+            entry_time = _position_entry_times.get(ticker)
+            is_emergency = any(k in reason for k in ["STOP_LOSS", "SENTIMENT", "RSI", "TRAILING_STOP", "EXIT_SELL_ALL"])
+            
+            if entry_time and not is_emergency and not is_partial:
+                hold_duration = (datetime.now() - entry_time).total_seconds() / 60
+                if hold_duration < MIN_HOLD_MINUTES:
+                    log_decision(ticker, "SKIP", f"Churn Guard: Hold time {hold_duration:.1f}m < {MIN_HOLD_MINUTES}m")
+                    continue
 
             if not effective_enabled:
-                log_decision(ticker, "SELL", f"🧊 DRY RUN: Intent SELL ${position_val:,.2f} ({reason})")
-                status = "dry_run_sell"
+                sell_val = position_val * 0.5 if is_partial else position_val
+                log_decision(ticker, action, f"🧊 DRY RUN: Intent {action} ${sell_val:,.2f} ({reason})")
+                status = f"dry_run_{action.lower()}"
             else:
                 exec_res = execution_manager.place_order(
-                    ticker, "SELL", 0, sig["price"], reason=reason
+                    ticker, "SELL", target_qty, sig["price"], reason=reason
                 )
                 status = f"executed_{exec_res.get('status', 'FAIL')}"
                 log_decision(
-                    ticker, "SELL", f"Execution Status: {status} | Value: ${position_val:,.2f} | Reason: {reason}"
+                    ticker, action, f"Execution Status: {status} | Value: ${position_val:,.2f} | Reason: {reason}"
                 )
 
-            # Record stop-loss cooldown to prevent immediate re-entry
+            # Registry Updates
+            if "executed" in status:
+                if is_partial:
+                    _scaled_out_tickers.add(ticker)
+                else:
+                    # Full exit: Clear all tracking data for this position
+                    _high_water_marks.pop(ticker, None)
+                    _position_entry_times.pop(ticker, None)
+                    _scaled_out_tickers.discard(ticker)
+
+            # Record stop-loss cooldown if it was a negative exit
             if "STOP_LOSS" in reason or "SENTIMENT" in reason:
-                _stop_loss_cooldown[ticker] = datetime.now() + timedelta(minutes=STOP_LOSS_COOLDOWN_MINUTES)
-                logger.info(f"[{ticker}] Stop-loss cooldown set for {STOP_LOSS_COOLDOWN_MINUTES}m")
+                _stop_loss_cooldown[ticker] = datetime.now(timezone.utc) + timedelta(
+                    minutes=STOP_LOSS_COOLDOWN_MINUTES
+                )
 
             execution_results.append(
-                {"ticker": ticker, "signal": "SELL", "status": status, "reason": reason}
+                {"ticker": ticker, "signal": action, "status": status, "reason": reason}
             )
+
+    # 1.5 Portfolio Hedge Check
+    # If market is bearish or VIX is high, we buy inverse ETFs (e.g., PSQ)
+    hedge_ticker = "PSQ"
+    hedge_action, target_pct = signal_agent.evaluate_macro_hedge(macro_data)
+    
+    current_hedge_pos = held_tickers.get(hedge_ticker, {})
+    current_hedge_val = float(current_hedge_pos.get("market_value", 0.0))
+    target_hedge_val = total_equity * target_pct
+    
+    if hedge_action == "BUY_HEDGE":
+        # Check if we need to enter OR top up (if current is significantly below target)
+        # We top up if target is more than 20% higher than current (to avoid tiny churn)
+        needs_entry = hedge_ticker not in held_tickers
+        needs_topup = current_hedge_val < (target_hedge_val * 0.8)
+        
+        if needs_entry or needs_topup:
+            order_val = target_hedge_val - current_hedge_val
+            if effective_enabled:
+                exec_res = execution_manager.place_order(
+                    hedge_ticker, "BUY", 0, 0.0, # Market buy
+                    reason=f"MACRO_HEDGE_{int(target_pct*100)}PCT_TRIGGERED",
+                    cash_available=float(order_val)
+                )
+                log_decision(hedge_ticker, "BUY", f"Hedge Scaling: Target {target_pct:.0%} | Scaling Order ${order_val:,.2f}")
+            else:
+                log_decision(hedge_ticker, "BUY", f"🧊 DRY RUN: Hedge Scaling Target {target_pct:.0%} | Order ${order_val:,.2f}")
+            
+    elif hedge_action == "CLEAR_HEDGE" and hedge_ticker in held_tickers:
+        if effective_enabled:
+            exec_res = execution_manager.place_order(
+                hedge_ticker, "SELL", 0, 0.0, # Sell all
+                reason="MACRO_HEDGE_CLEARED"
+            )
+            log_decision(hedge_ticker, "SELL", f"Hedging Cleared: {exec_res.get('status', 'FAIL')}")
+        else:
+            log_decision(hedge_ticker, "SELL", "🧊 DRY RUN: Hedging Cleared")
 
     # 2. Execute BUYs
     # Exposure tracking to respect 65% baseline vs Star Reserve
@@ -861,10 +822,22 @@ async def run_audit():
 
             # 1. Stop-loss cooldown guard — skip re-entry within 30 min of a stop
             cooldown_until = _stop_loss_cooldown.get(ticker)
-            if cooldown_until is not None and datetime.now() < cooldown_until:
-                remaining = int((cooldown_until - datetime.now()).total_seconds() / 60)
-                log_decision(ticker, "SKIP", f"Stop-loss cooldown active ({remaining}m remaining)")
+            if cooldown_until is not None and datetime.now(timezone.utc) < cooldown_until:
+                remaining = int(
+                    (cooldown_until - datetime.now(timezone.utc)).total_seconds() / 60
+                )
+                log_decision(
+                    ticker, "SKIP", f"Stop-loss cooldown active ({remaining}m remaining)"
+                )
                 continue
+
+            # 2. Morning Volatility Gate — block non-emergency BUYs before 10:00 AM ET
+            # High bid-ask spreads and erratic price discovery in the first 30 mins.
+            now_et = datetime.now(pytz.timezone("America/New_York"))
+            if now_et.hour == 9 and now_et.minute >= 30:
+                if not is_star and reason != "CONVICTION_ROTATION":
+                    log_decision(ticker, "SKIP", f"Morning Volatility Gate Active (until 10:00 AM ET)")
+                    continue
 
             # 2. VIX guard — block speculative INITIAL_DEPLOYMENT when fear is elevated
             if vix > 25 and reason == "INITIAL_DEPLOYMENT":
@@ -882,48 +855,39 @@ async def run_audit():
                 continue
 
             # Calculate Allocation
-            cash_pool = portfolio_manager.get_cash_balance()
+            cash_pool = float(portfolio_manager.get_cash_balance())
+            already_held_value = float(held_tickers.get(ticker, {}).get("market_value", 0.0))
+            
+            # Fetch intelligence for sizing math
+            intel = ticker_intel.get(ticker)
+            if intel is None:
+                log_decision(ticker, "SKIP", "Missing intelligence data during execution phase")
+                continue
 
-            # Max 40% per ticker
-            already_held_value = held_tickers.get(ticker, {}).get("market_value", 0.0)
-            room_to_buy = total_equity * 0.40 - already_held_value
-
-            intel = ticker_intel.get(ticker, {})
             sentiment = float(intel.get("sentiment", 0.0))
 
-            # One-shot allocation tiers:
-            #
-            # Tier 1 — Stars & Conviction Swaps: fill straight to the 40% per-stock cap.
-            #   These are the bot's highest-conviction moves; they are allowed to push
-            #   total exposure above the 65% baseline.
-            #
-            # Tier 2 — Top-ups & Initial Deployment: one-shot but bounded by the 65%
-            #   total exposure target. We don't want ordinary ADD signals to blow past the
-            #   baseline just because room_to_buy says there's space at the stock level.
-            #
-            # Tier 3 — Fresh ordinary BUY: incremental base-unit sizing for price discovery.
-
-            is_adding_to_position = already_held_value > 0
-            is_uncapped_commit = is_star or reason == "CONVICTION_ROTATION"
-            is_capped_commit = (
-                not is_uncapped_commit
-                and (is_adding_to_position or reason == "INITIAL_DEPLOYMENT")
+            # Tiered Automated Position Sizing:
+            # We calculate a dynamic target allocation based on conviction, VIX, and volatility.
+            target_allocation = signal_agent.calculate_position_size(
+                total_equity,
+                sig.get("conviction", 0),
+                vix=vix,
+                band_width=intel.get("band_width", 0.03),
+                is_star=is_star
             )
 
-            if is_uncapped_commit:
-                # Tier 1: straight to per-stock cap, exposure ceiling ignored
-                allocation = min(room_to_buy, cash_pool)
-            elif is_capped_commit:
-                # Tier 2: one-shot but respect the 65% total exposure ceiling
-                room_to_exposure_target = max(
+            # Buy amount = Target Allocation - Current Holdings
+            allocation = max(0, target_allocation - already_held_value)
+
+            # Cap Check: Respect the 65% baseline for non-Stars
+            if not is_star:
+                room_to_exposure_target = float(max(
                     0.0, total_equity * 0.65 - total_equity * running_exposure
-                )
-                allocation = min(room_to_buy, room_to_exposure_target, cash_pool)
-            else:
-                # Tier 3: incremental entry for fresh ordinary signals
-                base_unit = total_equity * 0.05
-                multiplier = 1.0 + max(0.0, sentiment)
-                allocation = min(base_unit * multiplier, room_to_buy, cash_pool)
+                ))
+                allocation = float(min(allocation, room_to_exposure_target))
+            
+            # Final liquidity check
+            allocation = min(allocation, cash_pool)
 
             if not effective_enabled:
                 if allocation >= 1000:
@@ -960,6 +924,9 @@ async def run_audit():
                         f"Insufficient Allocation (${allocation:.2f} < $1000) or Room to Buy.",
                     )
                     status = "skipped_insufficient_funds"
+
+            if "executed" in status:
+                _position_entry_times[ticker] = datetime.now(timezone.utc)
 
             execution_results.append(
                 {"ticker": ticker, "signal": "BUY", "status": status, "reason": reason}
@@ -1137,6 +1104,175 @@ def health():
         200,
     )
 
+
+async def process_ticker_intelligence(
+    ticker,
+    batch_quotes,
+    finnhub_client,
+    fundamental_agent,
+    macro_data,
+    lessons,
+    bq_client,
+    table_id,
+    current_prices,
+    ticker_intel,
+    held_tickers,
+    earnings_calendar,
+):
+    print(f"[{ticker}] 📡 Gathering Intel for {ticker}...")
+    try:
+        # Quote: use pre-fetched batch result; fall back to Finnhub if missing
+        res_quote = batch_quotes.get(ticker)
+        if not res_quote and finnhub_client:
+            try:
+                res_quote = await asyncio.to_thread(finnhub_client.quote, ticker)
+            except Exception:
+                res_quote = None
+
+        intelligence_task = fundamental_agent.get_intelligence_metrics(ticker)
+        deep_health_task = fundamental_agent.evaluate_deep_health(ticker)
+        history_task = fetch_historical_data(ticker)
+        confidence_task = get_latest_confidence(ticker)
+
+        # FMP Technical Indicators
+        sma20_task = fundamental_agent.get_technical_indicator(ticker, "sma", period=20)
+        sma50_task = fundamental_agent.get_technical_indicator(ticker, "sma", period=50)
+        rsi_task = fundamental_agent.get_technical_indicator(ticker, "rsi", period=14)
+        std_task = fundamental_agent.get_technical_indicator(
+            ticker, "standarddeviation", period=20
+        )
+
+        # Execute gather with error handling (quote already resolved above)
+        intel_results = await asyncio.gather(
+            intelligence_task,
+            deep_health_task,
+            history_task,
+            confidence_task,
+            sma20_task,
+            sma50_task,
+            rsi_task,
+            std_task,
+            return_exceptions=True,
+        )
+
+        res_intel = (
+            intel_results[0] if not isinstance(intel_results[0], Exception) else {}
+        )
+        res_consolidated_health = (
+            intel_results[1]
+            if not isinstance(intel_results[1], Exception)
+            else (False, "Health fail", False, "Deep fail", None)
+        )
+        res_history = (
+            intel_results[2] if not isinstance(intel_results[2], Exception) else None
+        )
+        res_conf = intel_results[3] if not isinstance(intel_results[3], Exception) else 0
+        res_sma20 = (
+            intel_results[4] if not isinstance(intel_results[4], Exception) else None
+        )
+        res_sma50 = (
+            intel_results[5] if not isinstance(intel_results[5], Exception) else None
+        )
+        res_rsi = (
+            intel_results[6] if not isinstance(intel_results[6], Exception) else None
+        )
+        res_std = (
+            intel_results[7] if not isinstance(intel_results[7], Exception) else None
+        )
+
+        if res_quote and isinstance(res_quote, dict) and "c" in res_quote:
+            price = float(res_quote["c"])
+            volume = float(res_quote.get("v", 0))
+            avg_volume = float(res_quote.get("av", 1))
+            current_prices[ticker] = price
+
+            # Update high-water-mark for held positions (used by trailing stop)
+            if ticker in held_tickers and price > 0:
+                current_hwm = _high_water_marks.get(ticker, 0.0)
+                if price > current_hwm:
+                    _high_water_marks[ticker] = price
+
+            # --- PREPARE ENRICHED CONTEXT FOR AI ---
+            sma20_val = float(res_sma20.get("sma", 0)) if res_sma20 else 0
+            sma_stretch = ((price / sma20_val) - 1) * 100 if sma20_val > 0 else 0
+
+            ai_context = {
+                "macro": macro_data,
+                "analyst_consensus": res_intel.get("analyst_consensus", "Neutral"),
+                "institutional_flow": res_intel.get("institutional_momentum", "Neutral"),
+                "insider_momentum": res_intel.get("insider_momentum", "N/A"),
+                "rsi": float(res_rsi.get("rsi", 50)) if res_rsi else 50.0,
+                "sma_stretch_pct": round(sma_stretch, 2),
+            }
+
+            sentiment_result = await fetch_sentiment(ticker, lessons, context=ai_context)
+            sentiment_score, gemini_reasoning = (
+                sentiment_result
+                if isinstance(sentiment_result, tuple)
+                else (sentiment_result, "")
+            )
+
+        # 1. Technical Baseline Construction
+        indicators = calculate_technical_indicators(res_history, ticker) or {}
+        
+        # Override derived indicators with real-time FMP technical endpoints if available
+        if res_sma20 and isinstance(res_sma20, dict):
+            indicators["sma_20"] = float(res_sma20.get("sma", indicators.get("sma_20", 0)))
+        if res_sma50 and isinstance(res_sma50, dict):
+            indicators["sma_50"] = float(res_sma50.get("sma", indicators.get("sma_50", 0)))
+        
+        if res_sma20 and isinstance(res_sma20, dict) and res_std and isinstance(res_std, dict):
+            sma = float(res_sma20.get("sma", 0))
+            std = float(res_std.get("standardDeviation", 0))
+            if sma > 0:
+                indicators["bb_upper"] = sma + (std * 2)
+                indicators["bb_lower"] = sma - (std * 2)
+
+        is_h, h_re, is_d, d_re, f_sc = res_consolidated_health
+
+        # Calculate Band Width as a volatility metric
+        bw = 0.0
+        if indicators.get("bb_upper") and indicators.get("bb_lower") and price > 0:
+            bw = (indicators["bb_upper"] - indicators["bb_lower"]) / price
+
+        ticker_intel[ticker] = {
+            "price": price,
+            "sentiment": sentiment_score,
+            "is_healthy": is_h,
+            "health_reason": h_re,
+            "is_deep_healthy": is_d,
+            "deep_health_reason": d_re,
+            "f_score": f_sc,
+            "confidence": int(res_conf or 0),
+            "indicators": indicators,
+            "history_res": res_history,
+            "rsi": float(res_rsi.get("rsi", 0)) if (res_rsi and isinstance(res_rsi, dict)) else None,
+            "volume": volume if 'volume' in locals() else 0.0,
+            "avg_volume": avg_volume if 'avg_volume' in locals() else 1.0,
+            "band_width": bw,
+            "hwm": _high_water_marks.get(ticker, 0.0),
+            "has_scaled_out": (ticker in _scaled_out_tickers),
+        }
+
+        # Log to Watchlist — include all technical fields
+        log_watchlist_data(
+            bq_client,
+            table_id,
+            ticker,
+            price,
+            sentiment_score,
+            int(res_conf or 0),
+            rsi=float(res_rsi.get("rsi", 0)) if (res_rsi and isinstance(res_rsi, dict)) else None,
+            sma_20=indicators.get("sma_20"),
+            sma_50=indicators.get("sma_50"),
+            bb_upper=indicators.get("bb_upper"),
+            bb_lower=indicators.get("bb_lower"),
+            f_score=f_sc,
+            conviction=int(res_conf or 0),
+            gemini_reasoning=gemini_reasoning,
+        )
+    except Exception as e:
+        print(f"[{ticker}] \u26a0\ufe0f Failed to gather intel for {ticker}: {e}")
 
 @app.route("/run-audit", methods=["POST"])
 async def run_audit_endpoint():

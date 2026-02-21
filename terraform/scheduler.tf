@@ -12,6 +12,24 @@ resource "google_service_account_iam_member" "scheduler_sa_user" {
 }
 
 # 4. SCHEDULING TIER (NASDAQ Aligned)
+resource "google_cloud_scheduler_job" "ticker_rank_premarket" {
+  name             = "trading-ticker-ranker-premarket"
+  description      = "Pre-market sentiment scan (9:00 AM ET)"
+  schedule         = "0 9 * * 1-5"
+  time_zone        = "America/New_York"
+  attempt_deadline = "320s"
+
+  http_target {
+    http_method = "POST"
+    uri         = "${google_cloud_run_v2_service.trading_bot.uri}/rank-tickers"
+
+    oidc_token {
+      service_account_email = google_service_account.bot_sa.email
+      audience              = google_cloud_run_v2_service.trading_bot.uri
+    }
+  }
+}
+
 resource "google_cloud_scheduler_job" "ticker_rank_trigger" {
   name             = "trading-ticker-ranker"
   description      = "Pre-market ticker ranking (9:15 AM ET)"
@@ -68,8 +86,8 @@ resource "google_cloud_scheduler_job" "ticker_rank_power_hour" {
 
 resource "google_cloud_scheduler_job" "audit_trigger" {
   name             = "trading-audit-trigger"
-  description      = "High-frequency audit (Every 2 minutes during market hours)"
-  schedule         = "*/2 9-16 * * 1-5"
+  description      = "High-frequency audit (Every 1 minute during market hours)"
+  schedule         = "* 9-16 * * 1-5"
   time_zone        = "America/New_York"
   attempt_deadline = "320s"
 
