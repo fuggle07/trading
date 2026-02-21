@@ -412,8 +412,9 @@ async def run_audit():
     except Exception as e:
         print(f"⚠️ Preliminary commitment check failed: {e}")
 
-    # Audit all monitored tickers PLUS anything we currently hold (safety first)
-    tickers = list(set(base_tickers + list(held_tickers.keys())))
+    # Audit monitored tickers, held assets, and the hedge reserve (PSQ)
+    hedge_ticker = "PSQ"
+    tickers = list(set(base_tickers + list(held_tickers.keys()) + [hedge_ticker]))
     print(f"🔍 Starting Multi-Phase Audit for: {tickers}")
 
     # already fetched held_tickers above

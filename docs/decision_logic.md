@@ -20,12 +20,14 @@ The bot gathers five primary data points for every ticker in its watchlist (`TSL
 
 When the bot evaluates a stock (e.g., NVDA), it follows this step-by-step logic:
 
-### Step A: The Exit Override (Runs First for Held Positions)
-If you already own the stock, the bot checks your P&L **before** looking at the charts:
-*   **Profit Target (+5%)**: If the stock is up 5% from your average cost, the bot **SELLS IMMEDIATELY**.
-*   **Stop Loss (-2.5%)**: If the stock drops 2.5%, the bot exits to protect capital.
-*   **Narrative Crash**: If sentiment drops below **-0.4**, the bot exits even if price looks fine.
-*   **RSI Overbought (≥ 80)**: Exit to capture momentum exhaustion before reversal.
+### Step A: The Exit Override (Institutional Risk Model)
+If you already own the stock, the bot checks your P&L **before** looking at new opportunities:
+*   **Partial Scaling (+5%)**: If the stock is up 5% from your average cost, the bot **SELLS 50%**. This locks in gains while leaving half exposed to further upside.
+*   **Trailing Stop-Loss**: 
+    1.  **Activation**: Becomes active once a ticker is up **+3%**.
+    2.  **Trigger**: If the price pulls back **2% from its High Water Mark (HWM)**, the bot exits the remaining position.
+*   **Sentiment Crash**: If sentiment drops below **-0.4**, the bot exits even if price looks fine.
+*   **RSI Overbought (≥ 85)**: Exit to capture extreme momentum exhaustion.
 
 ### Step B: The Volatility Filter
 *   **Check**: Are the price swings too wild? (Band Width > 25% normally; relaxed to 37.5% when exposure is low).
@@ -63,8 +65,25 @@ If you already own the stock, the bot checks your P&L **before** looking at the 
 
 *   **Basic Health Check**: If EPS < 0 or PE > 100 (`is_healthy = False`), BUY is also rejected.
 
-### Step G: Star Rating
-If **AI Confidence ≥ 90** AND **F-Score ≥ 7** AND **is_deep_healthy**, the signal is elevated to `STAR_*` status — highest priority in the conviction swap logic.
+### Step G: Macro Hedging (Portfolio Defense)
+The bot continuously monitors the **VIX** and **NASDAQ Trend (QQQ vs SMA-50)**. If distress is detected, it enters/scales an inverse position (**PSQ**):
+
+| Alert Level | Condition | Hedge Size |
+| :--- | :--- | :--- |
+| **Clear** | Bullsish trend & low VIX | 0% |
+| **Caution** | QQQ < SMA-50 OR VIX > 30 | 2% |
+| **Fear** | QQQ < SMA-50 AND VIX > 35 | 5% |
+| **Panic** | VIX > 45 | 10% |
+
+### Step H: Dynamic Position Sizing
+Unlike fixed sizing, the bot now calculates the exact USD for every trade based on three factors:
+1.  **Conviction (AI Score)**: Higher conviction → Larger size.
+2.  **VIX (Market Risk)**: High VIX → Squeezes position sizes down to preserve cash.
+3.  **Band Width (Volatility)**: High volatility → Reduces exposure.
+
+**Formula**: `Base Size × (Conviction/100) × (1 - (VIX/100)) × (1 - (Width/0.5))`
+*   **Max Cap**: 40% of total equity.
+*   **Star Floor**: Elite trades are guaranteed at least 20% allocation.
 
 ---
 

@@ -107,14 +107,12 @@ class FundamentalAgent:
         timeframe: str = "1day",
     ):
         """
-        Fetches technical indicators from FMP (e.g., sma, rsi, ema).
-        URL: https://financialmodelingprep.com/stable/technical-indicators/{type}?symbol={ticker}&periodLength={period}&timeframe={timeframe}&apikey={key}
+        Fetches technical indicators from FMP using the stable API.
         """
         endpoint = f"technical-indicators/{indicator_type}"
         params = {"periodLength": period, "timeframe": timeframe}
         data = await self._fetch_fmp(endpoint, ticker, params=params, version="stable")
         if data and isinstance(data, list):
-            # FMP returns a list of indicators, we usually want the latest one
             return data[0]
         return None
 
@@ -167,20 +165,17 @@ class FundamentalAgent:
 
     async def get_upcoming_earnings(self, tickers: list, window_days: int = 3) -> dict:
         """
-        Checks FMP Earnings Calendar for upcoming earnings reports within the window.
-        Returns {ticker: days_until_report}
+        Checks FMP Earnings Calendar (stable) for upcoming reports.
         """
         if not self.fmp_key or not tickers:
             return {}
 
-        # FMP Earnings Calendar v3
         from_date = datetime.now().strftime("%Y-%m-%d")
         to_date = (datetime.now() + timedelta(days=window_days)).strftime("%Y-%m-%d")
         
-        endpoint = "earning_calendar"
-        # We can't filter by symbol in the path for this v3 endpoint in a clean way for batch, 
-        # so we fetch the general calendar and filter.
-        data = await self._fetch_fmp(endpoint, "", params={"from": from_date, "to": to_date}, version="v3")
+        # Use stable earning-calendar to avoid v3 legacy errors
+        endpoint = "earning-calendar"
+        data = await self._fetch_fmp(endpoint, "", params={"from": from_date, "to": to_date}, version="stable")
         
         results = {}
         if data and isinstance(data, list):
@@ -194,7 +189,7 @@ class FundamentalAgent:
                             days_diff = (report_date - datetime.now()).days
                             results[symbol] = max(0, days_diff)
                         except Exception:
-                            results[symbol] = 0 # Assume today if parse fails
+                            results[symbol] = 0
         return results
 
     async def get_fundamentals(self, ticker: str):
@@ -424,72 +419,64 @@ class FundamentalAgent:
 
     async def get_market_indices(self) -> dict:
         """
-        Fetches VIX (Fear Index) and other major indices via stable /quote.
-        Fallbacks to Finnhub Index Quotes or Volatility ETF (VXX) if indices are restricted.
+        Fetches VIX (Fear Index) and major indices performance.
+        Refactored to isolate ^VIX which often causes 402/403 on standard plans.
         """
         results = {"vix": 0.0, "spy_perf": 0.0, "qqq_perf": 0.0, "qqq_price": 0.0, "spy_price": 0.0}
 
-        # 1. Try FMP (v3)
         if self.fmp_key:
-            indices = "^VIX,SPY,QQQ"
-            data = await self._fetch_fmp("quote", indices, version="stable")
+            # 1. Fetch SPY/QQQ (ETFs - usually free on stable quote)
+            data = await self._fetch_fmp("quote", "SPY,QQQ", version="stable")
             if data and isinstance(data, list):
                 for item in data:
                     sym = item.get("symbol")
                     price = float(item.get("price", 0) or 0)
-                    if sym == "^VIX":
-                        results["vix"] = price
-                    elif sym == "SPY":
+                    if sym == "SPY":
                         results["spy_perf"] = float(item.get("changesPercentage", 0) or 0)
                         results["spy_price"] = price
                     elif sym == "QQQ":
                         results["qqq_perf"] = float(item.get("changesPercentage", 0) or 0)
                         results["qqq_price"] = price
-                if results["vix"] > 0:
-                    return results
+            
+            # 2. Fetch VIX separately to avoid stalling the index batch
+            vix_data = await self._fetch_fmp("quote", "^VIX", version="stable")
+            if vix_data and isinstance(vix_data, list) and len(vix_data) > 0:
+                results["vix"] = float(vix_data[0].get("price", 0) or 0)
 
-        # 2. Fallback to Finnhub
-        if self.finnhub_client:
+        # 3. Fallback for VIX if FMP restricted
+        if results["vix"] == 0 and self.finnhub_client:
             try:
-                # Try Index Quote for ^VIX first
                 vix_res = await asyncio.to_thread(self.finnhub_client.quote, "^VIX")
-                if vix_res and vix_res.get("pc", 0) > 0:
+                if vix_res and vix_res.get("c", 0) > 0:
                     results["vix"] = float(vix_res["c"])
                 else:
-                    # PROXY: Use VXX (Volatility ETF) as a fear proxy if the actual index is restricted
+                    # Extended Proxy: VXX
                     vxx_res = await asyncio.to_thread(self.finnhub_client.quote, "VXX")
-                    if vxx_res and vxx_res.get("pc", 0) > 0:
-                        results["vix_proxy_vxx"] = float(vxx_res["c"])
-                        logger.info("📉 Using VXX as Volatility Proxy (VIX restricted)")
-
-                # Fetch SPY/QQQ performance (These are usually free as they are ETFs)
-                spy_task = asyncio.to_thread(self.finnhub_client.quote, "SPY")
-                qqq_task = asyncio.to_thread(self.finnhub_client.quote, "QQQ")
-
-                spy_res, qqq_res = await asyncio.gather(spy_task, qqq_task)
-
-                if spy_res and "dp" in spy_res:
-                    results["spy_perf"] = float(spy_res["dp"])
-                    results["spy_price"] = float(spy_res["c"])
-                if qqq_res and "dp" in qqq_res:
-                    results["qqq_perf"] = float(qqq_res["dp"])
-                    results["qqq_price"] = float(qqq_res["c"])
-
+                    if vxx_res and vxx_res.get("c", 0) > 0:
+                        results["vix"] = float(vxx_res["c"])
+                        logger.info("📉 Using VXX as Volatility Proxy")
             except Exception as e:
-                logger.error(f"⚠️ Finnhub Indices Fallback failed: {e}")
+                logger.error(f"⚠️ Index fallbacks failed: {e}")
+
+        # Ensure we always have some prices for SPY/QQQ via Finnhub if FMP fails
+        if results["qqq_price"] == 0 and self.finnhub_client:
+            try:
+                qqq_res = await asyncio.to_thread(self.finnhub_client.quote, "QQQ")
+                if qqq_res:
+                    results["qqq_price"] = float(qqq_res.get("c", 0))
+                    results["qqq_perf"] = float(qqq_res.get("dp", 0))
+            except Exception: pass
 
         return results
 
     async def get_index_technicals(self, ticker: str, window: int = 50) -> float:
         """
-        Fetches technical SMA for an index/ETF.
+        Fetches technical SMA for an index/ETF using the stable API.
         Used primarily for QQQ SMA-50 Trend analysis.
         """
-        if self.fmp_key:
-            endpoint = f"technical_indicator/1day/{ticker}"
-            data = await self._fetch_fmp(endpoint, "", params={"type": "sma", "period": window}, version="v3")
-            if data and isinstance(data, list) and len(data) > 0:
-                return float(data[0].get("sma", 0.0))
+        data = await self.get_technical_indicator(ticker, "sma", period=window)
+        if data and isinstance(data, dict):
+            return float(data.get("sma", 0.0))
         return 0.0
 
     def _get_cached_evaluation(self, ticker: str):

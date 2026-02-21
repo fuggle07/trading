@@ -72,34 +72,40 @@ graph TD
 - **Function**:
     - Initializes all managers and API clients.
     - Runs the watchlist: `TSLA, NVDA, MU, AMD, PLTR, COIN, META, MSTR` (configurable via `BASE_TICKERS` env var).
+    - **Hedge Auto-Injection**: Automatically includes `PSQ` in every audit cycle for protection.
     - Fetches data in parallel: Alpaca candles, FMP technicals, Finnhub news, fundamental health, macro context.
     - Coordinates: Data → Signal → Execution → Logging.
+    - **Macro Hedging**: Evaluates market distress and scales inverse positions accordingly.
     - Exposes `/equity` endpoint for real-time live portfolio equity (bypasses stale logs).
-    - Calculates and logs total portfolio equity at the end of each cycle.
 
 ### B. Signal Agent (`signal_agent.py`)
 - **Role**: The strategist.
-- **Logic**: Hybrid Technical + Fundamental + Sentiment pipeline.
+- **Logic**: Hybrid Technical + Fundamental + Sentiment pipeline with **Dynamic Risk Scaling**.
 - **Strategy Pipeline**:
     1.  **Holiday Filter**: Skips processing if the market is closed.
-    2.  **Volatility Gate**: Skips trading if Bollinger Band width > threshold (default 25%, relaxed 50% when exposure is low).
-    3.  **Exit Override** (runs before buy signals):
-        - **Profit Target**: SELL if profit ≥ 5%.
-        - **Stop Loss**: SELL if loss ≥ 2.5%.
+    2.  **Volatility Gate**: Skips trading if Bollinger Band width > threshold (default 25%).
+    3.  **Institutional Exit Logic** (runs before buy signals):
+        - **Partial Scaling**: SELL 50% of the position if profit hits **+5%**.
+        - **Trailing Stop-Loss**: Activates once profit hits **+3%**. Exits the position if the price pulls back **2% from its High Water Mark (HWM)**.
         - **Sentiment Exit**: SELL if Sentiment < -0.4.
-        - **RSI Overbought Exit**: SELL if RSI ≥ 80.
-    4.  **Technical Baseline**:
+        - **RSI Overbought Exit**: SELL if RSI ≥ 85.
+    4.  **Macro Hedging**: 
+        - Determines hedge status based on VIX and QQQ Trend.
+        - **Caution (2%)**, **Fear (5%)**, or **Panic (10%)** target percentages.
+    5.  **Dynamic Position Sizing**: Calculates optimal allocation (up to 40% cap) based on **Conviction**, **VIX**, and **Band Width**.
+    6.  **Technical Baseline**:
         - BUY if `Price ≤ Lower Band` AND Sentiment ≥ 0.4.
         - SELL if `Price ≥ Upper Band`.
         - RSI Oversold Aggression: BUY if RSI ≤ 30 AND Sentiment > 0.4.
-    5.  **Low Exposure Aggression** (`PROACTIVE_WARRANTED_ENTRY`): If portfolio < 65% invested, allows HOLD-technical BUY if Sentiment ≥ 0.2 and AI Confidence ≥ 70.
-    6.  **Fundamental Gatekeeper**: Blocks BUY if F-Score is critically low or basic health fails.
-    7.  **Star Rating**: Flags elite opportunities (AI ≥ 90, F-Score ≥ 7, deeply healthy).
+    7.  **Low Exposure Aggression** (`PROACTIVE_WARRANTED_ENTRY`): If portfolio < 65% invested, allows entry into leaders even if not at technical extremes.
+    8.  **Fundamental Gatekeeper**: Blocks BUY if F-Score is critically low or basic health fails.
+    9.  **Star Rating**: Flags elite opportunities (AI ≥ 90, F-Score ≥ 7) with a minimum 20% capital floor.
 
 ### C. Execution Manager (`execution_manager.py`)
 - **Role**: The trader.
 - **Function**:
     - Validates `PortfolioManager` for sufficient Cash (BUY) or Holdings (SELL).
+    - Supports **Partial Sells** (SELL_PARTIAL_50) for scaling out.
     - Submits **Market Orders** to Alpaca (Paper Trading mode).
     - Records every trade to `trading_data.executions` in BigQuery.
 
@@ -108,8 +114,8 @@ graph TD
 - **Function**:
     - Manages the internal BigQuery ledger (`trading_data.portfolio`).
     - **Unified Cash Pool**: Single 'USD' row holds all purchasing power.
+    - **Tracking**: Persistent tracking of **High Water Marks** and **Scaled-Out status** for advanced exit logic.
     - **Asset Tracking**: Tracks holdings and **Weighted Average Cost (WAC)** per ticker.
-    - **Equity Calculation**: `Total Equity = Cash + (Holdings × Current Price)`.
 
 ### E. Portfolio Reconciler (`portfolio_reconciler.py`)
 - **Role**: The auditor.
@@ -130,12 +136,13 @@ graph TD
 - **Role**: The value investor.
 - **Primary Source**: **Financial Modeling Prep (FMP) Stable API**.
 - **Function**:
+    - **Stable Endpoints**: Uses modern `/stable/` endpoints to resolve legacy compatibility errors.
+    - **VIX Isolation**: Independent fetching of ^VIX with proxy fallback (Finnhub/VXX).
     - **Basic Health**: PE Ratio and EPS checks (via FMP + Finnhub fallback).
     - **Deep Health** (Piotroski F-Score): Analyzes income, balance sheet, and cash flow statements (annual, 2-year).
     - **Technical Indicators**: RSI, SMA-20, SMA-50 via FMP stable endpoints.
-    - **Intelligence Metrics**: Analyst estimates, price-target consensus, and **Insider Trading Momentum** (Buy vs Sell ratio from the last 100 insider trades).
-    - **Macro Context**: VIX, SPY/QQQ performance, treasury rates, economic calendar.
-    - **Caching**: Results are cached in BigQuery to reduce API calls; bypassed when `force_refresh=True`.
+    - **Macro Context**: VIX, SPY/QQQ performance, QQQ SMA-50 trend, treasury rates.
+    - **Caching**: Results are cached in BigQuery to reduce API calls.
 
 ### H. Ticker Ranker (`ticker_ranker.py`)
 - **Role**: The pre-market filter.
@@ -148,11 +155,12 @@ graph TD
 ## 4. Key Data Flows
 
 1.  **Phase 0 — Reconciliation**: `PortfolioReconciler` syncs BigQuery ← Alpaca.
-2.  **Phase 1 — Intelligence Gathering**: Parallel fetch of quotes, news, fundamentals, confidence, macro for all tickers.
-3.  **Phase 2 — Portfolio Analysis**: Identifies Weakest Link (held laggard) and Rising Star (non-held leader).
-4.  **Phase 3 — Execution**: SELLs first (to free cash), then BUYs. Conviction swaps where justified.
-5.  **Phase 4 — Post-Trade Reconciliation**: 45s wait for Alpaca fills, then re-sync.
-6.  **Phase 5 — Reflection**: Feedback Agent logs hindsight analysis.
+2.  **Phase 1 — Intelligence Gathering**: Parallel fetch of quotes, news, fundamentals, macro (including **PSQ** auto-inclusion).
+3.  **Phase 1.5 — Hedge Check**: Strategic evaluation of market distress and PSQ scaling (Entry/Top-up/Clear).
+4.  **Phase 2 — Portfolio Analysis**: Calculates dynamic position sizes; identifying swaps.
+5.  **Phase 3 — Execution**: SELLs first (including partial profit-takes), then BUYs.
+6.  **Phase 4 — Post-Trade Reconciliation**: 45s wait for Alpaca fills, then re-sync.
+7.  **Phase 5 — Reflection**: Feedback Agent logs hindsight analysis.
 
 ## 5. Infrastructure (Terraform)
 

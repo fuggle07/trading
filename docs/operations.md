@@ -45,7 +45,7 @@ The bot relies on the following secrets, stored in **GCP Secret Manager** and in
 | `ALPHA_VANTAGE_KEY` | Alpha Vantage | Supplementary fundamental data (fallback) |
 | `MORTGAGE_RATE` | — | Annualised home loan rate (e.g., `0.054`) |
 | `INITIAL_CASH` | — | Starting cash pool (default `50000.0`) |
-| `BASE_TICKERS` | — | Comma-separated watchlist (default `TSLA,NVDA,MU,AMD,PLTR,COIN,META,MSTR`) |
+| `BASE_TICKERS` | — | Comma-separated watchlist (default `TSLA,NVDA,MU,AMD,PLTR,COIN,META,MSTR`). **Note**: Hedge tickers (e.g., PSQ) are now auto-injected and do not need to be listed here. |
 | `MIN_EXPOSURE_THRESHOLD` | — | Min portfolio exposure before aggression (default `0.65`) |
 | `VOLATILITY_SENSITIVITY` | — | Multiplier on the vol threshold (default `1.0`) |
 
@@ -154,14 +154,14 @@ gcloud run services delete trading-audit-agent --region us-central1
 
 ## 6. Known Limitations & Troubleshooting
 
-### FMP Free Tier Endpoint Restrictions
-*   **Symptom**: `FMP [402]: ...` warning in logs for `institutional-ownership/symbol-positions-summary`.
-*   **Status**: Expected and handled — this pro-tier endpoint is excluded from free-tier calls. The bot uses **Insider Trading data** (`/stable/insider-trading/search`) as a free-tier alternative.
-*   **Action needed**: None. It is silently skipped.
+### FMP API Stability & Restrictions
+*   **Symptom**: `FMP [402/403]: ...` or `Legacy Endpoint` errors in logs.
+*   **Fix**: The bot has been migrated to modern `/stable/` endpoints. 
+*   **VIX Isolation**: ^VIX is fetched independently. If your FMP plan restricts ^VIX, the bot cleanly falls back to **Finnhub** or the **VXX** ETF proxy.
 
 ### FMP Free Tier Daily Limit
 *   **Symptom**: `FMP [429]` or empty data late in trading day.
-*   **Action**: The bot falls back to Finnhub/AlphaVantage for most data. Fundamental health uses caching to reduce calls.
+*   **Action**: The bot falls back to Finnhub/AlphaVantage for most data. Fundamental health and F-Scores are cached in BigQuery to reduce calls.
 
 ### Dashboard Equity Showing Incorrect Value
 *   **Cause**: Cloud Monitoring was summing metrics across all Cloud Run revisions.
