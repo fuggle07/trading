@@ -86,7 +86,7 @@ class TestSignalAgent(unittest.TestCase):
         }
         decision = self.agent.evaluate_strategy(market_data)
         self.assertIn("BUY", decision["action"])
-        self.assertEqual(decision["meta"]["technical"], "HOLD_AGGRESSIVE_ENTRY")
+        self.assertEqual(decision["meta"]["technical"], "PROACTIVE_WARRANTED_ENTRY")
 
     def test_fundamental_rejection(self):
         """Verify that weak F-Score rejects a BUY."""
@@ -101,7 +101,7 @@ class TestSignalAgent(unittest.TestCase):
         }
         decision = self.agent.evaluate_strategy(market_data)
         self.assertEqual(decision["action"], "IDLE")
-        self.assertEqual(decision["meta"]["technical"], "REJECT_WEAK_FSCORE_3")
+        self.assertEqual(decision["meta"]["technical"], "REJECT_LOW_FSCORE_3")
 
 if __name__ == "__main__":
     unittest.main()
