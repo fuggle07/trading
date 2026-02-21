@@ -37,12 +37,12 @@ class PortfolioReconciler:
 
     def sync_portfolio(self):
         """
-        Overwrites BigQuery ledger with Alpaca's actual Cash & Positions.
+        Overwrites BigQuery ledger with Alpaca's actual Cash & Positions using bulk operations.
         """
         if not self.trading_client:
             return
 
-        logger.info("🔄 Starting Portfolio Reconciliation...")
+        logger.info("🔄 Starting Bulk Portfolio Reconciliation...")
 
         try:
             # 1. Get Actuals from Alpaca
@@ -54,61 +54,57 @@ class PortfolioReconciler:
                 f"Alpaca Truth: Cash=${cash_balance:.2f}, Positions={len(positions)}"
             )
 
-            # 2. Logical Wipe of BQ Holdings (Set all to 0 first)
-            # This ensures that if we sold something on Alpaca, BQ reflects 0 holdings.
-            # Note: We don't delete rows, just zero them out to keep history/avg_price struct if needed (though avg_price doesn't matter for 0 holdings)
-            wipe_query = f"""
-                UPDATE `{self.portfolio_table}` 
-                SET holdings = 0, last_updated = CURRENT_TIMESTAMP() 
-                WHERE asset_name != 'USD'
-            """
-            self.bq_client.query(wipe_query).result()
+            # 2. Prepare Data for Bulk Merge
+            # We include Cash as a pseudo-position with 0 holdings and the actual cash_balance
+            merge_data = [{"asset_name": "USD", "holdings": 0.0, "cash": cash_balance, "avg": 0.0}]
+            for pos in positions:
+                merge_data.append({
+                    "asset_name": pos.symbol,
+                    "holdings": float(pos.qty),
+                    "cash": 0.0,
+                    "avg": float(pos.avg_entry_price)
+                })
 
-            # 3. Update Cash (USD)
-            # We assume 'USD' row exists (it should from PortfolioManager init)
-            # If not, we insert it.
-            cash_dml = f"""
+            # 3. Construct Unified Bulk MERGE Query
+            # First, wipe non-USD holdings to handle stocks no longer owned
+            # Then merge the actual state
+            
+            # Using a single transaction or script for efficiency
+            # We build the 'USING' clause dynamically
+            values_clauses = []
+            for item in merge_data:
+                values_clauses.append(
+                    f"SELECT '{item['asset_name']}' as asset_name, {item['holdings']} as holdings, {item['cash']} as cash, {item['avg']} as avg"
+                )
+            
+            using_subquery = " UNION ALL ".join(values_clauses)
+
+            bulk_query = f"""
+                BEGIN TRANSACTION;
+                -- 1. Logical Wipe (Zero out everything that isn't 'USD' so missing stocks are set to 0)
+                UPDATE `{self.portfolio_table}` SET holdings = 0 WHERE asset_name != 'USD';
+
+                -- 2. Bulk Merge Actuals
                 MERGE `{self.portfolio_table}` T
-                USING (SELECT 'USD' as asset_name, {cash_balance} as cash) S
+                USING ({using_subquery}) S
                 ON T.asset_name = S.asset_name
                 WHEN MATCHED THEN
-                  UPDATE SET cash_balance = S.cash, last_updated = CURRENT_TIMESTAMP()
+                  UPDATE SET holdings = S.holdings, cash_balance = S.cash, avg_price = S.avg, last_updated = CURRENT_TIMESTAMP()
                 WHEN NOT MATCHED THEN
                   INSERT (asset_name, holdings, cash_balance, avg_price, last_updated)
-                  VALUES ('USD', 0.0, S.cash, 0.0, CURRENT_TIMESTAMP())
+                  VALUES (S.asset_name, S.holdings, S.cash, S.avg, CURRENT_TIMESTAMP());
+                COMMIT TRANSACTION;
             """
-            self.bq_client.query(cash_dml).result()
 
-            # 4. Upsert Positions
-            for pos in positions:
-                ticker = pos.symbol
-                qty = float(pos.qty)
-                avg_entry = float(pos.avg_entry_price)
-
-                # MERGE Statement for Atomic Upsert
-                # We use MERGE to handle both INSERT (new stock) and UPDATE (existing stock)
-                pos_dml = f"""
-                    MERGE `{self.portfolio_table}` T
-                    USING (SELECT '{ticker}' as asset_name, {qty} as holdings, {avg_entry} as avg) S
-                    ON T.asset_name = S.asset_name
-                    WHEN MATCHED THEN
-                      UPDATE SET holdings = S.holdings, avg_price = S.avg, last_updated = CURRENT_TIMESTAMP()
-                    WHEN NOT MATCHED THEN
-                      INSERT (asset_name, holdings, cash_balance, avg_price, last_updated)
-                      VALUES (S.asset_name, S.holdings, 0.0, S.avg, CURRENT_TIMESTAMP())
-                """
-                self.bq_client.query(pos_dml).result()
-
-            logger.info("✅ Portfolio synced with Alpaca.")
+            self.bq_client.query(bulk_query).result()
+            logger.info(f"✅ Portfolio reconciled: {len(merge_data)} assets updated in bulk.")
 
         except Exception as e:
             logger.error(f"❌ Portfolio Sync Failed: {e}")
 
     def sync_executions(self, limit=50):
         """
-        Updates recent 'executions' logs with actual fill prices and quantities.
-        AccountActivities (fees) are not accessible via TradingClient; commission
-        is set to 0.0 (Alpaca paper trading does not charge real commissions).
+        Updates recent 'executions' logs with actual fill prices and quantities in bulk.
         """
         if not self.trading_client:
             return
@@ -118,46 +114,42 @@ class PortfolioReconciler:
             req = GetOrdersRequest(status=QueryOrderStatus.CLOSED, limit=limit)
             orders = self.trading_client.get_orders(req)
 
-            updates = 0
+            fill_updates = []
             for order in orders:
                 if order.status == "filled":
-                    alpaca_id = str(order.id)
-                    filled_price = (
-                        float(order.filled_avg_price) if order.filled_avg_price else 0.0
-                    )
-                    filled_qty = float(order.filled_qty)
+                    fill_updates.append({
+                        "id": str(order.id),
+                        "price": float(order.filled_avg_price) if order.filled_avg_price else 0.0,
+                        "qty": float(order.filled_qty)
+                    })
 
-                    dml = f"""
-                        UPDATE `{self.executions_table}`
-                        SET price = {filled_price},
-                            quantity = {filled_qty},
-                            commission = 0.0,
-                            status = 'FILLED_CONFIRMED'
-                        WHERE alpaca_order_id = '{alpaca_id}'
-                        AND status != 'FILLED_CONFIRMED'
-                        AND timestamp < CURRENT_TIMESTAMP() - INTERVAL 3 HOUR
-                    """
-                    try:
-                        job = self.bq_client.query(dml)
-                        job.result()
-                        if job.num_dml_affected_rows > 0:
-                            updates += 1
-                            logger.info(
-                                f"[{order.symbol}] ✅ Synced: Price={filled_price}, Qty={filled_qty}"
-                            )
-                    except (Exception, BaseException) as e:
-                        err_str = str(e).lower()
-                        if "streaming buffer" in err_str:
-                            logger.info(
-                                f"[{order.symbol}] ⏳ Skipping sync (still in BQ streaming buffer)"
-                            )
-                        else:
-                            logger.error(f"[{order.symbol}] ❌ Failed to sync: {e}")
+            if not fill_updates:
+                return
 
-            if updates > 0:
-                logger.info(
-                    f"✅ Synced {updates} execution records with Alpaca fill data."
-                )
+            # Construct Bulk Update via MERGE
+            values_clauses = [
+                f"SELECT '{u['id']}' as oid, {u['price']} as p, {u['qty']} as q"
+                for u in fill_updates
+            ]
+            using_subquery = " UNION ALL ".join(values_clauses)
+
+            bulk_dml = f"""
+                MERGE `{self.executions_table}` T
+                USING ({using_subquery}) S
+                ON T.alpaca_order_id = S.oid
+                WHEN MATCHED AND T.status != 'FILLED_CONFIRMED' THEN
+                  UPDATE SET price = S.p, quantity = S.q, commission = 0.0, status = 'FILLED_CONFIRMED';
+            """
+            
+            job = self.bq_client.query(bulk_dml)
+            job.result()
+            
+            if job.num_dml_affected_rows > 0:
+                logger.info(f"✅ Sync'd {job.num_dml_affected_rows} execution records in bulk.")
 
         except Exception as e:
-            logger.error(f"❌ Execution Sync Failed (Type: {type(e).__name__}): {e}")
+            err_str = str(e).lower()
+            if "streaming buffer" in err_str:
+                 logger.info("⏳ Skipping sync (some records still in BQ streaming buffer)")
+            else:
+                 logger.error(f"❌ Execution Bulk Sync Failed: {e}")
