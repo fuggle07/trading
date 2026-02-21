@@ -494,27 +494,23 @@ async def run_audit():
 
             market_data = {
                 "ticker": ticker,
-                "current_price": intel["price"],
-                "sma_20": indicators["sma_20"],
-                "sma_50": indicators["sma_50"],
-                "bb_upper": indicators["bb_upper"],
-                "bb_lower": indicators["bb_lower"],
-                "sentiment_score": intel["sentiment"],
-                "is_healthy": intel["is_healthy"],
-                "health_reason": intel["health_reason"],
-                "is_deep_healthy": intel["is_deep_healthy"],
-                "deep_health_reason": intel["deep_health_reason"],
-                "f_score": intel["f_score"],
-                "rsi": intel.get("rsi", 50.0),
+                "current_price": intel.get("price", 0.0),
+                "sma_20": indicators.get("sma_20", 0.0),
+                "sma_50": indicators.get("sma_50", 0.0),
+                "bb_upper": indicators.get("bb_upper", 0.0),
+                "bb_lower": indicators.get("bb_lower", 0.0),
+                "sentiment_score": intel.get("sentiment", 0.0),
+                "is_healthy": intel.get("is_healthy", True),
+                "health_reason": intel.get("health_reason", ""),
+                "is_deep_healthy": intel.get("is_deep_healthy", True),
+                "deep_health_reason": intel.get("deep_health_reason", ""),
+                "f_score": intel.get("f_score", 0),
+                "rsi": intel.get("rsi") if intel.get("rsi") is not None else 50.0,
                 "avg_price": held_tickers.get(ticker, {}).get("avg_price", 0.0),
                 "hwm": _high_water_marks.get(ticker, 0.0),
-                "prediction_confidence": intel["confidence"],
+                "prediction_confidence": intel.get("confidence", 0),
                 "is_low_exposure": exposure < MIN_EXPOSURE_THRESHOLD,
-                # Band-width as volatility proxy for dynamic stop (bb_upper-bb_lower)/price
-                "band_width": (
-                    (indicators["bb_upper"] - indicators["bb_lower"]) / intel["price"]
-                    if intel["price"] > 0 else 0.0
-                ),
+                "band_width": float(intel.get("band_width", 0.0)),
                 "vix": float(macro_data.get("vix", 0.0)),
                 "volume": intel.get("volume", 0.0),
                 "avg_volume": intel.get("avg_volume", 1.0),
@@ -1180,6 +1176,13 @@ async def process_ticker_intelligence(
         res_std = (
             intel_results[7] if not isinstance(intel_results[7], Exception) else None
         )
+        
+        # Initialize defaults to prevent NameErrors if res_quote fails
+        price = 0.0
+        volume = 0.0
+        avg_volume = 1.0
+        sentiment_score = 0.0
+        gemini_reasoning = "N/A"
 
         if res_quote and isinstance(res_quote, dict) and "c" in res_quote:
             price = float(res_quote["c"])
@@ -1234,7 +1237,7 @@ async def process_ticker_intelligence(
         # Calculate Band Width as a volatility metric
         bw = 0.0
         if indicators.get("bb_upper") and indicators.get("bb_lower") and price > 0:
-            bw = (indicators["bb_upper"] - indicators["bb_lower"]) / price
+            bw = float((indicators["bb_upper"] - indicators["bb_lower"])) / float(price)
 
         ticker_intel[ticker] = {
             "price": price,

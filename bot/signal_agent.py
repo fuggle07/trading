@@ -97,16 +97,16 @@ class SignalAgent:
         Orchestrates Signal Selection by combining technicals, sentiment, and fundamental conviction.
         """
         ticker = market_data.get("ticker", "Unknown")
-        current_price = market_data.get("current_price", 0.0)
+        current_price = float(market_data.get("current_price") if market_data.get("current_price") is not None else 0.0)
         indicators = {
-            "upper": market_data.get("bb_upper", 0.0),
-            "lower": market_data.get("bb_lower", 0.0),
-            "sma_20": market_data.get("sma_20", 0.0),
-            "sma_50": market_data.get("sma_50", 0.0),
+            "upper": float(market_data.get("bb_upper") if market_data.get("bb_upper") is not None else 0.0),
+            "lower": float(market_data.get("bb_lower") if market_data.get("bb_lower") is not None else 0.0),
+            "sma_20": float(market_data.get("sma_20") if market_data.get("sma_20") is not None else 0.0),
+            "sma_50": float(market_data.get("sma_50") if market_data.get("sma_50") is not None else 0.0),
         }
-        sentiment = market_data.get("sentiment_score", 0.0)
-        volume = float(market_data.get("volume", 0.0))
-        avg_volume = float(market_data.get("avg_volume", 1.0))
+        sentiment = float(market_data.get("sentiment_score") if market_data.get("sentiment_score") is not None else 0.0)
+        volume = float(market_data.get("volume") if market_data.get("volume") is not None else 0.0)
+        avg_volume = float(market_data.get("avg_volume") if market_data.get("avg_volume") is not None else 1.0)
         days_to_earnings = market_data.get("days_to_earnings") # None if unknown
 
         fundamentals = {
@@ -117,9 +117,9 @@ class SignalAgent:
             "f_score": market_data.get("f_score", 0),  # Piotroski F-Score
             "score": market_data.get("prediction_confidence", 0),
         }
-        avg_price = market_data.get("avg_price", 0.0)
+        avg_price = float(market_data.get("avg_price") if market_data.get("avg_price") is not None else 0.0)
         is_low_exposure = market_data.get("is_low_exposure", False)
-        rsi = float(market_data.get("rsi", 50.0))
+        rsi = float(market_data.get("rsi") if market_data.get("rsi") is not None else 50.0)
         lessons = ""  # Placeholder for now
 
         technical_signal = self.evaluate_bands(
