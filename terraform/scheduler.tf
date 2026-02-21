@@ -30,6 +30,42 @@ resource "google_cloud_scheduler_job" "ticker_rank_trigger" {
   }
 }
 
+resource "google_cloud_scheduler_job" "ticker_rank_midday" {
+  name             = "trading-ticker-ranker-midday"
+  description      = "Midday ticker re-rank (12:00 PM ET) — absorbs morning price action"
+  schedule         = "0 12 * * 1-5"
+  time_zone        = "America/New_York"
+  attempt_deadline = "320s"
+
+  http_target {
+    http_method = "POST"
+    uri         = "${google_cloud_run_v2_service.trading_bot.uri}/rank-tickers"
+
+    oidc_token {
+      service_account_email = google_service_account.bot_sa.email
+      audience              = google_cloud_run_v2_service.trading_bot.uri
+    }
+  }
+}
+
+resource "google_cloud_scheduler_job" "ticker_rank_power_hour" {
+  name             = "trading-ticker-ranker-power-hour"
+  description      = "Power hour ticker re-rank (3:00 PM ET) — final-hour conviction refresh"
+  schedule         = "0 15 * * 1-5"
+  time_zone        = "America/New_York"
+  attempt_deadline = "320s"
+
+  http_target {
+    http_method = "POST"
+    uri         = "${google_cloud_run_v2_service.trading_bot.uri}/rank-tickers"
+
+    oidc_token {
+      service_account_email = google_service_account.bot_sa.email
+      audience              = google_cloud_run_v2_service.trading_bot.uri
+    }
+  }
+}
+
 resource "google_cloud_scheduler_job" "audit_trigger" {
   name             = "trading-audit-trigger"
   description      = "High-frequency audit (Every 2 minutes during market hours)"

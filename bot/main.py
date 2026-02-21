@@ -5,7 +5,7 @@ import finnhub
 import pandas as pd
 from flask import Flask, jsonify
 from datetime import datetime, timezone, timedelta
-from typing import Optional
+from typing import Optional, Dict
 from bot.telemetry import log_watchlist_data, log_macro_snapshot, log_decision
 import pytz
 import traceback
@@ -77,6 +77,11 @@ signal_agent = SignalAgent(
 # Exposure Threshold
 MIN_EXPOSURE_THRESHOLD = float(os.environ.get("MIN_EXPOSURE_THRESHOLD", 0.65))
 print(f"📊 Minimum Portfolio Exposure Threshold: {MIN_EXPOSURE_THRESHOLD:.1%}")
+
+# Stop-loss cooldown registry — prevents re-entering a position within
+# STOP_LOSS_COOLDOWN_MINUTES of a stop being triggered. In-memory: resets on restart.
+STOP_LOSS_COOLDOWN_MINUTES = 30
+_stop_loss_cooldown: Dict[str, datetime] = {}
 
 portfolio_manager = PortfolioManager(bq_client, portfolio_table_id)
 execution_manager = ExecutionManager(portfolio_manager)
@@ -344,7 +349,7 @@ async def run_audit():
     Phase 2: Portfolio Analysis & Conviction Swapping
     Phase 3: Execution (SELLs first, then BUYs)
     """
-    tickers_env = os.environ.get("BASE_TICKERS", "TSLA,NVDA,MU,AMD,PLTR,COIN,META,MSTR,GOOG")
+    tickers_env = os.environ.get("BASE_TICKERS", "TSLA,NVDA,AMD,PLTR,COIN,META,GOOG,MSFT,GOLD,NEM")
     base_tickers = [t.strip() for t in tickers_env.split(",") if t.strip()]
 
     # --- Phase 0: Reconciliation (Source of Truth) ---
@@ -623,6 +628,12 @@ async def run_audit():
                 "avg_price": held_tickers.get(ticker, {}).get("avg_price", 0.0),
                 "prediction_confidence": intel["confidence"],
                 "is_low_exposure": exposure < MIN_EXPOSURE_THRESHOLD,
+                # Band-width as volatility proxy for dynamic stop (bb_upper-bb_lower)/price
+                "band_width": (
+                    (indicators["bb_upper"] - indicators["bb_lower"]) / intel["price"]
+                    if intel["price"] > 0 else 0.0
+                ),
+                "vix": float(macro_data.get("vix", 0.0)),
             }
 
             sig = signal_agent.evaluate_strategy(market_data, force_eval=True)
@@ -650,49 +661,77 @@ async def run_audit():
     # We find the weakest link in our portfolio and potentially swap it for a rising star
 
     weakest_link = None
-    # 1. Identify Weakest Link (Lowest Confidence OR Failed Fundamentals)
+    weakest_link_effective_conf = 999  # Track blended score for tie-breaking
+
+    # 1. Identify Weakest Link (Lowest Confidence OR Failed Fundamentals OR Sentiment Collapse)
     for t in held_tickers:
         intel = ticker_intel.get(t)
         if intel:
             conf = intel.get("confidence", 0)
             is_deep = intel.get("is_deep_healthy", True)
+            sentiment = float(intel.get("sentiment", 0.0))
 
-            # SWAP TRIGGER: If confidence is low OR Fundamentals are "Low Quality" (< 40)
-            if conf < 50 or not is_deep:
-                # Prioritize is_deep failures (Fundamental Failures) as the weakest link
+            # Blended effective confidence: sentiment adjusts the score by up to ±15
+            sentiment_bonus = max(-15, min(15, int(sentiment * 20)))
+            effective_conf = conf + sentiment_bonus
+
+            # SWAP TRIGGER: Low blended confidence, failed fundamentals, OR acute sentiment collapse
+            sentiment_collapse = sentiment < -0.3  # news has turned toxic right now
+            is_weak = effective_conf < 50 or not is_deep or sentiment_collapse
+
+            if is_weak:
+                # Prioritise: fundamental failure > sentiment collapse > low confidence
                 if weakest_link is None:
                     weakest_link = t
+                    weakest_link_effective_conf = effective_conf
                 else:
-                    current_weakest_is_deep = ticker_intel[weakest_link].get(
-                        "is_deep_healthy", True
-                    )
-                    # If current weakest is fundamentally OK, but this one isn't, replace it
-                    if current_weakest_is_deep and not is_deep:
+                    current_is_deep = ticker_intel[weakest_link].get("is_deep_healthy", True)
+                    current_sent = float(ticker_intel[weakest_link].get("sentiment", 0.0))
+                    current_sent_collapse = current_sent < -0.3
+
+                    # Fundamental failure always wins
+                    if current_is_deep and not is_deep:
                         weakest_link = t
-                    # If both are fundamentally bad, use the one with lower confidence
-                    elif not current_weakest_is_deep and not is_deep:
-                        if conf < ticker_intel[weakest_link].get("confidence", 0):
+                        weakest_link_effective_conf = effective_conf
+                    # Both fundamental failures — pick lower blended conf
+                    elif not current_is_deep and not is_deep:
+                        if effective_conf < weakest_link_effective_conf:
                             weakest_link = t
-                    # If both are fundamentally OK, use the one with lower confidence
-                    elif conf < ticker_intel[weakest_link].get("confidence", 0):
+                            weakest_link_effective_conf = effective_conf
+                    # Sentiment collapse beats purely low-confidence
+                    elif not current_sent_collapse and sentiment_collapse:
                         weakest_link = t
+                        weakest_link_effective_conf = effective_conf
+                    # Same tier — pick lower blended confidence
+                    elif effective_conf < weakest_link_effective_conf:
+                        weakest_link = t
+                        weakest_link_effective_conf = effective_conf
 
-    # 2. Identify Rising Star (Highest Confidence + Fundamentals)
+    # 2. Identify Rising Star (Highest Blended Conviction across ALL tickers)
+    # Exclude the weakest_link itself (can't sell and re-buy the same ticker).
+    # Uses effective_conf = confidence + sentiment bonus (±15) so high-sentiment
+    # stocks surface faster and negative-narrative stocks are penalised.
     rising_star = None
-    best_star_conf = 0
+    best_star_effective_conf = 0
 
-    for t in non_held_tickers:
+    for t in ticker_intel:
+        if t == weakest_link:
+            continue  # Can't be your own rising star
+
         intel = ticker_intel.get(t)
         if not intel:
             continue
 
         conf = intel.get("confidence", 0)
+        sentiment = float(intel.get("sentiment", 0.0))
+        sentiment_bonus = max(-15, min(15, int(sentiment * 20)))
+        effective_conf = conf + sentiment_bonus
 
-        # Candidate Check: Must be high confidence
-        if conf > 80:
-            if rising_star is None or conf > best_star_conf:
+        # Candidate Check: Must pass blended threshold
+        if effective_conf > 75:
+            if rising_star is None or effective_conf > best_star_effective_conf:
                 rising_star = t
-                best_star_conf = conf
+                best_star_effective_conf = effective_conf
 
     # 3. Evaluate Swap
     if rising_star and weakest_link:
@@ -701,9 +740,9 @@ async def run_audit():
 
         should_swap = signal_agent.check_conviction_swap(
             weakest_link,
-            weakest_conf,
+            weakest_link_effective_conf,
             rising_star,
-            best_star_conf,
+            best_star_effective_conf,
             potential_fundamentals={
                 "is_deep_healthy": star_intel["is_deep_healthy"],
                 "f_score": star_intel["f_score"],
@@ -715,7 +754,7 @@ async def run_audit():
             log_decision(
                 rising_star,
                 "SWAP",
-                f"Rotating out of {weakest_link} ({weakest_conf}%) into {rising_star} ({best_star_conf}%)",
+                f"Rotating out of {weakest_link} (eff:{weakest_link_effective_conf}) into {rising_star} (eff:{best_star_effective_conf})",
             )
             signals[weakest_link] = {
                 "action": "SELL",
@@ -757,18 +796,14 @@ async def run_audit():
         ):
             # Check for volatility
             if tech_signal == "VOLATILE_IGNORE":
-                print(
-                    f"⚠️ Initial Deployment: Skipping {rising_star} due to high volatility despite high conviction."
-                )
+                logger.debug(f"Initial Deployment: Skipping {rising_star} due to high volatility.")
             elif existing_action == "SELL":
-                print(
-                    f"⚠️ Initial Deployment: Skipping {rising_star} due to SELL signal."
-                )
+                logger.debug(f"Initial Deployment: Skipping {rising_star} due to SELL signal.")
             else:
                 log_decision(
                     rising_star,
                     "BUY",
-                    f"Initial Deployment: High Conviction Rising Star ({best_star_conf}%)",
+                    f"Initial Deployment: High Conviction Rising Star (eff:{best_star_effective_conf})",
                 )
                 signals[rising_star] = {
                     "action": "BUY",
@@ -804,6 +839,11 @@ async def run_audit():
                     ticker, "SELL", f"Execution Status: {status} | Value: ${position_val:,.2f} | Reason: {reason}"
                 )
 
+            # Record stop-loss cooldown to prevent immediate re-entry
+            if "STOP_LOSS" in reason or "SENTIMENT" in reason:
+                _stop_loss_cooldown[ticker] = datetime.now() + timedelta(minutes=STOP_LOSS_COOLDOWN_MINUTES)
+                logger.info(f"[{ticker}] Stop-loss cooldown set for {STOP_LOSS_COOLDOWN_MINUTES}m")
+
             execution_results.append(
                 {"ticker": ticker, "signal": "SELL", "status": status, "reason": reason}
             )
@@ -816,7 +856,20 @@ async def run_audit():
         if sig.get("action") == "BUY":
             reason = sig.get("reason", "Strategy Signal")
             is_star = sig.get("meta", {}).get("is_star", False)
-            
+            vix = float(macro_data.get("vix", 0.0))
+
+            # 1. Stop-loss cooldown guard — skip re-entry within 30 min of a stop
+            cooldown_until = _stop_loss_cooldown.get(ticker)
+            if cooldown_until is not None and datetime.now() < cooldown_until:
+                remaining = int((cooldown_until - datetime.now()).total_seconds() / 60)
+                log_decision(ticker, "SKIP", f"Stop-loss cooldown active ({remaining}m remaining)")
+                continue
+
+            # 2. VIX guard — block speculative INITIAL_DEPLOYMENT when fear is elevated
+            if vix > 25 and reason == "INITIAL_DEPLOYMENT":
+                log_decision(ticker, "SKIP", f"VIX={vix:.1f} > 25: Blocking new deployment in high-fear market")
+                continue
+
             # 65/35 Allocation Strategy
             # If exposure >= 65%, only allow BUY if ticker is "Star Rated"
             if running_exposure >= 0.65 and not is_star:
@@ -829,20 +882,47 @@ async def run_audit():
 
             # Calculate Allocation
             cash_pool = portfolio_manager.get_cash_balance()
-            
-            # Max 33% per ticker, but also leave room for others if we are filling the 65%
-            room_to_buy = total_equity * 0.33 - held_tickers.get(ticker, {}).get(
-                "market_value", 0.0
-            )
 
-            base_unit = total_equity * 0.05
+            # Max 40% per ticker
+            already_held_value = held_tickers.get(ticker, {}).get("market_value", 0.0)
+            room_to_buy = total_equity * 0.40 - already_held_value
+
             intel = ticker_intel.get(ticker, {})
             sentiment = float(intel.get("sentiment", 0.0))
-            multiplier = 1.0 + max(0.0, sentiment)
-            if is_star:
-                multiplier *= 1.5  # Stars get 50% bigger allocation
-                
-            allocation = min(base_unit * multiplier, room_to_buy, cash_pool)
+
+            # One-shot allocation tiers:
+            #
+            # Tier 1 — Stars & Conviction Swaps: fill straight to the 40% per-stock cap.
+            #   These are the bot's highest-conviction moves; they are allowed to push
+            #   total exposure above the 65% baseline.
+            #
+            # Tier 2 — Top-ups & Initial Deployment: one-shot but bounded by the 65%
+            #   total exposure target. We don't want ordinary ADD signals to blow past the
+            #   baseline just because room_to_buy says there's space at the stock level.
+            #
+            # Tier 3 — Fresh ordinary BUY: incremental base-unit sizing for price discovery.
+
+            is_adding_to_position = already_held_value > 0
+            is_uncapped_commit = is_star or reason == "CONVICTION_ROTATION"
+            is_capped_commit = (
+                not is_uncapped_commit
+                and (is_adding_to_position or reason == "INITIAL_DEPLOYMENT")
+            )
+
+            if is_uncapped_commit:
+                # Tier 1: straight to per-stock cap, exposure ceiling ignored
+                allocation = min(room_to_buy, cash_pool)
+            elif is_capped_commit:
+                # Tier 2: one-shot but respect the 65% total exposure ceiling
+                room_to_exposure_target = max(
+                    0.0, total_equity * 0.65 - total_equity * running_exposure
+                )
+                allocation = min(room_to_buy, room_to_exposure_target, cash_pool)
+            else:
+                # Tier 3: incremental entry for fresh ordinary signals
+                base_unit = total_equity * 0.05
+                multiplier = 1.0 + max(0.0, sentiment)
+                allocation = min(base_unit * multiplier, room_to_buy, cash_pool)
 
             if not effective_enabled:
                 if allocation >= 1000:
@@ -925,8 +1005,7 @@ async def run_audit():
 
 
 async def get_latest_confidence(ticker: str) -> Optional[int]:
-    """Fetches the latest prediction confidence for a ticker from BQ."""
-    print(f"🔍 DEBUG: Running get_latest_confidence v2 for {ticker}")
+    """Fetches the latest prediction confidence for a ticker from BQ ticker_rankings table."""
     query = f"""
         SELECT confidence
         FROM `{PROJECT_ID}.trading_data.ticker_rankings`
@@ -936,24 +1015,19 @@ async def get_latest_confidence(ticker: str) -> Optional[int]:
         LIMIT 1
     """
     try:
-        query_job = bq_client.query(query)
-        results = query_job.result()
-        print(f"DEBUG: Query executed for {ticker}. Rows: {results.total_rows}")
+        results = bq_client.query(query).result()
         for row in results:
-            print(f"DEBUG: Found confidence for {ticker}: {row.confidence}")
             return row.confidence
-
-        print(f"⚠️ No confidence data found for {ticker} in last 24h")
         return 0
     except Exception as e:
-        print(f"⚠️ Error fetching confidence for {ticker}: {e}")
+        logger.warning(f"[{ticker}] Could not fetch confidence score: {e}")
     return 0
 
 
 @app.route("/rank-tickers", methods=["POST"])
 async def run_ranker_endpoint():
     """Trigger the morning ticker ranking job."""
-    base = os.environ.get("BASE_TICKERS", "TSLA,NVDA,MU,AMD,PLTR,COIN,META,MSTR,GOOG").split(",")
+    base = os.environ.get("BASE_TICKERS", "TSLA,NVDA,AMD,PLTR,COIN,META,GOOG,MSFT,GOLD,NEM").split(",")
     held = list(portfolio_manager.get_held_tickers().keys())
     tickers = list(set(base + held))
     try:

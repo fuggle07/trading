@@ -312,24 +312,37 @@ class SignalAgent:
         return float(allocation)
 
     def should_exit(
-        self, ticker: str, hold_price: float, current_price: float, sentiment: float
+        self,
+        ticker: str,
+        hold_price: float,
+        current_price: float,
+        sentiment: float,
+        band_width: float = 0.0,
+        vix: float = 0.0,
     ) -> bool:
         """
-        Exit logic override: Exit if sentiment falls sharply even if BB says hold.
+        Exit logic with dynamic ATR-based stop loss.
+        band_width = (bb_upper - bb_lower) / price — used as a volatility proxy.
         """
         p_change = (current_price - hold_price) / hold_price
 
-        # Exit if:
-        # 1. 5% profit target hit
+        # 1. Profit target: always hard at +5%
         if p_change >= 0.05:
             return True
 
-        # 2. 2.5% stop loss hit
-        if p_change <= -0.025:
+        # 2. Dynamic stop loss: scale with volatility so we don't whipsaw on COIN/MSTR.
+        #    Base = 2.5%. Volatile stocks (band_width > 0) get a wider stop, capped at 6%.
+        #    Formula: stop = clamp(band_width * 0.30, 2.5%, 6%)
+        if band_width > 0:
+            dynamic_stop = max(0.025, min(0.06, band_width * 0.30))
+        else:
+            dynamic_stop = 0.025
+        if p_change <= -dynamic_stop:
             return True
 
-        # 3. Negative Sentiment Shift (-0.4 or lower)
-        if sentiment < -0.4:
+        # 3. Negative Sentiment Shift — tighten exit threshold if VIX is elevated
+        sentiment_exit_threshold = -0.3 if vix > 25 else -0.4
+        if sentiment < sentiment_exit_threshold:
             return True
 
         return False

@@ -43,8 +43,12 @@ class SentimentAnalyzer:
 
         context_text = ""
         if context:
+            macro = context.get("macro", {})
+            macro_str = macro.get("formatted", "Market Context: Stable") if isinstance(macro, dict) else str(macro)
+            vix = float(macro.get("vix", 0.0)) if isinstance(macro, dict) else 0.0
+            vix_note = f" ⚠️ VIX={vix:.1f} — elevated fear, apply extra caution." if vix > 25 else (f" VIX={vix:.1f} — normal conditions." if vix > 0 else "")
             context_text = f"""
-            Market-Wide Context: {context.get('macro', 'Stable')}
+            Market-Wide Context: {macro_str}{vix_note}
             Analyst Consensus: {context.get('analyst_consensus', 'Neutral')}
             Institutional Flow: {context.get('institutional_flow', 'Neutral')}
             Insider Momentum: {context.get('insider_momentum', 'N/A')}
