@@ -61,6 +61,16 @@ deploy_production:
         echo "Please add your GCP Service Account JSON as a CI/CD Variable in GitLab (Settings > CI/CD > Variables)."
         exit 1
       fi
+    - |
+      if [ -z "$PROJECT_ID" ]; then
+        export PROJECT_ID=$(grep -o '"project_id": *"[^"]*"' sa-key.json | cut -d'"' -f4)
+        echo "💡 Auto-extracted PROJECT_ID from service account: $PROJECT_ID"
+      fi
+      if [ -z "$PROJECT_ID" ]; then
+        echo "❌ ERROR: PROJECT_ID is empty! Could not extract it from sa-key.json."
+        echo "Please add PROJECT_ID as a CI/CD Variable in GitLab."
+        exit 1
+      fi
     - gcloud auth activate-service-account --key-file sa-key.json
     - gcloud config set project $PROJECT_ID
     - gcloud builds submit . --tag us-central1-docker.pkg.dev/$PROJECT_ID/trading-node-repo/trading-bot:latest
