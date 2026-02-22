@@ -29,7 +29,7 @@ unit_tests:
     - export PYTHONPATH=$(pwd)
     - pytest tests/
 
-# 3. Build - Verify Docker Build
+# 3. Build - Verify Docker Build and Push
 docker_build:
   stage: build
   image: docker:24.0.5
@@ -38,8 +38,21 @@ docker_build:
       alias: docker
   script:
     - sleep 5 # Allow the dind service daemon time to start
+    - |
+      if [ -f "$GOOGLE_CREDENTIALS" ]; then
+        cp "$GOOGLE_CREDENTIALS" sa-key.json
+      else
+        echo "$GOOGLE_CREDENTIALS" > sa-key.json
+      fi
+    - export PROJECT_ID=$(grep -o '"project_id": *"[^"]*"' sa-key.json | cut -d'"' -f4)
     - docker info
-    - docker build -t trading-bot .
+    - REPO_URL="us-central1-docker.pkg.dev/$PROJECT_ID/trading-node-repo/trading-bot:latest"
+    - docker build -t $REPO_URL .
+    - |
+      if [ "$CI_COMMIT_BRANCH" = "main" ]; then
+        cat sa-key.json | docker login -u _json_key --password-stdin https://us-central1-docker.pkg.dev
+        docker push $REPO_URL
+      fi
   only:
     - main
     - merge_requests
@@ -73,7 +86,6 @@ deploy_production:
       fi
     - gcloud auth activate-service-account --key-file sa-key.json
     - gcloud config set project $PROJECT_ID
-    - gcloud builds submit . --tag us-central1-docker.pkg.dev/$PROJECT_ID/trading-node-repo/trading-bot:latest
     - cd terraform
     - terraform init
     - terraform apply -auto-approve -var="project_id=$PROJECT_ID" -var="deploy_time=$(date +%s)"
@@ -81,3 +93,4 @@ deploy_production:
     - main
   dependencies:
     - unit_tests
+    - docker_build
