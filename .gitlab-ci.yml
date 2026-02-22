@@ -39,7 +39,7 @@ docker_build:
   script:
     - sleep 5 # Allow the dind service daemon time to start
     - docker info
-    - docker build -t trading-bot ./bot
+    - docker build -t trading-bot .
   only:
     - main
     - merge_requests
