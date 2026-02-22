@@ -44,7 +44,7 @@ docker_build:
       else
         echo "$GOOGLE_CREDENTIALS" > sa-key.json
       fi
-    - export PROJECT_ID=$(grep -o '"project_id": *"[^"]*"' sa-key.json | cut -d'"' -f4)
+      export PROJECT_ID=$(grep -o '"project_id": *"[^"]*"' sa-key.json | cut -d'"' -f4)
     - docker info
     - REPO_URL="us-central1-docker.pkg.dev/$PROJECT_ID/trading-node-repo/trading-bot:latest"
     - docker build -t $REPO_URL .
