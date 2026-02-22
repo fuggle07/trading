@@ -57,7 +57,7 @@ If you already own the stock, the bot checks your P&L **before** looking at new 
     | :--- | :--- | :--- |
     | `None` (missing data) | AI Confidence < 70 | REJECT — insufficient data |
     | `None` (missing data) | AI Confidence ≥ 70 AND Sentiment ≥ 0.2 | BUY with reduced conviction (data-missing bypass) |
-    | `≤ 1` (critically weak) | AI ≥ 70 AND Sentiment ≥ 0.4 | BUY as turnaround play (high-confidence override) |
+    | `≤ 1` (critically weak) | AI ≥ 70 AND Sentiment ≥ 0.4 (0.2 if low-exposure) | BUY as turnaround play (high-confidence override) |
     | `≤ 1` (critically weak) | Otherwise | REJECT |
     | `2–4` (below threshold) | AI Confidence below bypass threshold | REJECT |
     | `2–4` (below threshold) | AI Confidence above bypass threshold | BUY (F-Score bypassed by high conviction) |
@@ -90,10 +90,10 @@ Unlike fixed sizing, the bot now calculates the exact USD for every trade based 
 ## 3. Portfolio-Level Logic (The Conviction Swap)
 
 This is the "Auditor" logic. At the portfolio level, the bot identifies:
-*   **Weakest Link**: Any held stock with Conviction Score **< 50** or failing Deep Health.
-*   **Rising Star**: Any non-held stock with Conviction Score **> 80**.
+*   **Weakest Link**: The held stock with the lowest Conviction Score, prioritizing those with failing Deep Health or Sentiment Collapse (`< -0.3`).
+*   **Rising Star**: The non-held stock with a Blended Conviction Score **>= 80** AND strictly positive sentiment (**>= 0.2**).
 *   **The Swap**: Sells the Weakest Link to fund the Rising Star.
-*   **Hurdle**: Only swaps if the Rising Star's conviction beats the Weakest Link's conviction.
+*   **Hurdle**: Swaps if the Rising Star's conviction is higher, with higher sentiment breaking ties.
 
 ---
 

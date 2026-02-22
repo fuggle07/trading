@@ -252,8 +252,8 @@ async def get_macro_context() -> dict:
         if isinstance(rates, dict) and rates.get("10Y") is not None:
             parts.append(f"10Y Yield: {float(rates['10Y']):.2f}%")
             
-        if macro_data["vix"] > 0:
-            parts.append(f"VIX: {macro_data['vix']:.2f}")
+        if float(macro_data.get("vix", 0.0)) > 0:
+            parts.append(f"VIX: {float(macro_data.get('vix', 0.0)):.2f}")
 
         if float(aud_usd) > 0:
             parts.append(f"AUD/USD: {float(aud_usd):.4f}")
@@ -624,6 +624,7 @@ async def run_audit():
     # Exclude the weakest_link itself (can't sell and re-buy the same ticker).
     rising_star = None
     best_star_effective_conf = 0
+    best_star_sentiment = -1.0  # Track sentiment for tie-breaking
 
     for t in ticker_intel:
         if t == weakest_link:
@@ -634,12 +635,22 @@ async def run_audit():
             continue
 
         effective_conf = sig.get("meta", {}).get("effective_ai_score", 0)
+        sentiment = float(sig.get("meta", {}).get("sentiment", 0.0))
 
-        # Candidate Check: Must pass blended threshold (80 for Rising Stars)
-        if effective_conf >= 80:
-            if rising_star is None or effective_conf > best_star_effective_conf:
+        # Candidate Check: Must pass blended threshold (80 for Rising Stars) and have positive sentiment
+        if effective_conf >= 80 and sentiment >= 0.2:
+            is_better = False
+            if rising_star is None:
+                is_better = True
+            elif effective_conf > best_star_effective_conf:
+                is_better = True
+            elif effective_conf == best_star_effective_conf and sentiment > best_star_sentiment:
+                is_better = True
+                
+            if is_better:
                 rising_star = t
                 best_star_effective_conf = effective_conf
+                best_star_sentiment = sentiment
 
     # 3. Evaluate Swap
     if rising_star and weakest_link:

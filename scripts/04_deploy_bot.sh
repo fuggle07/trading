@@ -6,9 +6,7 @@ MORTGAGE_RATE=0.0514
 
 echo "Deploying Trading Bot to Cloud Run with rate: $MORTGAGE_RATE"
 
-cp bot/Dockerfile Dockerfile
 gcloud builds submit --tag gcr.io/$PROJECT_ID/trading-bot .
-rm Dockerfile
 
 gcloud run deploy trading-bot \
  --image gcr.io/$PROJECT_ID/trading-bot \

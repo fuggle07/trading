@@ -357,16 +357,16 @@ class SignalAgent:
         Determines allocation such that the risk taken scales with conviction:
         - Baseline: 60 Conviction -> Risk 0.5% of equity if stopped at 2.5%.
         - Elite: 100 Conviction -> Risk 1.0% of equity (max 40% position).
-        - VIX Damper: Reduces risk budget by 20% for every 10 points above VIX 20.
+        - VIX Damper: Reduces risk budget by 10% for every 10 points above VIX 20.
         """
         equity = Decimal(str(total_equity))
         
         # 1. Determine Risk Budget (% of equity to lose if stopped at 2.5%)
-        # Scale risk linearly from 0.4% (at 50 conf) to 1.0% (at 100 conf)
+        # Scale risk linearly from 0.4% (at 40 conf) to 1.0% (at 100 conf)
         risk_pct = Decimal(str(max(0.004, min(0.01, (conviction / 100.0) * 0.01))))
         
         # 2. VIX Damper (Fear Adjustment)
-        # If VIX > 20, reduce risk budget. E.g., VIX 40 reduces risk by 40%.
+        # If VIX > 20, reduce risk budget. E.g., VIX 40 reduces risk by 20%.
         if vix > 20:
             fear_factor = Decimal(str(max(0.5, 1.0 - ((vix - 20) / 100.0))))
             risk_pct *= fear_factor
