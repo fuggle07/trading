@@ -52,9 +52,10 @@ deploy_production:
     - echo "$GOOGLE_CREDENTIALS" > sa-key.json
     - gcloud auth activate-service-account --key-file sa-key.json
     - gcloud config set project $PROJECT_ID
+    - gcloud builds submit . --tag us-central1-docker.pkg.dev/$PROJECT_ID/trading-node-repo/trading-bot:latest
     - cd terraform
     - terraform init
-    - terraform apply -auto-approve
+    - terraform apply -auto-approve -var="project_id=$PROJECT_ID" -var="deploy_time=$(date +%s)"
   only:
     - main
   dependencies:
