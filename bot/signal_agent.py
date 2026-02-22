@@ -246,8 +246,9 @@ class SignalAgent:
 
             elif f_score <= 1:
                 # CASE B: Confirmed Bad Fundamentals -> Turnaround Play requirements
-                # Relaxed from 80/0.6 to 70/0.4 to enable NVDA/MU while debugging F-Score
-                if ai_confidence >= 70 and sentiment >= 0.4:
+                # Relaxed from 80/0.6 to 70/0.4 (or 0.2 for low exposure) to enable leaders while debugging F-Score
+                turnaround_sentiment = 0.2 if is_low_exposure else 0.4
+                if ai_confidence >= 70 and sentiment >= turnaround_sentiment:
                     final_action = "BUY"
                     conviction = 75
                     technical_signal = f"TURNAROUND_WARRANTED_FSCORE_{f_score}"
