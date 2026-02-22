@@ -662,11 +662,12 @@ async def run_audit():
             star_sent = star_meta.get("sentiment", 0.0)
             star_vol = star_meta.get("volatility", 0.0)
             star_ai = star_meta.get("ai_score", 0)
+            star_f_score = star_intel.get("f_score", "N/A")
             
             log_decision(
                 rising_star,
                 "SWAP",
-                f"Rotating out of {weakest_link} into {rising_star} | AI: {star_ai} | Sent: {star_sent:.2f} | Vlty: {star_vol:.1f}% | Eff: {best_star_effective_conf}",
+                f"Rotating out of {weakest_link} into {rising_star} | AI: {star_ai} | F-Score: {star_f_score} | Sent: {star_sent:.2f} | Vlty: {star_vol:.1f}% | Eff: {best_star_effective_conf}",
             )
             signals[weakest_link] = {
                 "action": "SELL",
@@ -717,11 +718,12 @@ async def run_audit():
                 star_sent = star_meta.get("sentiment", 0.0)
                 star_vol = star_meta.get("volatility", 0.0)
                 star_ai = star_meta.get("ai_score", 0)
+                star_f_score = star_intel_data.get("f_score", "N/A")
 
                 log_decision(
                     rising_star,
                     "BUY",
-                    f"Initial Deployment: AI: {star_ai} | Sent: {star_sent:.2f} | Vlty: {star_vol:.1f}% | Eff: {best_star_effective_conf}",
+                    f"Initial Deployment: AI: {star_ai} | F-Score: {star_f_score} | Sent: {star_sent:.2f} | Vlty: {star_vol:.1f}% | Eff: {best_star_effective_conf}",
                 )
                 signals[rising_star] = {
                     "action": "BUY",

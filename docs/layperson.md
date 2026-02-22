@@ -101,3 +101,12 @@ Here is the current list of 18 world-class companies your bot is watching, and t
 *   **AVGO (Broadcom)**: A networking and connectivity powerhouse that keeps the bits moving between AI server clusters.
 
 ---
+
+## 7. The Technical Foundation (How it's Built)
+
+While the trading strategies are complex, the actual machinery running the bot is built on industry-standard, robust technologies. Here is a simple breakdown of the components:
+
+*   **Python (The Engine)**: The core brain of the bot is written in Python, the most popular programming language for artificial intelligence and data science. It handles all the mathematical calculations, API connections, and decision-making logic.
+*   **Google Cloud Platform (The Data Center)**: Instead of running on a regular computer at home, the bot lives in Google's cloud (specifically, *Google Cloud Run*). This means it is virtually uncrashable, highly secure, and runs 24/7 without you needing to manage any servers.
+*   **Vertex AI & Gemini (The Analyst)**: The bot uses Google's enterprise-grade AI platform, Vertex AI, to access the "Gemini 2.0 Flash" model. This is the AI that reads news and calculates market sentiment in milliseconds, acting as a tireless human analyst.
+*   **Terraform (The Blueprint)**: To build the servers, security rules, and databases in Google Cloud, the project uses Terraform. Think of it as an architectural blueprint written in code. If the bot ever gets deleted, Terraform can rebuild the entire infrastructure perfectly from scratch in less than five minutes.

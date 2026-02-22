@@ -334,7 +334,8 @@ class SignalAgent:
         # Added Price, Holding Qty, and Holding Value for better at-a-glance monitoring
         qty = market_data.get("qty", 0.0)
         holding_val = market_data.get("holding_value", 0.0)
-        reason = f"{dry_run_prefix}Price: ${current_price:,.2f} | Held: {qty:,.1f} (${holding_val:,.2f}) | AI: {effective_ai_score} | Sent: {sentiment:.2f} | Vlty: {volatility_pct:.1f}% | Conf: {conviction} | Signal: {technical_signal}"
+        f_score = fundamentals.get("f_score", "N/A") if fundamentals else "N/A"
+        reason = f"{dry_run_prefix}Price: ${current_price:,.2f} | Held: {qty:,.1f} (${holding_val:,.2f}) | AI: {effective_ai_score} | F-Score: {f_score} | Sent: {sentiment:.2f} | Vlty: {volatility_pct:.1f}% | Conf: {conviction} | Signal: {technical_signal}"
         decision["reason"] = reason
 
         # Log it using the correct signature: (ticker, action, reason, details)
@@ -460,7 +461,7 @@ class SignalAgent:
                 return False
 
         # 2. Confidence Hurdle (Switching Cost buffer)
-        # Increased to 25% for 65/35 strategy to minimize churn
+        # We require a 25-point jump to overcome the switching cost and minimize churn
         if potential_conf > (current_conf + 25):
             return True
 
