@@ -19,7 +19,7 @@ variable "billing_account" {
 variable "initial_cash" {
   description = "Starting capital for the portfolio"
   type        = number
-  default     = 50000.0
+  default     = 70000.0
 }
 
 variable "min_exposure_threshold" {

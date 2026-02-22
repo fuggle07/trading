@@ -25,14 +25,16 @@ class ExecutionManager:
         # Alpaca Setup
         self.alpaca_key = os.getenv("ALPACA_API_KEY")
         self.alpaca_secret = os.getenv("ALPACA_API_SECRET")
+        self.paper_trading = os.getenv("ALPACA_PAPER_TRADING", "True").lower() == "true"
         self.trading_client = None
 
         if self.alpaca_key and self.alpaca_secret:
             try:
                 self.trading_client = TradingClient(
-                    self.alpaca_key, self.alpaca_secret, paper=True
+                    self.alpaca_key, self.alpaca_secret, paper=self.paper_trading
                 )
-                logger.info("✅ Alpaca Trading Client Connected (Paper)")
+                mode = "Paper" if self.paper_trading else "LIVE"
+                logger.info(f"✅ Alpaca Trading Client Connected ({mode})")
             except Exception as e:
                 logger.error(f"❌ Failed to initialize Alpaca Client: {e}")
         else:

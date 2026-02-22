@@ -210,9 +210,10 @@ async def get_macro_context() -> dict:
         rates_task = fundamental_agent.get_treasury_rates()
         calendar_task = fundamental_agent.get_economic_calendar()
         qqq_sma_task = fundamental_agent.get_index_technicals("QQQ", window=50)
+        fx_task = fundamental_agent.get_forex_rate("AUDUSD")
 
-        indices, rates, calendar, qqq_sma50 = await asyncio.gather(
-            indices_task, rates_task, calendar_task, qqq_sma_task
+        indices, rates, calendar, qqq_sma50, aud_usd = await asyncio.gather(
+            indices_task, rates_task, calendar_task, qqq_sma_task, fx_task
         )
 
         indices = indices or {}
@@ -229,6 +230,11 @@ async def get_macro_context() -> dict:
         # Explicit cast and safe retrieval to prevent type comparison errors
         vix_val = indices.get("vix") or indices.get("vix_proxy_vxx") or 0.0
         macro_data["vix"] = float(vix_val)
+        
+        # AUD/USD Rate (1 AUD = X USD)
+        # We store the inverse (1 USD = X AUD) for easy multiplier math
+        macro_data["aud_usd"] = float(aud_usd)
+        macro_data["fx_multiplier"] = (1.0 / float(aud_usd)) if float(aud_usd) > 0 else 1.54 # NAB default fallback
 
         parts = []
         if isinstance(indices, dict):
@@ -248,6 +254,9 @@ async def get_macro_context() -> dict:
             
         if macro_data["vix"] > 0:
             parts.append(f"VIX: {macro_data['vix']:.2f}")
+
+        if float(aud_usd) > 0:
+            parts.append(f"AUD/USD: {float(aud_usd):.4f}")
 
         if parts:
             macro_data["formatted"] = f"Market Context: {', '.join(parts)}"
@@ -371,7 +380,7 @@ async def run_audit():
     Phase 2: Portfolio Analysis & Conviction Swapping
     Phase 3: Execution (SELLs first, then BUYs)
     """
-    tickers_env = os.environ.get("BASE_TICKERS", "TSLA,NVDA,AMD,MU,PLTR,COIN,META,AAPL,MSFT,GOLD,AMZN,AVGO,ASML,LLY,LMT")
+    tickers_env = os.environ.get("BASE_TICKERS", "TSLA,NVDA,AMD,MU,PLTR,COIN,META,AAPL,MSFT,GOLD,AMZN,AVGO,ASML,LLY,LMT,VRT,CEG,TSM")
     base_tickers = [t.strip() for t in tickers_env.split(",") if t.strip()]
 
     # --- Phase 0: Reconciliation (Source of Truth) ---
@@ -513,6 +522,8 @@ async def run_audit():
                 "deep_health_reason": intel.get("deep_health_reason", ""),
                 "f_score": intel.get("f_score", 0),
                 "rsi": intel.get("rsi") if intel.get("rsi") is not None else 50.0,
+                "qty": held_tickers.get(ticker, {}).get("holdings", 0.0),
+                "holding_value": held_tickers.get(ticker, {}).get("market_value", 0.0),
                 "avg_price": held_tickers.get(ticker, {}).get("avg_price", 0.0),
                 "hwm": _high_water_marks.get(ticker, 0.0),
                 "prediction_confidence": intel.get("confidence", 0),
@@ -1026,7 +1037,7 @@ async def get_latest_confidence(ticker: str) -> Optional[int]:
 @app.route("/rank-tickers", methods=["POST"])
 async def run_ranker_endpoint():
     """Trigger the morning ticker ranking job."""
-    base = os.environ.get("BASE_TICKERS", "TSLA,NVDA,AMD,PLTR,COIN,META,GOOG,MSFT,GOLD,NEM,AMZN,AVGO,CRM,ORCL,LMT").split(",")
+    base = os.environ.get("BASE_TICKERS", "TSLA,NVDA,AMD,MU,PLTR,COIN,META,AAPL,MSFT,GOLD,AMZN,AVGO,ASML,LLY,LMT,VRT,CEG,TSM").split(",")
     held = list(portfolio_manager.get_held_tickers().keys())
     tickers = list(set(base + held))
     try:

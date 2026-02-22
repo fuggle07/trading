@@ -9,12 +9,12 @@ def reset_cash():
 
     query = f"""
     UPDATE `{PROJECT_ID}.{TABLE_ID}`
-    SET cash_balance = 100000.0,
+    SET cash_balance = 70000.0,
     last_updated = CURRENT_TIMESTAMP()
     WHERE asset_name = 'USD'
     """
 
-    print(f"🚀 Resetting Cash in {TABLE_ID} to $100,000...")
+    print(f"🚀 Resetting Cash in {TABLE_ID} to $70,000...")
     try:
         query_job = client.query(query)
         query_job.result()

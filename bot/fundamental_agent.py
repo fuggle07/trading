@@ -364,6 +364,20 @@ class FundamentalAgent:
 
         return []
 
+    async def get_forex_rate(self, symbol="AUDUSD"):
+        """
+        Fetches the latest forex rate for a given pair (e.g., AUDUSD).
+        Uses FMP v3 quote endpoint.
+        """
+        if self.fmp_key:
+            # FMP v3 quote endpoint works for FX as well
+            data = await self._fetch_fmp(f"quote/{symbol}", "", version="v3")
+            if data and isinstance(data, list):
+                return float(data[0].get("price", 0) or 0)
+        
+        # Fallback to a hardcoded 1.0 would be bad, but we return 0.0 to indicate failure
+        return 0.0
+
     async def get_treasury_rates(self) -> dict:
         """
         Fetches the latest US Treasury Rates (stable /treasury-rates).

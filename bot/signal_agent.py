@@ -128,6 +128,15 @@ class SignalAgent:
         rsi = float(market_data.get("rsi") if market_data.get("rsi") is not None else 50.0)
         lessons = ""  # Placeholder for now
 
+        # --- AI CONVICTION BLENDING ---
+        # If the 9:15 AM ranker score is missing (0), use Gemini Sentiment as a conviction proxy.
+        # Scale sentiment (-1 to +1) to a 0-100 confidence score as fallback.
+        ranker_confidence = fundamentals.get("score", 0)
+        gemini_confidence = int((sentiment + 1) * 50)
+        
+        # Effective AI Score favors the ranker if available, falls back to Gemini
+        effective_ai_score = ranker_confidence if ranker_confidence > 0 else gemini_confidence
+        
         technical_signal = self.evaluate_bands(
             current_price, indicators.get("upper", 0), indicators.get("lower", 0), is_low_exposure
         )
@@ -161,7 +170,8 @@ class SignalAgent:
             final_action = "IDLE"
             # ENHANCEMENT: Low Exposure Aggression
             if is_low_exposure:
-                if sentiment >= 0.2 and fundamentals.get("score", 0) >= 70:
+                # Use effective_ai_score so new tickers can bypass the 0 score
+                if sentiment >= 0.2 and effective_ai_score >= 70:
                     final_action = "BUY"
                     conviction = 70
                     technical_signal = "PROACTIVE_WARRANTED_ENTRY"
@@ -228,7 +238,7 @@ class SignalAgent:
 
             if f_score is None:
                 # CASE A: Missing Data -> Require reasonable AI Confidence to proceed blindly
-                if ai_confidence < 70:
+                if effective_ai_score < 70:
                     final_action = "IDLE"
                     conviction = 0
                     technical_signal = "REJECT_INSUFFICIENT_DATA"
@@ -246,9 +256,8 @@ class SignalAgent:
 
             elif f_score <= 1:
                 # CASE B: Confirmed Bad Fundamentals -> Turnaround Play requirements
-                # Relaxed from 80/0.6 to 70/0.4 (or 0.2 for low exposure) to enable leaders while debugging F-Score
                 turnaround_sentiment = 0.2 if is_low_exposure else 0.4
-                if ai_confidence >= 70 and sentiment >= turnaround_sentiment:
+                if effective_ai_score >= 70 and sentiment >= turnaround_sentiment:
                     final_action = "BUY"
                     conviction = 75
                     technical_signal = f"TURNAROUND_WARRANTED_FSCORE_{f_score}"
@@ -264,7 +273,7 @@ class SignalAgent:
                 if f_score < f_score_threshold:
                     # Check for bypass if low-ish score but high AI confidence
                     bypass_threshold = 65 if is_low_exposure else 80
-                    if ai_confidence >= bypass_threshold:
+                    if effective_ai_score >= bypass_threshold:
                         technical_signal = f"BUY_FSCORE_{f_score}_BYPASS"
                         conviction = max(conviction, 80)
                     else:
@@ -321,7 +330,11 @@ class SignalAgent:
         }
 
         # Reorder: Signal column at the end for readability
-        reason = f"{dry_run_prefix}AI: {ai_score} | Sent: {sentiment:.2f} | Vlty: {volatility_pct:.1f}% | Conf: {conviction} | Signal: {technical_signal}"
+        # Log effective score (which includes Gemini fallback) so user isn't confused by '0'
+        # Added Price, Holding Qty, and Holding Value for better at-a-glance monitoring
+        qty = market_data.get("qty", 0.0)
+        holding_val = market_data.get("holding_value", 0.0)
+        reason = f"{dry_run_prefix}Price: ${current_price:,.2f} | Held: {qty:,.1f} (${holding_val:,.2f}) | AI: {effective_ai_score} | Sent: {sentiment:.2f} | Vlty: {volatility_pct:.1f}% | Conf: {conviction} | Signal: {technical_signal}"
         decision["reason"] = reason
 
         # Log it using the correct signature: (ticker, action, reason, details)

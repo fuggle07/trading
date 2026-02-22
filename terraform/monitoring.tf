@@ -1,7 +1,8 @@
 # monitoring.tf
 
 locals {
-  tickers = ["NVDA", "MU", "AMD", "PLTR", "COIN", "META", "MSTR"]
+  # Focus the dashboard on the high-conviction "Core" and the new "Bottleneck" army
+  tickers = ["NVDA", "TSLA", "MU", "TSM", "VRT", "CEG", "PLTR", "COIN"]
 }
 
 resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
@@ -743,18 +744,18 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
           }
         ],
 
-        # META — yPos 42
+        # TSLA — yPos 42
         [
           {
             width = 4, height = 4, xPos = 0, yPos = 42
             widget = {
-              title = "META — Price & Sentiment"
+              title = "TSLA — Price & Sentiment"
               xyChart = {
                 chartOptions = { mode = "COLOR" }
                 dataSets = [{
                   timeSeriesQuery = {
                     timeSeriesFilter = {
-                      filter = "metric.type=\"logging.googleapis.com/user/trading/sentiment_score\" AND metric.labels.ticker=\"META\""
+                      filter = "metric.type=\"logging.googleapis.com/user/trading/sentiment_score\" AND metric.labels.ticker=\"TSLA\""
                       aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                     }
                   }
@@ -766,14 +767,14 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
           {
             width = 4, height = 4, xPos = 4, yPos = 42
             widget = {
-              title = "META — Bollinger Bands & SMAs"
+              title = "TSLA — Bollinger Bands & SMAs"
               xyChart = {
                 chartOptions = { mode = "COLOR" }
                 dataSets = [
                   {
                     timeSeriesQuery = {
                       timeSeriesFilter = {
-                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_upper\" AND metric.labels.ticker=\"META\""
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_upper\" AND metric.labels.ticker=\"TSLA\""
                         aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                       }
                     }
@@ -782,7 +783,7 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                   {
                     timeSeriesQuery = {
                       timeSeriesFilter = {
-                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_20\" AND metric.labels.ticker=\"META\""
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_20\" AND metric.labels.ticker=\"TSLA\""
                         aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                       }
                     }
@@ -791,7 +792,7 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                   {
                     timeSeriesQuery = {
                       timeSeriesFilter = {
-                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_50\" AND metric.labels.ticker=\"META\""
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_50\" AND metric.labels.ticker=\"TSLA\""
                         aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                       }
                     }
@@ -800,7 +801,7 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                   {
                     timeSeriesQuery = {
                       timeSeriesFilter = {
-                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_lower\" AND metric.labels.ticker=\"META\""
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_lower\" AND metric.labels.ticker=\"TSLA\""
                         aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                       }
                     }
@@ -813,14 +814,14 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
           {
             width = 4, height = 4, xPos = 8, yPos = 42
             widget = {
-              title = "META — RSI / Conviction / F-Score"
+              title = "TSLA — RSI / Conviction / F-Score"
               xyChart = {
                 chartOptions = { mode = "COLOR" }
                 dataSets = [
                   {
                     timeSeriesQuery = {
                       timeSeriesFilter = {
-                        filter = "metric.type=\"logging.googleapis.com/user/trading/rsi\" AND metric.labels.ticker=\"META\""
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/rsi\" AND metric.labels.ticker=\"TSLA\""
                         aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                       }
                     }
@@ -829,7 +830,7 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                   {
                     timeSeriesQuery = {
                       timeSeriesFilter = {
-                        filter = "metric.type=\"logging.googleapis.com/user/trading/conviction\" AND metric.labels.ticker=\"META\""
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/conviction\" AND metric.labels.ticker=\"TSLA\""
                         aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                       }
                     }
@@ -838,7 +839,7 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                   {
                     timeSeriesQuery = {
                       timeSeriesFilter = {
-                        filter = "metric.type=\"logging.googleapis.com/user/trading/f_score\" AND metric.labels.ticker=\"META\""
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/f_score\" AND metric.labels.ticker=\"TSLA\""
                         aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                       }
                     }
@@ -850,18 +851,18 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
           }
         ],
 
-        # MSTR — yPos 47
+        # TSM — yPos 47
         [
           {
             width = 4, height = 4, xPos = 0, yPos = 47
             widget = {
-              title = "MSTR — Price & Sentiment"
+              title = "TSM — Price & Sentiment"
               xyChart = {
                 chartOptions = { mode = "COLOR" }
                 dataSets = [{
                   timeSeriesQuery = {
                     timeSeriesFilter = {
-                      filter = "metric.type=\"logging.googleapis.com/user/trading/sentiment_score\" AND metric.labels.ticker=\"MSTR\""
+                      filter = "metric.type=\"logging.googleapis.com/user/trading/sentiment_score\" AND metric.labels.ticker=\"TSM\""
                       aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                     }
                   }
@@ -873,14 +874,14 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
           {
             width = 4, height = 4, xPos = 4, yPos = 47
             widget = {
-              title = "MSTR — Bollinger Bands & SMAs"
+              title = "TSM — Bollinger Bands & SMAs"
               xyChart = {
                 chartOptions = { mode = "COLOR" }
                 dataSets = [
                   {
                     timeSeriesQuery = {
                       timeSeriesFilter = {
-                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_upper\" AND metric.labels.ticker=\"MSTR\""
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_upper\" AND metric.labels.ticker=\"TSM\""
                         aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                       }
                     }
@@ -889,7 +890,7 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                   {
                     timeSeriesQuery = {
                       timeSeriesFilter = {
-                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_20\" AND metric.labels.ticker=\"MSTR\""
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_20\" AND metric.labels.ticker=\"TSM\""
                         aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                       }
                     }
@@ -898,7 +899,7 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                   {
                     timeSeriesQuery = {
                       timeSeriesFilter = {
-                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_50\" AND metric.labels.ticker=\"MSTR\""
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_50\" AND metric.labels.ticker=\"TSM\""
                         aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                       }
                     }
@@ -907,7 +908,7 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                   {
                     timeSeriesQuery = {
                       timeSeriesFilter = {
-                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_lower\" AND metric.labels.ticker=\"MSTR\""
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_lower\" AND metric.labels.ticker=\"TSM\""
                         aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                       }
                     }
@@ -920,14 +921,14 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
           {
             width = 4, height = 4, xPos = 8, yPos = 47
             widget = {
-              title = "MSTR — RSI / Conviction / F-Score"
+              title = "TSM — RSI / Conviction / F-Score"
               xyChart = {
                 chartOptions = { mode = "COLOR" }
                 dataSets = [
                   {
                     timeSeriesQuery = {
                       timeSeriesFilter = {
-                        filter = "metric.type=\"logging.googleapis.com/user/trading/rsi\" AND metric.labels.ticker=\"MSTR\""
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/rsi\" AND metric.labels.ticker=\"TSM\""
                         aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                       }
                     }
@@ -936,7 +937,7 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                   {
                     timeSeriesQuery = {
                       timeSeriesFilter = {
-                        filter = "metric.type=\"logging.googleapis.com/user/trading/conviction\" AND metric.labels.ticker=\"MSTR\""
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/conviction\" AND metric.labels.ticker=\"TSM\""
                         aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                       }
                     }
@@ -945,7 +946,221 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                   {
                     timeSeriesQuery = {
                       timeSeriesFilter = {
-                        filter = "metric.type=\"logging.googleapis.com/user/trading/f_score\" AND metric.labels.ticker=\"MSTR\""
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/f_score\" AND metric.labels.ticker=\"TSM\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "F-Score"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+
+        # VRT — yPos 52
+        [
+          {
+            width = 4, height = 4, xPos = 0, yPos = 52
+            widget = {
+              title = "VRT — Price & Sentiment"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [{
+                  timeSeriesQuery = {
+                    timeSeriesFilter = {
+                      filter = "metric.type=\"logging.googleapis.com/user/trading/sentiment_score\" AND metric.labels.ticker=\"VRT\""
+                      aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                    }
+                  }
+                  legendTemplate = "Sentiment"
+                }]
+              }
+            }
+          },
+          {
+            width = 4, height = 4, xPos = 4, yPos = 52
+            widget = {
+              title = "VRT — Bollinger Bands & SMAs"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_upper\" AND metric.labels.ticker=\"VRT\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "BB Upper"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_20\" AND metric.labels.ticker=\"VRT\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "SMA-20"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_50\" AND metric.labels.ticker=\"VRT\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "SMA-50"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_lower\" AND metric.labels.ticker=\"VRT\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "BB Lower"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            width = 4, height = 4, xPos = 8, yPos = 52
+            widget = {
+              title = "VRT — RSI / Conviction / F-Score"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/rsi\" AND metric.labels.ticker=\"VRT\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "RSI"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/conviction\" AND metric.labels.ticker=\"VRT\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "Conviction"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/f_score\" AND metric.labels.ticker=\"VRT\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "F-Score"
+                  }
+                ]
+              }
+            }
+          }
+        ],
+
+        # CEG — yPos 57
+        [
+          {
+            width = 4, height = 4, xPos = 0, yPos = 57
+            widget = {
+              title = "CEG — Price & Sentiment"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [{
+                  timeSeriesQuery = {
+                    timeSeriesFilter = {
+                      filter = "metric.type=\"logging.googleapis.com/user/trading/sentiment_score\" AND metric.labels.ticker=\"CEG\""
+                      aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                    }
+                  }
+                  legendTemplate = "Sentiment"
+                }]
+              }
+            }
+          },
+          {
+            width = 4, height = 4, xPos = 4, yPos = 57
+            widget = {
+              title = "CEG — Bollinger Bands & SMAs"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_upper\" AND metric.labels.ticker=\"CEG\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "BB Upper"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_20\" AND metric.labels.ticker=\"CEG\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "SMA-20"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/sma_50\" AND metric.labels.ticker=\"CEG\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "SMA-50"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/bb_lower\" AND metric.labels.ticker=\"CEG\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "BB Lower"
+                  }
+                ]
+              }
+            }
+          },
+          {
+            width = 4, height = 4, xPos = 8, yPos = 57
+            widget = {
+              title = "CEG — RSI / Conviction / F-Score"
+              xyChart = {
+                chartOptions = { mode = "COLOR" }
+                dataSets = [
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/rsi\" AND metric.labels.ticker=\"CEG\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "RSI"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/conviction\" AND metric.labels.ticker=\"CEG\""
+                        aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
+                      }
+                    }
+                    legendTemplate = "Conviction"
+                  },
+                  {
+                    timeSeriesQuery = {
+                      timeSeriesFilter = {
+                        filter = "metric.type=\"logging.googleapis.com/user/trading/f_score\" AND metric.labels.ticker=\"CEG\""
                         aggregation = { alignmentPeriod = "600s", perSeriesAligner = "ALIGN_PERCENTILE_50" }
                       }
                     }

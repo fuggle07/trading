@@ -142,7 +142,7 @@ def log_performance(client, table_id, metrics):
         "timestamp": datetime.now(pytz.utc).isoformat(),
         "paper_equity": total_equity,
         "tax_buffer_usd": 0.0,
-        "fx_rate_aud": 1.0,
+        "fx_rate_aud": float(metrics.get("fx_multiplier", 1.54)),
         "daily_hurdle_aud": 0.0,
         "net_alpha_usd": 0.0,
         "node_id": os.getenv("K_SERVICE", "local-bot"),

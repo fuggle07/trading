@@ -44,8 +44,8 @@ The bot relies on the following secrets, stored in **GCP Secret Manager** and in
 | --- | --- | --- |
 | `ALPHA_VANTAGE_KEY` | Alpha Vantage | Supplementary fundamental data (fallback) |
 | `MORTGAGE_RATE` | — | Annualised home loan rate (e.g., `0.054`) |
-| `INITIAL_CASH` | — | Starting cash pool (default `50000.0`) |
-| `BASE_TICKERS` | — | Comma-separated watchlist (default `TSLA,NVDA,AMD,MU,PLTR,COIN,META,AAPL,MSFT,GOLD,AMZN,AVGO,ASML,LLY,LMT`). **Note**: Hedge tickers (e.g., PSQ) are now auto-injected and do not need to be listed here. |
+| `INITIAL_CASH` | — | Starting cash pool (default `70000.0`) |
+| `BASE_TICKERS` | — | Comma-separated watchlist (default `TSLA, NVDA, AMD, MU, PLTR, COIN, META, AAPL, MSFT, GOLD, AMZN, AVGO, ASML, LLY, LMT, VRT, CEG, TSM`). **Note**: Hedge tickers (e.g., PSQ) are now auto-injected and do not need to be listed here. |
 | `MIN_EXPOSURE_THRESHOLD` | — | Min portfolio exposure before aggression (default `0.85`) |
 | `VOLATILITY_SENSITIVITY` | — | Multiplier on the vol threshold (default `1.0`) |
 
@@ -59,7 +59,7 @@ The bot relies on the following secrets, stored in **GCP Secret Manager** and in
 ## 3. Operational Constraints
 
 ### The "Aberfeldie" Constraint
-*   **Capital Pool**: **$100,000 USD** (Paper Trading / Simulation mode via Alpaca).
+*   **Capital Pool**: **$70,000 USD** (Live Seed / Simulation mode via Alpaca).
 *   **Hurdle Rate**: Set via `MORTGAGE_RATE` env var (e.g., `0.054` = 5.4%).
 *   **Performance Benchmark**: Tax-adjusted effective hurdle: `Rate × (1 - 0.35)` ≈ **3.5%** annualised.
 *   **Deployment Logic**: Brokerage cash is considered "idle." The bot prioritizes deployment (up to 85% exposure) without restrictive hurdle gates, as Alpaca cash is external to the mortgage offset.
@@ -172,3 +172,53 @@ gcloud run services delete trading-audit-agent --region us-central1
 *   **Symptom**: BigQuery `portfolio` table drifts from Alpaca positions.
 *   **Check**: Look for `❌ Portfolio Sync Failed` in logs. Usually caused by missing Alpaca API keys in Secret Manager.
 *   **Fix**: Run `./scripts/sync_secrets.sh` then redeploy.
+
+---
+
+## 7. Go-Live / Cut-Over Process
+
+This section details how to transition from **Paper Trading** to a **Live Brokerage Account**.
+
+### Phase 1: Preparation
+1.  **Fund your Alpaca Live Account**.
+2.  **Generate Live API Keys** in the Alpaca Dashboard (ensure you are on the "Live" tab, not "Paper").
+3.  **Note your Starting Balance**.
+
+### Phase 2: Secret Rotation
+Update the following secrets in GCP Secret Manager (or update them locally and run `./scripts/sync_secrets.sh`):
+*   `ALPACA_API_KEY`: Set to your **Live** key.
+*   `ALPACA_API_SECRET`: Set to your **Live** secret.
+
+### Phase 3: Configuration Change
+1.  **Update Terraform**: In `terraform/cloudrun.tf`, update `ALPACA_PAPER_TRADING` to `"False"`.
+    ```hcl
+    env {
+      name  = "ALPACA_PAPER_TRADING"
+      value = "False"
+    }
+    ```
+2.  **Apply Infrastructure**:
+    ```bash
+    cd terraform && terraform apply
+    ```
+
+### Phase 4: Portfolio Reset (The "Clean Slate")
+When switching to a new account, the internal BigQuery ledger needs to be reset to match the new cash balance and (likely empty) initial holdings.
+
+1.  **Purge the Ledger**:
+    ```bash
+    # Clear the portfolio table
+    bq query --use_legacy_sql=false \
+    "DELETE FROM \`utopian-calling-429014-r9.trading_data.portfolio\` WHERE TRUE"
+    ```
+2.  **Trigger Audit**: 
+    ```bash
+    curl -X POST -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
+      "$(cd terraform && terraform output -no-color -raw service_url)/run-audit"
+    ```
+    *The bot will detect 0 holdings and automatically sync the live Alpaca balance into the ledger.*
+
+### Phase 5: Verification
+1.  Check logs for: `✅ Alpaca Trading Client Connected (LIVE)`.
+2.  Run `bash scripts/check_portfolio.sh` to see the new live balance.
+3.  Verify the Dashboard shows the correct starting equity.
