@@ -298,12 +298,12 @@ class SignalAgent:
             # main.py handles the actual execution avoidance via is_market_open().
 
         # 5. Star Rating Classification
-        # Star = High AI Conviction (90+) + Elite Fundamentals (F-Score 7+) + Deeply Healthy
+        # Star = High AI Conviction (85+) + Elite Fundamentals (F-Score 7+) + Deeply Healthy
         is_star = False
         ai_score = fundamentals.get("score", 0)
         
         if (
-            ai_score >= 90
+            ai_score >= 85
             and fundamentals.get("f_score") is not None
             and fundamentals.get("f_score", 0) >= 7
             and fundamentals.get("is_deep_healthy", True)

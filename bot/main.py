@@ -559,7 +559,7 @@ async def run_audit():
 
     # Sort eval_results: AI Score desc, then Sentiment desc
     eval_results.sort(
-        key=lambda x: (x.get("meta", {}).get("ai_score", 0), x.get("meta", {}).get("sentiment", 0.0)),
+        key=lambda x: (x.get("meta", {}).get("effective_ai_score", 0), x.get("meta", {}).get("sentiment", 0.0)),
         reverse=True
     )
 
@@ -580,53 +580,48 @@ async def run_audit():
 
     # 1. Identify Weakest Link (Lowest Confidence OR Failed Fundamentals OR Sentiment Collapse)
     for t in held_tickers:
-        intel = ticker_intel.get(t)
-        if intel is None:
+        sig = signals.get(t)
+        if sig is None:
             continue
-        conf = intel.get("confidence", 0)
-        is_deep = intel.get("is_deep_healthy", True)
-        sentiment = float(intel.get("sentiment", 0.0))
+            
+        meta = sig.get("meta", {})
+        effective_conf = meta.get("effective_ai_score", 0)
+        is_deep = ticker_intel[t].get("is_deep_healthy", True)
+        sentiment = float(meta.get("sentiment", 0.0))
+        sentiment_collapse = sentiment < -0.3
 
-        # Blended effective confidence: sentiment adjusts the score by up to ±15
-        sentiment_bonus = max(-15, min(15, int(sentiment * 20)))
-        effective_conf = conf + sentiment_bonus
+        # We evaluate the lowest absolute conviction amongst held tickers, even if it's > 50
+        if weakest_link is None:
+            weakest_link = t
+            weakest_link_effective_conf = effective_conf
+        else:
+            current_is_deep = ticker_intel[weakest_link].get("is_deep_healthy", True)
+            current_sent = float(signals[weakest_link].get("meta", {}).get("sentiment", 0.0))
+            current_sent_collapse = current_sent < -0.3
 
-        # SWAP TRIGGER: Low blended confidence, failed fundamentals, OR acute sentiment collapse
-        sentiment_collapse = sentiment < -0.3  # news has turned toxic right now
-        is_weak = effective_conf < 50 or not is_deep or sentiment_collapse
-
-        if is_weak:
-            # Prioritise: fundamental failure > sentiment collapse > low confidence
-            if weakest_link is None:
+            # Prioritise fundamental failure over sentiment failure over raw score
+            if current_is_deep and not is_deep:
                 weakest_link = t
                 weakest_link_effective_conf = effective_conf
-            else:
-                current_is_deep = ticker_intel[weakest_link].get("is_deep_healthy", True)
-                current_sent = float(ticker_intel[weakest_link].get("sentiment", 0.0))
-                current_sent_collapse = current_sent < -0.3
-
-                # Fundamental failure always wins
-                if current_is_deep and not is_deep:
+            elif not current_is_deep and not is_deep:
+                if effective_conf < weakest_link_effective_conf:
                     weakest_link = t
                     weakest_link_effective_conf = effective_conf
-                # Both fundamental failures — pick lower blended conf
-                elif not current_is_deep and not is_deep:
-                    if effective_conf < weakest_link_effective_conf:
-                        weakest_link = t
-                        weakest_link_effective_conf = effective_conf
-                # Sentiment collapse beats purely low-confidence
-                elif not current_sent_collapse and sentiment_collapse:
+            elif not current_sent_collapse and sentiment_collapse:
+                weakest_link = t
+                weakest_link_effective_conf = effective_conf
+            elif current_sent_collapse and sentiment_collapse:
+                if effective_conf < weakest_link_effective_conf:
                     weakest_link = t
                     weakest_link_effective_conf = effective_conf
-                # Same tier — pick lower blended confidence
-                elif effective_conf < weakest_link_effective_conf:
+            elif current_is_deep and not current_sent_collapse and is_deep and not sentiment_collapse:
+                # Normal comparison for healthy stocks
+                if effective_conf < weakest_link_effective_conf:
                     weakest_link = t
                     weakest_link_effective_conf = effective_conf
 
     # 2. Identify Rising Star (Highest Blended Conviction across ALL tickers)
     # Exclude the weakest_link itself (can't sell and re-buy the same ticker).
-    # Uses effective_conf = confidence + sentiment bonus (±15) so high-sentiment
-    # stocks surface faster and negative-narrative stocks are penalised.
     rising_star = None
     best_star_effective_conf = 0
 
@@ -634,17 +629,14 @@ async def run_audit():
         if t == weakest_link:
             continue  # Can't be your own rising star
 
-        intel = ticker_intel.get(t)
-        if intel is None:
+        sig = signals.get(t)
+        if sig is None:
             continue
 
-        conf = intel.get("confidence", 0)
-        sentiment = float(intel.get("sentiment", 0.0))
-        sentiment_bonus = max(-15, min(15, int(sentiment * 20)))
-        effective_conf = conf + sentiment_bonus
+        effective_conf = sig.get("meta", {}).get("effective_ai_score", 0)
 
-        # Candidate Check: Must pass blended threshold
-        if effective_conf > 75:
+        # Candidate Check: Must pass blended threshold (80 for Rising Stars)
+        if effective_conf >= 80:
             if rising_star is None or effective_conf > best_star_effective_conf:
                 rising_star = t
                 best_star_effective_conf = effective_conf
@@ -886,13 +878,13 @@ async def run_audit():
                 log_decision(ticker, "SKIP", f"VIX={vix:.1f} > 25: Blocking new deployment in high-fear market")
                 continue
 
-            # 65/35 Allocation Strategy
-            # If exposure >= 65%, only allow BUY if ticker is "Star Rated"
-            if running_exposure >= 0.65 and not is_star:
+            # Exposure Allocation Strategy
+            # If exposure >= MIN_EXPOSURE_THRESHOLD, only allow BUY if ticker is "Star Rated"
+            if running_exposure >= MIN_EXPOSURE_THRESHOLD and not is_star:
                 log_decision(
                     ticker, 
                     "SKIP", 
-                    f"Baseline Exposure Hit ({running_exposure:.1%}). {ticker} is not 'Star Rated'."
+                    f"Baseline Exposure Hit ({running_exposure:.1%} >= {MIN_EXPOSURE_THRESHOLD:.0%}). {ticker} is not 'Star Rated'."
                 )
                 continue
 
@@ -921,10 +913,10 @@ async def run_audit():
             # Buy amount = Target Allocation - Current Holdings
             allocation = max(0, target_allocation - already_held_value)
 
-            # Cap Check: Respect the 65% baseline for non-Stars
+            # Cap Check: Respect the exposure baseline for non-Stars
             if not is_star:
                 room_to_exposure_target = float(max(
-                    0.0, total_equity * 0.65 - total_equity * running_exposure
+                    0.0, total_equity * MIN_EXPOSURE_THRESHOLD - total_equity * running_exposure
                 ))
                 allocation = float(min(allocation, room_to_exposure_target))
             

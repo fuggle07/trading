@@ -132,7 +132,7 @@ The Aberfeldie Node operates on a **"Beat the Bank"** philosophy. Every dollar i
 | **F-Score** | ≤ 1 | High-confidence turnaround play only (relaxed sentiment for low-exposure) |
 | **F-Score** | < 5 normal / < 2 low-exposure | Fundamental rejection |
 | **F-Score** | ≥ 7 | Conviction bonus (+10) |
-| **AI Confidence** | ≥ 90 + F-Score ≥ 7 | Star rating — conviction swap priority |
+| **AI Confidence** | ≥ 85 + F-Score ≥ 7 | Star rating — conviction swap priority |
 | **Profit Target** | +5% | Exit to lock gain |
 | **Stop Loss** | -2.5% | Exit to protect capital |
 | **Mortgage Rate** | Env var `MORTGAGE_RATE` | Raw bank benchmark |
