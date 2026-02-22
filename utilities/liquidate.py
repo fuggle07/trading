@@ -3,6 +3,7 @@ Emergency Liquidation Utility
 Usage: python3 utilities/liquidate.py
 Description: Cancels all Alpaca orders, closes all positions, and resets the BigQuery ledger to $100k.
 """
+
 #!/usr/bin/env python3
 import sys
 import os
@@ -18,14 +19,12 @@ from google.cloud import bigquery
 # Authentication & Configuration
 ALPACA_KEY = os.environ.get("ALPACA_API_KEY")
 ALPACA_SECRET = os.environ.get("ALPACA_API_SECRET")
-BASE_URL = "https://paper-api.alpaca.markets" # Hardcoded to paper for safety
-HEADERS = {
-    "APCA-API-KEY-ID": ALPACA_KEY,
-    "APCA-API-SECRET-KEY": ALPACA_SECRET
-}
+BASE_URL = "https://paper-api.alpaca.markets"  # Hardcoded to paper for safety
+HEADERS = {"APCA-API-KEY-ID": ALPACA_KEY, "APCA-API-SECRET-KEY": ALPACA_SECRET}
 
 PROJECT_ID = os.environ.get("PROJECT_ID")
 INITIAL_EQUITY = 100000.0
+
 
 def liquidate_alpaca():
     """Cancels all orders and closes all positions on Alpaca."""
@@ -34,7 +33,7 @@ def liquidate_alpaca():
         return False
 
     print("🛑 PANIC: Starting Alpaca Liquidation...")
-    
+
     # 1. Cancel all open orders
     try:
         res = requests.delete(f"{BASE_URL}/v2/orders", headers=HEADERS)
@@ -59,6 +58,7 @@ def liquidate_alpaca():
 
     return True
 
+
 def reset_ledger():
     """Resets the BigQuery portfolio ledger to $100,000 USD."""
     if not PROJECT_ID:
@@ -72,7 +72,7 @@ def reset_ledger():
     try:
         # 1. Clear existing holdings
         client.query(f"TRUNCATE TABLE `{table_ref}`").result()
-        
+
         # 2. Seed initial cash
         seed_query = f"""
         INSERT INTO `{table_ref}` (asset_name, holdings, cash_balance, avg_price, last_updated)
@@ -85,11 +85,12 @@ def reset_ledger():
         print(f"❌ Ledger reset failed: {e}")
         return False
 
+
 if __name__ == "__main__":
     print("🚨🚨🚨 EMERGENCY LIQUIDATION TRIGGERED 🚨🚨🚨")
     success_alpaca = liquidate_alpaca()
     success_ledger = reset_ledger()
-    
+
     if success_alpaca and success_ledger:
         print("\n✨ FINAL STATUS: System Flattened Successfully.")
     else:

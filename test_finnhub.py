@@ -2,12 +2,14 @@ import time
 import finnhub
 from google.cloud import secretmanager
 
+
 # Fetch the REAL secret to test with
 def get_secret(secret_id):
     client = secretmanager.SecretManagerServiceClient()
     name = f"projects/utopian-calling-429014-r9/secrets/{secret_id}/versions/latest"
     response = client.access_secret_version(request={"name": name})
     return response.payload.data.decode("UTF-8")
+
 
 API_KEY = get_secret("FINNHUB_KEY")
 print(f"🔑 Key loaded (len={len(API_KEY)})")

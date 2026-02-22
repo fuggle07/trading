@@ -3,6 +3,7 @@ Morning Ticker Ranker Utility
 Usage: python3 utilities/rank_tickers.py
 Description: Fetches lessons, creating analysis tasks, and then logging the results to BigQuery.
 """
+
 #!/usr/bin/env python3
 import sys
 import os
@@ -28,19 +29,18 @@ logger = logging.getLogger("RankerScript")
 PROJECT_ID = os.environ.get("PROJECT_ID", "utopian-calling-429014-r9")
 TICKERS = ["NVDA", "MU", "AMD", "PLTR", "COIN", "META", "MSTR"]
 
+
 async def main():
     logger.info(f"🚀 Starting Morning Ticker Ranking for Project: {PROJECT_ID}")
-    
+
     bq_client = bigquery.Client(project=PROJECT_ID)
     ranker = TickerRanker(PROJECT_ID, bq_client)
-    
+
     # This now correctly logs to utopian-calling-429014-r9.trading_data.ticker_rankings
     results = await ranker.rank_and_log(TICKERS)
-    
+
     # Sort for local display
-    ranked = sorted(
-        results, key=lambda x: (x.get("confidence", 0)), reverse=True
-    )
+    ranked = sorted(results, key=lambda x: (x.get("confidence", 0)), reverse=True)
 
     print("\n## 🚀 Daily Ticker Rankings (Logged to BigQuery)\n")
     print("| Rank | Ticker | Confidence | Sentiment | Reason |")
@@ -52,6 +52,7 @@ async def main():
             f"| {i} | **{res['ticker']}** | {res['confidence']}% | {sent_icon} {sentiment:.2f} | {res['reason']} |"
         )
     print("\n")
+
 
 if __name__ == "__main__":
     asyncio.run(main())

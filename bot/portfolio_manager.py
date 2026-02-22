@@ -43,7 +43,9 @@ class PortfolioManager:
 
             if not results:
                 initial_cash = float(os.getenv("INITIAL_CASH", 50000.0))
-                logger.info(f"💰 Seeding GLOBAL CASH POOL (USD) with ${initial_cash:,.2f}")
+                logger.info(
+                    f"💰 Seeding GLOBAL CASH POOL (USD) with ${initial_cash:,.2f}"
+                )
                 dml = f"""
                 INSERT INTO `{self.table_id}` (asset_name, holdings, cash_balance, avg_price, last_updated)
                 VALUES ('USD', 0.0, {initial_cash}, 0.0, CURRENT_TIMESTAMP())

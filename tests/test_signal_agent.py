@@ -9,13 +9,11 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
 
 from bot.signal_agent import SignalAgent
 
+
 class TestSignalAgent(unittest.TestCase):
     def setUp(self):
         # Initialize with standard thresholds
-        self.agent = SignalAgent(
-            vol_threshold=0.35,
-            hurdle_rate=0.015
-        )
+        self.agent = SignalAgent(vol_threshold=0.35, hurdle_rate=0.015)
         # Mock is_market_open to True for deterministic testing
         self.agent.is_market_open = MagicMock(return_value=True)
         # Mock should_exit to HOLD by default so it doesn't interfere
@@ -46,10 +44,10 @@ class TestSignalAgent(unittest.TestCase):
             "bb_upper": 120.0,
             "sentiment_score": 0.6,
             "volume": 200,
-            "avg_volume": 100, # 2.0x avg volume
+            "avg_volume": 100,  # 2.0x avg volume
             "f_score": 7,
             "prediction_confidence": 75,
-            "is_healthy": True
+            "is_healthy": True,
         }
         decision = self.agent.evaluate_strategy(market_data)
         self.assertEqual(decision["action"], "BUY")
@@ -60,13 +58,13 @@ class TestSignalAgent(unittest.TestCase):
         market_data = {
             "ticker": "AAPL",
             "current_price": 100.0,
-            "bb_lower": 110.0, # Forces BUY
+            "bb_lower": 110.0,  # Forces BUY
             "bb_upper": 130.0,
             "sentiment_score": 0.8,
-            "days_to_earnings": 2, # Near earnings
+            "days_to_earnings": 2,  # Near earnings
             "is_healthy": True,
             "f_score": 7,
-            "prediction_confidence": 80
+            "prediction_confidence": 80,
         }
         decision = self.agent.evaluate_strategy(market_data)
         self.assertEqual(decision["action"], "IDLE")
@@ -78,12 +76,12 @@ class TestSignalAgent(unittest.TestCase):
         market_data = {
             "ticker": "NVDA",
             "current_price": 150.0,
-            "avg_price": 100.0, # Triggers exit logic
+            "avg_price": 100.0,  # Triggers exit logic
             "bb_lower": 100.0,
-            "bb_upper": 200.0, # Middle of band
+            "bb_upper": 200.0,  # Middle of band
             "sentiment_score": 0.9,
             "is_healthy": True,
-            "f_score": 9
+            "f_score": 9,
         }
         decision = self.agent.evaluate_strategy(market_data)
         self.assertEqual(decision["action"], "SELL_ALL")
@@ -98,9 +96,9 @@ class TestSignalAgent(unittest.TestCase):
             "bb_lower": 100.0,
             "bb_upper": 200.0,
             "sentiment_score": 0.5,
-            "rsi": 88.0, # Extreme overbought
+            "rsi": 88.0,  # Extreme overbought
             "is_healthy": True,
-            "f_score": 5
+            "f_score": 5,
         }
         decision = self.agent.evaluate_strategy(market_data)
         self.assertEqual(decision["action"], "SELL_ALL")
@@ -111,12 +109,12 @@ class TestSignalAgent(unittest.TestCase):
         market_data = {
             "ticker": "NVDA",
             "current_price": 100.0,
-            "bb_lower": 110.0, # Forces BUY
+            "bb_lower": 110.0,  # Forces BUY
             "bb_upper": 130.0,
             "sentiment_score": 0.5,
             "is_healthy": True,
-            "f_score": None, # Missing data
-            "prediction_confidence": 60 # Set directly to < 70
+            "f_score": None,  # Missing data
+            "prediction_confidence": 60,  # Set directly to < 70
         }
         decision = self.agent.evaluate_strategy(market_data)
         self.assertEqual(decision["action"], "IDLE")
@@ -127,12 +125,12 @@ class TestSignalAgent(unittest.TestCase):
         market_data = {
             "ticker": "NVDA",
             "current_price": 100.0,
-            "bb_lower": 110.0, # Forces BUY
+            "bb_lower": 110.0,  # Forces BUY
             "bb_upper": 130.0,
-            "sentiment_score": 0.6, # AI score effectively 80
+            "sentiment_score": 0.6,  # AI score effectively 80
             "is_healthy": True,
             "f_score": 1,
-            "prediction_confidence": 80
+            "prediction_confidence": 80,
         }
         decision = self.agent.evaluate_strategy(market_data)
         self.assertEqual(decision["action"], "BUY")
@@ -148,7 +146,7 @@ class TestSignalAgent(unittest.TestCase):
             "sentiment_score": 0.8,
             "is_healthy": True,
             "f_score": 3,
-            "prediction_confidence": 85 # High AI score bypasses low f_score
+            "prediction_confidence": 85,  # High AI score bypasses low f_score
         }
         decision = self.agent.evaluate_strategy(market_data)
         self.assertEqual(decision["action"], "BUY")
@@ -166,11 +164,12 @@ class TestSignalAgent(unittest.TestCase):
             "is_deep_healthy": True,
             "f_score": 8,
             "prediction_confidence": 88,
-            "is_low_exposure": True
+            "is_low_exposure": True,
         }
         decision = self.agent.evaluate_strategy(market_data)
         self.assertTrue(decision["meta"]["is_star"])
         self.assertTrue(decision["meta"]["technical"].startswith("STAR_"))
+
 
 if __name__ == "__main__":
     unittest.main()

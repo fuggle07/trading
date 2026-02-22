@@ -114,7 +114,11 @@ ALPACA_KEY = os.environ.get("ALPACA_API_KEY")
 ALPACA_SECRET = os.environ.get("ALPACA_API_SECRET")
 
 # Alpaca Data Client
-stock_historical_client = StockHistoricalDataClient(ALPACA_KEY, ALPACA_SECRET) if ALPACA_KEY and ALPACA_SECRET else None
+stock_historical_client = (
+    StockHistoricalDataClient(ALPACA_KEY, ALPACA_SECRET)
+    if ALPACA_KEY and ALPACA_SECRET
+    else None
+)
 
 
 async def fetch_historical_data(ticker):
@@ -219,22 +223,24 @@ async def get_macro_context() -> dict:
         indices = indices or {}
         rates = rates or {}
         calendar = calendar or []
-        
+
         # Add technicals to the indices dict for the signal agent
         indices["qqq_sma50"] = float(qqq_sma50 or 0.0)
 
         macro_data["indices"] = indices
         macro_data["rates"] = rates
         macro_data["calendar"] = calendar
-        
+
         # Explicit cast and safe retrieval to prevent type comparison errors
         vix_val = indices.get("vix") or indices.get("vix_proxy_vxx") or 0.0
         macro_data["vix"] = float(vix_val)
-        
+
         # AUD/USD Rate (1 AUD = X USD)
         # We store the inverse (1 USD = X AUD) for easy multiplier math
         macro_data["aud_usd"] = float(aud_usd)
-        macro_data["fx_multiplier"] = (1.0 / float(aud_usd)) if float(aud_usd) > 0 else 1.54 # NAB default fallback
+        macro_data["fx_multiplier"] = (
+            (1.0 / float(aud_usd)) if float(aud_usd) > 0 else 1.54
+        )  # NAB default fallback
 
         parts = []
         if isinstance(indices, dict):
@@ -242,16 +248,16 @@ async def get_macro_context() -> dict:
                 parts.append(f"SPY: {float(indices['spy_perf']):.2f}%")
             if indices.get("qqq_perf") is not None:
                 parts.append(f"QQQ: {float(indices['qqq_perf']):.2f}%")
-            
+
             # Add trend info
             qqq_price = indices.get("qqq_price", 0.0)
             if qqq_price > 0 and qqq_sma50 > 0:
                 trend = "Bullish" if qqq_price > qqq_sma50 else "Bearish"
                 parts.append(f"Trend: {trend}")
-        
+
         if isinstance(rates, dict) and rates.get("10Y") is not None:
             parts.append(f"10Y Yield: {float(rates['10Y']):.2f}%")
-            
+
         if float(macro_data.get("vix", 0.0)) > 0:
             parts.append(f"VIX: {float(macro_data.get('vix', 0.0)):.2f}")
 
@@ -380,7 +386,10 @@ async def run_audit():
     Phase 2: Portfolio Analysis & Conviction Swapping
     Phase 3: Execution (SELLs first, then BUYs)
     """
-    tickers_env = os.environ.get("BASE_TICKERS", "TSLA,NVDA,AMD,MU,PLTR,COIN,META,AAPL,MSFT,GOLD,AMZN,AVGO,ASML,LLY,LMT,VRT,CEG,TSM")
+    tickers_env = os.environ.get(
+        "BASE_TICKERS",
+        "TSLA,NVDA,AMD,MU,PLTR,COIN,META,AAPL,MSFT,GOLD,AMZN,AVGO,ASML,LLY,LMT,VRT,CEG,TSM",
+    )
     base_tickers = [t.strip() for t in tickers_env.split(",") if t.strip()]
 
     # --- Phase 0: Reconciliation (Source of Truth) ---
@@ -398,28 +407,40 @@ async def run_audit():
     # Preliminary Commitment Log (Source of Truth from Alpaca)
     try:
         # Fetch Account Details directly from Alpaca for source-of-truth accuracy
-        alpaca_account = (await asyncio.to_thread(reconciler.trading_client.get_account)) if reconciler.trading_client else None
-        
+        alpaca_account = (
+            (await asyncio.to_thread(reconciler.trading_client.get_account))
+            if reconciler.trading_client
+            else None
+        )
+
         if alpaca_account:
             p_equity = float(alpaca_account.equity)
-            p_market_val = float(alpaca_account.long_market_value) + float(alpaca_account.short_market_value)
+            p_market_val = float(alpaca_account.long_market_value) + float(
+                alpaca_account.short_market_value
+            )
             p_cash = float(alpaca_account.cash)
             p_commitment = (p_market_val / p_equity) * 100 if p_equity > 0 else 0
-            print(f"📊 Preliminary Commitment: {p_commitment:.1f}% (${p_market_val:,.2f} / ${p_equity:,.2f})")
+            print(
+                f"📊 Preliminary Commitment: {p_commitment:.1f}% (${p_market_val:,.2f} / ${p_equity:,.2f})"
+            )
         elif held_tickers and stock_historical_client:
             # Fallback to manual sum if Alpaca account fetch failed
             held_symbols = list(held_tickers.keys())
             early_quotes_req = StockLatestQuoteRequest(symbol_or_symbols=held_symbols)
-            early_quotes = stock_historical_client.get_stock_latest_quote(early_quotes_req)
-            
+            early_quotes = stock_historical_client.get_stock_latest_quote(
+                early_quotes_req
+            )
+
             p_market_val = 0.0
             for s, q in early_quotes.items():
                 p_market_val += float(held_tickers[s]) * float(q.ask_price)
-            
+
             p_cash = portfolio_manager.get_cash_balance()
             p_equity = p_cash + p_market_val
             p_commitment = (p_market_val / p_equity) * 100 if p_equity > 0 else 0
-            print(f"📊 Preliminary Commitment: {p_commitment:.1f}% (${p_market_val:,.2f} / ${p_equity:,.2f})")
+            print(
+                f"📊 Preliminary Commitment: {p_commitment:.1f}% (${p_market_val:,.2f} / ${p_equity:,.2f})"
+            )
         else:
             print("📊 Preliminary Commitment: 0.0% (No account connection)")
     except Exception as e:
@@ -456,8 +477,12 @@ async def run_audit():
     batch_quotes_task = fundamental_agent.get_batch_quotes(tickers)
     earnings_task = fundamental_agent.get_upcoming_earnings(tickers)
 
-    batch_quotes, earnings_calendar = await asyncio.gather(batch_quotes_task, earnings_task)
-    logger.info(f"Batch quotes received for {len(batch_quotes)} tickers. Earnings alerts: {len(earnings_calendar)}")
+    batch_quotes, earnings_calendar = await asyncio.gather(
+        batch_quotes_task, earnings_task
+    )
+    logger.info(
+        f"Batch quotes received for {len(batch_quotes)} tickers. Earnings alerts: {len(earnings_calendar)}"
+    )
 
     # Process all tickers in parallel
     await asyncio.gather(
@@ -527,16 +552,24 @@ async def run_audit():
                 "avg_price": held_tickers.get(ticker, {}).get("avg_price", 0.0),
                 "prediction_confidence": intel.get("confidence", 0),
                 "is_low_exposure": exposure < MIN_EXPOSURE_THRESHOLD,
-                "exposure_ratio": float(exposure / MIN_EXPOSURE_THRESHOLD) if MIN_EXPOSURE_THRESHOLD > 0 else 1.0,
+                "exposure_ratio": (
+                    float(exposure / MIN_EXPOSURE_THRESHOLD)
+                    if MIN_EXPOSURE_THRESHOLD > 0
+                    else 1.0
+                ),
                 "band_width": float(intel.get("band_width", 0.0)),
                 "vix": float(macro_data.get("vix", 0.0)),
                 "volume": intel.get("volume", 0.0),
                 "avg_volume": intel.get("avg_volume", 1.0),
-                "days_to_earnings": earnings_calendar.get(ticker) if earnings_calendar else None,
+                "days_to_earnings": (
+                    earnings_calendar.get(ticker) if earnings_calendar else None
+                ),
             }
 
             # Call evaluate_strategy with log_results=False so we can sort first
-            sig = signal_agent.evaluate_strategy(market_data, force_eval=True, log_results=False)
+            sig = signal_agent.evaluate_strategy(
+                market_data, force_eval=True, log_results=False
+            )
             if sig:
                 eval_results.append(sig)
         else:
@@ -550,17 +583,22 @@ async def run_audit():
                 rows = len(history_res) if history_res is not None else 0
                 reason_msg = f"Insufficient history ({rows} rows)"
 
-            skipped_results.append({
-                "ticker": ticker,
-                "action": "SKIP",
-                "reason": f"Missing Technical Data ({reason_msg})",
-                "details": {}
-            })
+            skipped_results.append(
+                {
+                    "ticker": ticker,
+                    "action": "SKIP",
+                    "reason": f"Missing Technical Data ({reason_msg})",
+                    "details": {},
+                }
+            )
 
     # Sort eval_results: AI Score desc, then Sentiment desc
     eval_results.sort(
-        key=lambda x: (x.get("meta", {}).get("effective_ai_score", 0), x.get("meta", {}).get("sentiment", 0.0)),
-        reverse=True
+        key=lambda x: (
+            x.get("meta", {}).get("effective_ai_score", 0),
+            x.get("meta", {}).get("sentiment", 0.0),
+        ),
+        reverse=True,
     )
 
     # Log all sorted decisions
@@ -583,7 +621,7 @@ async def run_audit():
         sig = signals.get(t)
         if sig is None:
             continue
-            
+
         meta = sig.get("meta", {})
         effective_conf = meta.get("effective_ai_score", 0)
         is_deep = ticker_intel[t].get("is_deep_healthy", True)
@@ -596,7 +634,9 @@ async def run_audit():
             weakest_link_effective_conf = effective_conf
         else:
             current_is_deep = ticker_intel[weakest_link].get("is_deep_healthy", True)
-            current_sent = float(signals[weakest_link].get("meta", {}).get("sentiment", 0.0))
+            current_sent = float(
+                signals[weakest_link].get("meta", {}).get("sentiment", 0.0)
+            )
             current_sent_collapse = current_sent < -0.1
 
             # Prioritise fundamental failure over sentiment failure over raw score
@@ -614,7 +654,12 @@ async def run_audit():
                 if effective_conf < weakest_link_effective_conf:
                     weakest_link = t
                     weakest_link_effective_conf = effective_conf
-            elif current_is_deep and not current_sent_collapse and is_deep and not sentiment_collapse:
+            elif (
+                current_is_deep
+                and not current_sent_collapse
+                and is_deep
+                and not sentiment_collapse
+            ):
                 # Normal comparison for healthy stocks
                 if effective_conf < weakest_link_effective_conf:
                     weakest_link = t
@@ -644,9 +689,12 @@ async def run_audit():
                 is_better = True
             elif effective_conf > best_star_effective_conf:
                 is_better = True
-            elif effective_conf == best_star_effective_conf and sentiment > best_star_sentiment:
+            elif (
+                effective_conf == best_star_effective_conf
+                and sentiment > best_star_sentiment
+            ):
                 is_better = True
-                
+
             if is_better:
                 rising_star = t
                 best_star_effective_conf = effective_conf
@@ -674,7 +722,7 @@ async def run_audit():
             star_vol = star_meta.get("volatility", 0.0)
             star_ai = star_meta.get("ai_score", 0)
             star_f_score = star_intel.get("f_score", "N/A")
-            
+
             log_decision(
                 rising_star,
                 "SWAP",
@@ -686,7 +734,10 @@ async def run_audit():
             signals[weakest_link]["reason"] = "CONVICTION_SWAP"
             signals[weakest_link]["price"] = ticker_intel[weakest_link]["price"]
 
-            if rising_star not in signals or signals[rising_star].get("action") != "BUY":
+            if (
+                rising_star not in signals
+                or signals[rising_star].get("action") != "BUY"
+            ):
                 if rising_star not in signals:
                     signals[rising_star] = {}
                 signals[rising_star]["action"] = "BUY"
@@ -721,9 +772,13 @@ async def run_audit():
         ):
             # Check for volatility
             if tech_signal == "VOLATILE_IGNORE":
-                logger.debug(f"Initial Deployment: Skipping {rising_star} due to high volatility.")
+                logger.debug(
+                    f"Initial Deployment: Skipping {rising_star} due to high volatility."
+                )
             elif existing_action == "SELL":
-                logger.debug(f"Initial Deployment: Skipping {rising_star} due to SELL signal.")
+                logger.debug(
+                    f"Initial Deployment: Skipping {rising_star} due to SELL signal."
+                )
             else:
                 star_intel_data = ticker_intel[rising_star]
                 star_meta = star_intel_data.get("meta", {})
@@ -743,7 +798,6 @@ async def run_audit():
                 signals[rising_star]["reason"] = "INITIAL_DEPLOYMENT"
                 signals[rising_star]["price"] = ticker_intel[rising_star]["price"]
 
-
     # --- Phase 3: Coordinated Execution ---
     print("🚀 Executing Coordinated Trades...")
     execution_results = []
@@ -756,10 +810,10 @@ async def run_audit():
     for ticker_obj, sig in signals.items():
         ticker = str(ticker_obj)
         action = str(sig.get("action"))
-        
+
         if action in ["SELL", "SELL_ALL", "SELL_PARTIAL_50"]:
             reason = str(sig.get("reason", "Strategy Signal"))
-            
+
             # Extract position data
             pos = held_tickers.get(ticker, {})
             position_val = float(pos.get("market_value", 0.0))
@@ -767,8 +821,8 @@ async def run_audit():
 
             # Determine sell quantity
             is_partial = action == "SELL_PARTIAL_50"
-            target_qty = 0 # Default to SELL ALL
-            
+            target_qty = 0  # Default to SELL ALL
+
             if is_partial:
                 # Scaled-out logic: sell 50%
                 target_qty = int(current_qty * 0.5)
@@ -779,17 +833,34 @@ async def run_audit():
             # 1. Minimum Hold Time Guard — block non-emergency SELLs if held < 30m
             # Emergency = Stop Loss, Sentiment Collapse, RSI, or Trailing Stop
             entry_time = _position_entry_times.get(ticker)
-            is_emergency = any(k in reason for k in ["STOP_LOSS", "SENTIMENT", "RSI", "TRAILING_STOP", "EXIT_SELL_ALL"])
-            
+            is_emergency = any(
+                k in reason
+                for k in [
+                    "STOP_LOSS",
+                    "SENTIMENT",
+                    "RSI",
+                    "TRAILING_STOP",
+                    "EXIT_SELL_ALL",
+                ]
+            )
+
             if entry_time and not is_emergency and not is_partial:
                 hold_duration = (datetime.now() - entry_time).total_seconds() / 60
                 if hold_duration < MIN_HOLD_MINUTES:
-                    log_decision(ticker, "SKIP", f"Churn Guard: Hold time {hold_duration:.1f}m < {MIN_HOLD_MINUTES}m")
+                    log_decision(
+                        ticker,
+                        "SKIP",
+                        f"Churn Guard: Hold time {hold_duration:.1f}m < {MIN_HOLD_MINUTES}m",
+                    )
                     continue
 
             if not effective_enabled:
                 sell_val = position_val * 0.5 if is_partial else position_val
-                log_decision(ticker, action, f"🧊 DRY RUN: Intent {action} ${sell_val:,.2f} ({reason})")
+                log_decision(
+                    ticker,
+                    action,
+                    f"🧊 DRY RUN: Intent {action} ${sell_val:,.2f} ({reason})",
+                )
                 status = f"dry_run_{action.lower()}"
             else:
                 exec_res = execution_manager.place_order(
@@ -797,7 +868,9 @@ async def run_audit():
                 )
                 status = f"executed_{exec_res.get('status', 'FAIL')}"
                 log_decision(
-                    ticker, action, f"Execution Status: {status} | Value: ${position_val:,.2f} | Reason: {reason}"
+                    ticker,
+                    action,
+                    f"Execution Status: {status} | Value: ${position_val:,.2f} | Reason: {reason}",
                 )
 
             # Registry Updates
@@ -811,7 +884,10 @@ async def run_audit():
                     _scaled_out_tickers.discard(ticker)
 
             # Record cooldown to prevent immediate re-buying (Stop Loss or Profit Take)
-            if any(k in reason for k in ["STOP_LOSS", "SENTIMENT", "SELL_PARTIAL", "EXIT_SELL"]):
+            if any(
+                k in reason
+                for k in ["STOP_LOSS", "SENTIMENT", "SELL_PARTIAL", "EXIT_SELL"]
+            ):
                 _stop_loss_cooldown[ticker] = datetime.now(timezone.utc) + timedelta(
                     minutes=STOP_LOSS_COOLDOWN_MINUTES
                 )
@@ -825,36 +901,50 @@ async def run_audit():
     # Get the AI-derived sentiment for the hedge ticker if it exists
     ps_score = signals.get(hedge_ticker, {}).get("meta", {}).get("sentiment", 0.0)
     hedge_action, target_pct = signal_agent.evaluate_macro_hedge(macro_data, ps_score)
-    
+
     current_hedge_pos = held_tickers.get(hedge_ticker, {})
     current_hedge_val = float(current_hedge_pos.get("market_value", 0.0))
     target_hedge_val = total_equity * target_pct
-    
+
     if hedge_action == "BUY_HEDGE":
         # Check if we need to enter OR top up (if current is significantly below target)
         # We top up if target is more than 20% higher than current (to avoid tiny churn)
         needs_entry = hedge_ticker not in held_tickers
         needs_topup = current_hedge_val < (target_hedge_val * 0.8)
-        
+
         if needs_entry or needs_topup:
             order_val = target_hedge_val - current_hedge_val
             if effective_enabled:
                 exec_res = execution_manager.place_order(
-                    hedge_ticker, "BUY", 0, 0.0, # Market buy
+                    hedge_ticker,
+                    "BUY",
+                    0,
+                    0.0,  # Market buy
                     reason=f"MACRO_HEDGE_{int(target_pct*100)}PCT_TRIGGERED",
-                    cash_available=float(order_val)
+                    cash_available=float(order_val),
                 )
-                log_decision(hedge_ticker, "BUY", f"Hedge Scaling: Target {target_pct:.0%} | Scaling Order ${order_val:,.2f}")
+                log_decision(
+                    hedge_ticker,
+                    "BUY",
+                    f"Hedge Scaling: Target {target_pct:.0%} | Scaling Order ${order_val:,.2f}",
+                )
             else:
-                log_decision(hedge_ticker, "BUY", f"🧊 DRY RUN: Hedge Scaling Target {target_pct:.0%} | Order ${order_val:,.2f}")
-            
+                log_decision(
+                    hedge_ticker,
+                    "BUY",
+                    f"🧊 DRY RUN: Hedge Scaling Target {target_pct:.0%} | Order ${order_val:,.2f}",
+                )
+
     elif hedge_action == "CLEAR_HEDGE" and hedge_ticker in held_tickers:
         if effective_enabled:
             exec_res = execution_manager.place_order(
-                hedge_ticker, "SELL", 0, 0.0, # Sell all
-                reason="MACRO_HEDGE_CLEARED"
+                hedge_ticker, "SELL", 0, 0.0, reason="MACRO_HEDGE_CLEARED"  # Sell all
             )
-            log_decision(hedge_ticker, "SELL", f"Hedging Cleared: {exec_res.get('status', 'FAIL')}")
+            log_decision(
+                hedge_ticker,
+                "SELL",
+                f"Hedging Cleared: {exec_res.get('status', 'FAIL')}",
+            )
         else:
             log_decision(hedge_ticker, "SELL", "🧊 DRY RUN: Hedging Cleared")
 
@@ -870,7 +960,10 @@ async def run_audit():
 
             # 1. Re-entry cooldown guard — skip re-entry within 30 min of a stop-loss or profit-take
             cooldown_until = _stop_loss_cooldown.get(ticker)
-            if cooldown_until is not None and datetime.now(timezone.utc) < cooldown_until:
+            if (
+                cooldown_until is not None
+                and datetime.now(timezone.utc) < cooldown_until
+            ):
                 remaining = int(
                     (cooldown_until - datetime.now(timezone.utc)).total_seconds() / 60
                 )
@@ -884,32 +977,44 @@ async def run_audit():
             now_et = datetime.now(pytz.timezone("America/New_York"))
             if now_et.hour == 9 and now_et.minute >= 30:
                 if not is_star and reason != "CONVICTION_ROTATION":
-                    log_decision(ticker, "SKIP", f"Morning Volatility Gate Active (until 10:00 AM ET)")
+                    log_decision(
+                        ticker,
+                        "SKIP",
+                        f"Morning Volatility Gate Active (until 10:00 AM ET)",
+                    )
                     continue
 
             # 2. VIX guard — block speculative INITIAL_DEPLOYMENT when fear is elevated
             if vix > 25 and reason == "INITIAL_DEPLOYMENT":
-                log_decision(ticker, "SKIP", f"VIX={vix:.1f} > 25: Blocking new deployment in high-fear market")
+                log_decision(
+                    ticker,
+                    "SKIP",
+                    f"VIX={vix:.1f} > 25: Blocking new deployment in high-fear market",
+                )
                 continue
 
             # Exposure Allocation Strategy
             # If exposure >= MIN_EXPOSURE_THRESHOLD, only allow BUY if ticker is "Star Rated"
             if running_exposure >= MIN_EXPOSURE_THRESHOLD and not is_star:
                 log_decision(
-                    ticker, 
-                    "SKIP", 
-                    f"Baseline Exposure Hit ({running_exposure:.1%} >= {MIN_EXPOSURE_THRESHOLD:.0%}). {ticker} is not 'Star Rated'."
+                    ticker,
+                    "SKIP",
+                    f"Baseline Exposure Hit ({running_exposure:.1%} >= {MIN_EXPOSURE_THRESHOLD:.0%}). {ticker} is not 'Star Rated'.",
                 )
                 continue
 
             # Calculate Allocation
             cash_pool = float(portfolio_manager.get_cash_balance())
-            already_held_value = float(held_tickers.get(ticker, {}).get("market_value", 0.0))
-            
+            already_held_value = float(
+                held_tickers.get(ticker, {}).get("market_value", 0.0)
+            )
+
             # Fetch intelligence for sizing math
             intel = ticker_intel.get(ticker)
             if intel is None:
-                log_decision(ticker, "SKIP", "Missing intelligence data during execution phase")
+                log_decision(
+                    ticker, "SKIP", "Missing intelligence data during execution phase"
+                )
                 continue
 
             sentiment = float(intel.get("sentiment", 0.0))
@@ -921,7 +1026,7 @@ async def run_audit():
                 sig.get("conviction", 0),
                 vix=vix,
                 band_width=intel.get("band_width", 0.03),
-                is_star=is_star
+                is_star=is_star,
             )
 
             # Buy amount = Target Allocation - Current Holdings
@@ -929,23 +1034,37 @@ async def run_audit():
 
             # Cap Check: Respect the exposure baseline for non-Stars
             if not is_star:
-                room_to_exposure_target = float(max(
-                    0.0, total_equity * MIN_EXPOSURE_THRESHOLD - total_equity * running_exposure
-                ))
+                room_to_exposure_target = float(
+                    max(
+                        0.0,
+                        total_equity * MIN_EXPOSURE_THRESHOLD
+                        - total_equity * running_exposure,
+                    )
+                )
                 allocation = float(min(allocation, room_to_exposure_target))
-            
+
             # Final liquidity check
             allocation = min(allocation, cash_pool)
 
             if not effective_enabled:
                 if allocation >= 1000:
                     star_prefix = "⭐ STAR: " if is_star else ""
-                    log_decision(ticker, "BUY", f"🧊 DRY RUN: {star_prefix}Intent BUY ${allocation:,.2f} ({reason})")
+                    log_decision(
+                        ticker,
+                        "BUY",
+                        f"🧊 DRY RUN: {star_prefix}Intent BUY ${allocation:,.2f} ({reason})",
+                    )
                     status = "dry_run_buy"
                     # Update running exposure for logic flow
-                    running_exposure += (allocation / total_equity) if total_equity > 0 else 0
+                    running_exposure += (
+                        (allocation / total_equity) if total_equity > 0 else 0
+                    )
                 else:
-                    log_decision(ticker, "SKIP", f"🧊 DRY RUN: Intent BUY rejected (Insufficient Allocation ${allocation:.2f} < $1000)")
+                    log_decision(
+                        ticker,
+                        "SKIP",
+                        f"🧊 DRY RUN: Intent BUY rejected (Insufficient Allocation ${allocation:.2f} < $1000)",
+                    )
                     status = "skipped_insufficient_funds"
             else:
                 if allocation >= 1000:
@@ -964,7 +1083,9 @@ async def run_audit():
                         "BUY",
                         f"Execution Status: {status} | {star_prefix}Alloc: ${allocation:.2f} | Reason: {reason}",
                     )
-                    running_exposure += (allocation / total_equity) if total_equity > 0 else 0
+                    running_exposure += (
+                        (allocation / total_equity) if total_equity > 0 else 0
+                    )
                 else:
                     log_decision(
                         ticker,
@@ -1043,7 +1164,10 @@ async def get_latest_confidence(ticker: str) -> Optional[int]:
 @app.route("/rank-tickers", methods=["POST"])
 async def run_ranker_endpoint():
     """Trigger the morning ticker ranking job."""
-    base = os.environ.get("BASE_TICKERS", "TSLA,NVDA,AMD,MU,PLTR,COIN,META,AAPL,MSFT,GOLD,AMZN,AVGO,ASML,LLY,LMT,VRT,CEG,TSM").split(",")
+    base = os.environ.get(
+        "BASE_TICKERS",
+        "TSLA,NVDA,AMD,MU,PLTR,COIN,META,AAPL,MSFT,GOLD,AMZN,AVGO,ASML,LLY,LMT,VRT,CEG,TSM",
+    ).split(",")
     held = list(portfolio_manager.get_held_tickers().keys())
     tickers = list(set(base + held))
     try:
@@ -1117,27 +1241,38 @@ def equity_snapshot():
 
             if holdings > 0:
                 total_market_value += market_value
-                positions.append({
-                    "ticker": ticker,
-                    "holdings": holdings,
-                    "avg_price": round(avg_price, 4),
-                    "current_price": round(current_price, 4),
-                    "market_value": round(market_value, 2),
-                    "unrealized_pnl": round(unrealized_pnl, 2),
-                    "last_updated": row.last_updated.isoformat() if row.last_updated else None,
-                })
+                positions.append(
+                    {
+                        "ticker": ticker,
+                        "holdings": holdings,
+                        "avg_price": round(avg_price, 4),
+                        "current_price": round(current_price, 4),
+                        "market_value": round(market_value, 2),
+                        "unrealized_pnl": round(unrealized_pnl, 2),
+                        "last_updated": (
+                            row.last_updated.isoformat() if row.last_updated else None
+                        ),
+                    }
+                )
 
         total_equity = total_cash + total_market_value
-        exposure_pct = (total_market_value / total_equity * 100) if total_equity > 0 else 0.0
+        exposure_pct = (
+            (total_market_value / total_equity * 100) if total_equity > 0 else 0.0
+        )
 
-        return jsonify({
-            "total_equity_usd": round(total_equity, 2),
-            "total_cash_usd": round(total_cash, 2),
-            "total_market_value_usd": round(total_market_value, 2),
-            "exposure_pct": round(exposure_pct, 1),
-            "positions": positions,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }), 200
+        return (
+            jsonify(
+                {
+                    "total_equity_usd": round(total_equity, 2),
+                    "total_cash_usd": round(total_cash, 2),
+                    "total_market_value_usd": round(total_market_value, 2),
+                    "exposure_pct": round(exposure_pct, 1),
+                    "positions": positions,
+                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                }
+            ),
+            200,
+        )
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -1214,7 +1349,9 @@ async def process_ticker_intelligence(
         res_history = (
             intel_results[2] if not isinstance(intel_results[2], Exception) else None
         )
-        res_conf = intel_results[3] if not isinstance(intel_results[3], Exception) else 0
+        res_conf = (
+            intel_results[3] if not isinstance(intel_results[3], Exception) else 0
+        )
         res_sma20 = (
             intel_results[4] if not isinstance(intel_results[4], Exception) else None
         )
@@ -1227,7 +1364,7 @@ async def process_ticker_intelligence(
         res_std = (
             intel_results[7] if not isinstance(intel_results[7], Exception) else None
         )
-        
+
         # Initialize defaults to prevent NameErrors if res_quote fails
         price = 0.0
         volume = 0.0
@@ -1254,13 +1391,17 @@ async def process_ticker_intelligence(
             ai_context = {
                 "macro": macro_data,
                 "analyst_consensus": res_intel.get("analyst_consensus", "Neutral"),
-                "institutional_flow": res_intel.get("institutional_momentum", "Neutral"),
+                "institutional_flow": res_intel.get(
+                    "institutional_momentum", "Neutral"
+                ),
                 "insider_momentum": res_intel.get("insider_momentum", "N/A"),
                 "rsi": float(res_rsi.get("rsi", 50)) if res_rsi else 50.0,
                 "sma_stretch_pct": round(sma_stretch, 2),
             }
 
-            sentiment_result = await fetch_sentiment(ticker, lessons, context=ai_context)
+            sentiment_result = await fetch_sentiment(
+                ticker, lessons, context=ai_context
+            )
             sentiment_score, gemini_reasoning = (
                 sentiment_result
                 if isinstance(sentiment_result, tuple)
@@ -1269,14 +1410,23 @@ async def process_ticker_intelligence(
 
         # 1. Technical Baseline Construction
         indicators = calculate_technical_indicators(res_history, ticker) or {}
-        
+
         # Override derived indicators with real-time FMP technical endpoints if available
         if res_sma20 and isinstance(res_sma20, dict):
-            indicators["sma_20"] = float(res_sma20.get("sma", indicators.get("sma_20", 0)))
+            indicators["sma_20"] = float(
+                res_sma20.get("sma", indicators.get("sma_20", 0))
+            )
         if res_sma50 and isinstance(res_sma50, dict):
-            indicators["sma_50"] = float(res_sma50.get("sma", indicators.get("sma_50", 0)))
-        
-        if res_sma20 and isinstance(res_sma20, dict) and res_std and isinstance(res_std, dict):
+            indicators["sma_50"] = float(
+                res_sma50.get("sma", indicators.get("sma_50", 0))
+            )
+
+        if (
+            res_sma20
+            and isinstance(res_sma20, dict)
+            and res_std
+            and isinstance(res_std, dict)
+        ):
             sma = float(res_sma20.get("sma", 0))
             std = float(res_std.get("standardDeviation", 0))
             if sma > 0:
@@ -1301,9 +1451,13 @@ async def process_ticker_intelligence(
             "confidence": int(res_conf or 0),
             "indicators": indicators,
             "history_res": res_history,
-            "rsi": float(res_rsi.get("rsi", 0)) if (res_rsi and isinstance(res_rsi, dict)) else None,
-            "volume": volume if 'volume' in locals() else 0.0,
-            "avg_volume": avg_volume if 'avg_volume' in locals() else 1.0,
+            "rsi": (
+                float(res_rsi.get("rsi", 0))
+                if (res_rsi and isinstance(res_rsi, dict))
+                else None
+            ),
+            "volume": volume if "volume" in locals() else 0.0,
+            "avg_volume": avg_volume if "avg_volume" in locals() else 1.0,
             "band_width": bw,
             "hwm": _high_water_marks.get(ticker, 0.0),
             "has_scaled_out": (ticker in _scaled_out_tickers),
@@ -1317,7 +1471,11 @@ async def process_ticker_intelligence(
             price,
             sentiment_score,
             int(res_conf or 0),
-            rsi=float(res_rsi.get("rsi", 0)) if (res_rsi and isinstance(res_rsi, dict)) else None,
+            rsi=(
+                float(res_rsi.get("rsi", 0))
+                if (res_rsi and isinstance(res_rsi, dict))
+                else None
+            ),
             sma_20=indicators.get("sma_20"),
             sma_50=indicators.get("sma_50"),
             bb_upper=indicators.get("bb_upper"),
@@ -1328,6 +1486,7 @@ async def process_ticker_intelligence(
         )
     except Exception as e:
         print(f"[{ticker}] \u26a0\ufe0f Failed to gather intel for {ticker}: {e}")
+
 
 @app.route("/run-audit", methods=["POST"])
 async def run_audit_endpoint():

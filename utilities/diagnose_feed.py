@@ -3,6 +3,7 @@ Finnhub Feed Diagnosis Utility
 Usage: python3 utilities/diagnose_feed.py
 Description: Tests Finnhub API connectivity and data freshness for a sample ticker (NVDA).
 """
+
 #!/usr/bin/env python3
 import sys
 import os
@@ -15,6 +16,7 @@ import os
 import time
 import datetime
 import pandas as pd
+
 
 def diagnose():
     api_key = os.environ.get("EXCHANGE_API_KEY")
@@ -71,6 +73,7 @@ def diagnose():
 
     except Exception as e:
         print(f"🔥 Exception: {e}")
+
 
 if __name__ == "__main__":
     diagnose()

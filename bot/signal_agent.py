@@ -61,7 +61,13 @@ class SignalAgent:
 
         return False
 
-    def evaluate_bands(self, current_price: float, upper: float, lower: float, is_low_exposure: bool = False) -> str:
+    def evaluate_bands(
+        self,
+        current_price: float,
+        upper: float,
+        lower: float,
+        is_low_exposure: bool = False,
+    ) -> str:
         """
         Calculates signal based on Bollinger Bands.
         Includes a Volatility Filter (vol_threshold).
@@ -73,12 +79,12 @@ class SignalAgent:
         # Prevent Division by Zero
         if price <= 0:
             return "HOLD"
-            
+
         # Calculate Band Width % (Volatility Filter)
         band_width = (up - lo) / price
-        
-        # We enforce a strict strict volatility limit (e.g. 35%). 
-        # Previously, if the bot had low exposure, it would relax this by 50% (up to 52.5%), 
+
+        # We enforce a strict strict volatility limit (e.g. 35%).
+        # Previously, if the bot had low exposure, it would relax this by 50% (up to 52.5%),
         # allowing dangerously erratic stocks through.
         if band_width > self.vol_threshold:
             return "VOLATILE_IGNORE"
@@ -100,22 +106,54 @@ class SignalAgent:
         Orchestrates Signal Selection by combining technicals, sentiment, and fundamental conviction.
         """
         ticker = market_data.get("ticker", "Unknown")
-        current_price = float(market_data.get("current_price") if market_data.get("current_price") is not None else 0.0)
+        current_price = float(
+            market_data.get("current_price")
+            if market_data.get("current_price") is not None
+            else 0.0
+        )
         indicators = {
-            "upper": float(market_data.get("bb_upper") if market_data.get("bb_upper") is not None else 0.0),
-            "lower": float(market_data.get("bb_lower") if market_data.get("bb_lower") is not None else 0.0),
-            "sma_20": float(market_data.get("sma_20") if market_data.get("sma_20") is not None else 0.0),
-            "sma_50": float(market_data.get("sma_50") if market_data.get("sma_50") is not None else 0.0),
+            "upper": float(
+                market_data.get("bb_upper")
+                if market_data.get("bb_upper") is not None
+                else 0.0
+            ),
+            "lower": float(
+                market_data.get("bb_lower")
+                if market_data.get("bb_lower") is not None
+                else 0.0
+            ),
+            "sma_20": float(
+                market_data.get("sma_20")
+                if market_data.get("sma_20") is not None
+                else 0.0
+            ),
+            "sma_50": float(
+                market_data.get("sma_50")
+                if market_data.get("sma_50") is not None
+                else 0.0
+            ),
         }
-        sentiment = float(market_data.get("sentiment_score") if market_data.get("sentiment_score") is not None else 0.0)
-        volume = float(market_data.get("volume") if market_data.get("volume") is not None else 0.0)
-        avg_volume = float(market_data.get("avg_volume") if market_data.get("avg_volume") is not None else 1.0)
-        days_to_earnings = market_data.get("days_to_earnings") # None if unknown
+        sentiment = float(
+            market_data.get("sentiment_score")
+            if market_data.get("sentiment_score") is not None
+            else 0.0
+        )
+        volume = float(
+            market_data.get("volume") if market_data.get("volume") is not None else 0.0
+        )
+        avg_volume = float(
+            market_data.get("avg_volume")
+            if market_data.get("avg_volume") is not None
+            else 1.0
+        )
+        days_to_earnings = market_data.get("days_to_earnings")  # None if unknown
 
         # Calculate Volatility (Band Width %)
         up = float(market_data.get("bb_upper") or 0.0)
         lo = float(market_data.get("bb_lower") or 0.0)
-        volatility_pct = ((up - lo) / current_price * 100.0) if current_price > 0 else 0.0
+        volatility_pct = (
+            ((up - lo) / current_price * 100.0) if current_price > 0 else 0.0
+        )
 
         fundamentals = {
             "is_healthy": market_data.get("is_healthy", True),
@@ -125,9 +163,15 @@ class SignalAgent:
             "f_score": market_data.get("f_score", 0),  # Piotroski F-Score
             "score": market_data.get("prediction_confidence", 0),
         }
-        avg_price = float(market_data.get("avg_price") if market_data.get("avg_price") is not None else 0.0)
+        avg_price = float(
+            market_data.get("avg_price")
+            if market_data.get("avg_price") is not None
+            else 0.0
+        )
         is_low_exposure = market_data.get("is_low_exposure", False)
-        rsi = float(market_data.get("rsi") if market_data.get("rsi") is not None else 50.0)
+        rsi = float(
+            market_data.get("rsi") if market_data.get("rsi") is not None else 50.0
+        )
         lessons = ""  # Placeholder for now
 
         # --- AI CONVICTION BLENDING ---
@@ -135,12 +179,17 @@ class SignalAgent:
         # Scale sentiment (-1 to +1) to a 0-100 confidence score as fallback.
         ranker_confidence = fundamentals.get("score", 0)
         gemini_confidence = int((sentiment + 1) * 50)
-        
+
         # Effective AI Score favors the ranker if available, falls back to Gemini
-        effective_ai_score = ranker_confidence if ranker_confidence > 0 else gemini_confidence
-        
+        effective_ai_score = (
+            ranker_confidence if ranker_confidence > 0 else gemini_confidence
+        )
+
         technical_signal = self.evaluate_bands(
-            current_price, indicators.get("upper", 0), indicators.get("lower", 0), is_low_exposure
+            current_price,
+            indicators.get("upper", 0),
+            indicators.get("lower", 0),
+            is_low_exposure,
         )
 
         # --- MOMENTUM BREAKOUT OVERLAY ---
@@ -173,7 +222,7 @@ class SignalAgent:
             # ENHANCEMENT: Low Exposure Aggression (Dynamic Slope)
             if is_low_exposure:
                 exposure_ratio = float(market_data.get("exposure_ratio", 1.0))
-                
+
                 # Dynamic thresholds: Scale down as we have less exposure
                 if exposure_ratio < 0.3:
                     target_sent = 0.0
@@ -188,9 +237,11 @@ class SignalAgent:
                 # Use effective_ai_score so new tickers can bypass the 0 score
                 if sentiment >= target_sent and effective_ai_score >= target_ai:
                     final_action = "BUY"
-                    conviction = 70 + int((1.0 - exposure_ratio) * 15) # Boost conviction slightly if deep low
+                    conviction = 70 + int(
+                        (1.0 - exposure_ratio) * 15
+                    )  # Boost conviction slightly if deep low
                     technical_signal = "PROACTIVE_WARRANTED_ENTRY"
-            
+
             # --- RSI OVERLAY (Oversold Aggression) ---
             if rsi <= 30 and sentiment > 0.4:
                 final_action = "BUY"
@@ -199,7 +250,11 @@ class SignalAgent:
 
         # --- EARNINGS CALENDAR AVOIDANCE ---
         # Skip BUY signals if earnings are within 3 days (binary event risk)
-        if final_action == "BUY" and days_to_earnings is not None and days_to_earnings <= 3:
+        if (
+            final_action == "BUY"
+            and days_to_earnings is not None
+            and days_to_earnings <= 3
+        ):
             final_action = "IDLE"
             conviction = 0
             technical_signal = f"SKIP_EARNINGS_AVOIDANCE_{days_to_earnings}D"
@@ -213,18 +268,18 @@ class SignalAgent:
             has_scaled_out = market_data.get("has_scaled_out", False)
 
             exit_signal = self.should_exit(
-                ticker, 
-                avg_price, 
-                current_price, 
-                sentiment, 
-                band_width, 
-                vix, 
-                hwm, 
-                has_scaled_out
+                ticker,
+                avg_price,
+                current_price,
+                sentiment,
+                band_width,
+                vix,
+                hwm,
+                has_scaled_out,
             )
 
             if exit_signal != "HOLD":
-                final_action = exit_signal # "SELL_ALL" or "SELL_PARTIAL_50"
+                final_action = exit_signal  # "SELL_ALL" or "SELL_PARTIAL_50"
                 conviction = 100
                 technical_signal = f"EXIT_{exit_signal}"
 
@@ -249,7 +304,6 @@ class SignalAgent:
             # F-Score is 0-9. None = Data Missing.
             f_score = fundamentals.get("f_score")
             ai_confidence = fundamentals.get("score", 0)
-
 
             if f_score is None:
                 # CASE A: Missing Data -> Require reasonable AI Confidence to proceed blindly
@@ -284,7 +338,7 @@ class SignalAgent:
             else:
                 # CASE C: Normal/Good Fundamentals -> Use dynamic threshold
                 f_score_threshold = 2 if is_low_exposure else 5
-                
+
                 if f_score < f_score_threshold:
                     # Check for bypass if low-ish score but high AI confidence
                     bypass_threshold = 65 if is_low_exposure else 80
@@ -316,7 +370,7 @@ class SignalAgent:
         # Star = High AI Conviction (85+) + Elite Fundamentals (F-Score 7+) + Deeply Healthy
         is_star = False
         ai_score = fundamentals.get("score", 0)
-        
+
         if (
             effective_ai_score >= 85
             and fundamentals.get("f_score") is not None
@@ -351,7 +405,7 @@ class SignalAgent:
         qty = market_data.get("qty", 0.0)
         holding_val = market_data.get("holding_value", 0.0)
         f_score_str = str(fundamentals.get("f_score", "N/A")) if fundamentals else "N/A"
-        
+
         reason = (
             f"{dry_run_prefix}"
             f"AI: {effective_ai_score:>2} | "
@@ -372,12 +426,12 @@ class SignalAgent:
         return decision
 
     def calculate_position_size(
-        self, 
-        total_equity: float, 
-        conviction: int, 
-        vix: float = 20.0, 
+        self,
+        total_equity: float,
+        conviction: int,
+        vix: float = 20.0,
         band_width: float = 0.02,
-        is_star: bool = False
+        is_star: bool = False,
     ) -> float:
         """
         Dynamic Position Sizing.
@@ -387,11 +441,11 @@ class SignalAgent:
         - VIX Damper: Reduces risk budget by 10% for every 10 points above VIX 20.
         """
         equity = Decimal(str(total_equity))
-        
+
         # 1. Determine Risk Budget (% of equity to lose if stopped at 2.5%)
         # Scale risk linearly from 0.4% (at 40 conf) to 1.0% (at 100 conf)
         risk_pct = Decimal(str(max(0.004, min(0.01, (conviction / 100.0) * 0.01))))
-        
+
         # 2. VIX Damper (Fear Adjustment)
         # If VIX > 20, reduce risk budget. E.g., VIX 40 reduces risk by 20%.
         if vix > 20:
@@ -440,7 +494,7 @@ class SignalAgent:
         if p_change >= 0.05 and not has_scaled_out:
             return "SELL_PARTIAL_50"
 
-        # 2. Trailing Stop: Activates after +3% gain. 
+        # 2. Trailing Stop: Activates after +3% gain.
         #    Sell remaining if pulls back 2% from peak (HWM).
         if p_change >= 0.03 or hwm >= hold_price * 1.03:
             if hwm > 0 and current_price <= hwm * 0.98:
@@ -452,7 +506,7 @@ class SignalAgent:
             dynamic_stop = max(0.025, min(0.06, band_width * 0.50))
         else:
             dynamic_stop = 0.025
-        
+
         if p_change <= -dynamic_stop:
             return "SELL_ALL"
 
@@ -494,7 +548,9 @@ class SignalAgent:
 
         return False
 
-    def evaluate_macro_hedge(self, macro_data: Dict, ai_sentiment: float = 0.0) -> tuple[str, float]:
+    def evaluate_macro_hedge(
+        self, macro_data: Dict, ai_sentiment: float = 0.0
+    ) -> tuple[str, float]:
         """
         Determines the portfolio hedge status and target percentage based on market risk.
         Now AI-Aware: Checks Gemini sentiment for the hedge ticker (e.g. PSQ) before triggering.
@@ -514,11 +570,11 @@ class SignalAgent:
         # --- DYNAMIC SCALING TIERS ---
         if vix > 45.0:
             return "BUY_HEDGE", 0.10  # Panic level
-        
+
         if is_bearish_trend and vix > 35.0:
             return "BUY_HEDGE", 0.05  # High Fear
-            
+
         if is_bearish_trend or vix > 30.0:
             return "BUY_HEDGE", 0.02  # Caution
-        
+
         return "CLEAR_HEDGE", 0.0

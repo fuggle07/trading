@@ -1,4 +1,3 @@
-
 import sys
 import unittest
 from unittest.mock import MagicMock, patch
@@ -24,6 +23,7 @@ sys.modules["google.cloud.bigquery"] = mock_bigquery
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
 
 from bot.execution_manager import ExecutionManager
+
 
 class TestExecutionManager(unittest.TestCase):
     def setUp(self):
@@ -91,6 +91,7 @@ class TestExecutionManager(unittest.TestCase):
             manager.place_order("FAIL_TEST", "BUY", 1, 100.0)
         except Exception as e:
             self.fail(f"place_order raised exception unexpectedly: {e}")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -56,19 +56,23 @@ class PortfolioReconciler:
 
             # 2. Prepare Data for Bulk Merge
             # We include Cash as a pseudo-position with 0 holdings and the actual cash_balance
-            merge_data = [{"asset_name": "USD", "holdings": 0.0, "cash": cash_balance, "avg": 0.0}]
+            merge_data = [
+                {"asset_name": "USD", "holdings": 0.0, "cash": cash_balance, "avg": 0.0}
+            ]
             for pos in positions:
-                merge_data.append({
-                    "asset_name": pos.symbol,
-                    "holdings": float(pos.qty),
-                    "cash": 0.0,
-                    "avg": float(pos.avg_entry_price)
-                })
+                merge_data.append(
+                    {
+                        "asset_name": pos.symbol,
+                        "holdings": float(pos.qty),
+                        "cash": 0.0,
+                        "avg": float(pos.avg_entry_price),
+                    }
+                )
 
             # 3. Construct Unified Bulk MERGE Query
             # First, wipe non-USD holdings to handle stocks no longer owned
             # Then merge the actual state
-            
+
             # Using a single transaction or script for efficiency
             # We build the 'USING' clause dynamically
             values_clauses = []
@@ -76,7 +80,7 @@ class PortfolioReconciler:
                 values_clauses.append(
                     f"SELECT '{item['asset_name']}' as asset_name, {item['holdings']} as holdings, {item['cash']} as cash, {item['avg']} as avg"
                 )
-            
+
             using_subquery = " UNION ALL ".join(values_clauses)
 
             bulk_query = f"""
@@ -97,7 +101,9 @@ class PortfolioReconciler:
             """
 
             self.bq_client.query(bulk_query).result()
-            logger.info(f"✅ Portfolio reconciled: {len(merge_data)} assets updated in bulk.")
+            logger.info(
+                f"✅ Portfolio reconciled: {len(merge_data)} assets updated in bulk."
+            )
 
         except Exception as e:
             logger.error(f"❌ Portfolio Sync Failed: {e}")
@@ -117,11 +123,17 @@ class PortfolioReconciler:
             fill_updates = []
             for order in orders:
                 if order.status == "filled":
-                    fill_updates.append({
-                        "id": str(order.id),
-                        "price": float(order.filled_avg_price) if order.filled_avg_price else 0.0,
-                        "qty": float(order.filled_qty)
-                    })
+                    fill_updates.append(
+                        {
+                            "id": str(order.id),
+                            "price": (
+                                float(order.filled_avg_price)
+                                if order.filled_avg_price
+                                else 0.0
+                            ),
+                            "qty": float(order.filled_qty),
+                        }
+                    )
 
             if not fill_updates:
                 return
@@ -140,16 +152,20 @@ class PortfolioReconciler:
                 WHEN MATCHED AND T.status != 'FILLED_CONFIRMED' THEN
                   UPDATE SET price = S.p, quantity = S.q, commission = 0.0, status = 'FILLED_CONFIRMED';
             """
-            
+
             job = self.bq_client.query(bulk_dml)
             job.result()
-            
+
             if job.num_dml_affected_rows > 0:
-                logger.info(f"✅ Sync'd {job.num_dml_affected_rows} execution records in bulk.")
+                logger.info(
+                    f"✅ Sync'd {job.num_dml_affected_rows} execution records in bulk."
+                )
 
         except Exception as e:
             err_str = str(e).lower()
             if "streaming buffer" in err_str:
-                 logger.info("⏳ Skipping sync (some records still in BQ streaming buffer)")
+                logger.info(
+                    "⏳ Skipping sync (some records still in BQ streaming buffer)"
+                )
             else:
-                 logger.error(f"❌ Execution Bulk Sync Failed: {e}")
+                logger.error(f"❌ Execution Bulk Sync Failed: {e}")

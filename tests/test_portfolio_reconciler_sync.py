@@ -1,4 +1,3 @@
-
 import sys
 import unittest
 from unittest.mock import MagicMock, patch
@@ -16,6 +15,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../")))
 
 from bot.portfolio_reconciler import PortfolioReconciler
 
+
 class TestPortfolioReconcilerSync(unittest.TestCase):
     def setUp(self):
         self.mock_bq = MagicMock()
@@ -32,12 +32,14 @@ class TestPortfolioReconcilerSync(unittest.TestCase):
         mock_order.filled_avg_price = 100.0
         mock_order.filled_qty = 10
         mock_order.symbol = "AAPL"
-        
+
         self.reconciler.trading_client.get_orders.return_value = [mock_order]
 
         # 2. Mock BQ exception
         # We need to simulate the "streaming buffer" message in the exception string
-        self.mock_bq.query.side_effect = Exception("UPDATE or DELETE statement over table ... would affect rows in the streaming buffer")
+        self.mock_bq.query.side_effect = Exception(
+            "UPDATE or DELETE statement over table ... would affect rows in the streaming buffer"
+        )
 
         # 3. Run sync
         # Should NOT raise exception
@@ -65,6 +67,7 @@ class TestPortfolioReconcilerSync(unittest.TestCase):
         with self.assertLogs(level="ERROR") as cm:
             self.reconciler.sync_executions()
         self.assertTrue(any("Execution Bulk Sync Failed" in line for line in cm.output))
+
 
 if __name__ == "__main__":
     unittest.main()

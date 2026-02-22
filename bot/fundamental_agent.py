@@ -51,7 +51,6 @@ class FundamentalAgent:
             else:
                 url = f"{base_url}/{version}/{endpoint}"
 
-
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(
@@ -160,7 +159,9 @@ class FundamentalAgent:
                         )
                         return {}
         except Exception as e:
-            logger.warning(f"Batch quotes exception: {e} — falling back to Finnhub per-ticker")
+            logger.warning(
+                f"Batch quotes exception: {e} — falling back to Finnhub per-ticker"
+            )
             return {}
 
     async def get_upcoming_earnings(self, tickers: list, window_days: int = 3) -> dict:
@@ -172,11 +173,13 @@ class FundamentalAgent:
 
         from_date = datetime.now().strftime("%Y-%m-%d")
         to_date = (datetime.now() + timedelta(days=window_days)).strftime("%Y-%m-%d")
-        
+
         # Use stable earning-calendar to avoid v3 legacy errors
         endpoint = "earning-calendar"
-        data = await self._fetch_fmp(endpoint, "", params={"from": from_date, "to": to_date}, version="stable")
-        
+        data = await self._fetch_fmp(
+            endpoint, "", params={"from": from_date, "to": to_date}, version="stable"
+        )
+
         results = {}
         if data and isinstance(data, list):
             for item in data:
@@ -295,7 +298,7 @@ class FundamentalAgent:
                 intelligence["analyst_consensus"] = (
                     f"{r.get('estimatedEpsAvg', 'Neutral')} (Avg Est EPS)"
                 )
-            
+
             if target_data and isinstance(target_data, list):
                 t = target_data[0]
                 cons = t.get("consensus", "Neutral")
@@ -304,8 +307,12 @@ class FundamentalAgent:
 
             if insider_data and isinstance(insider_data, list):
                 # Calculate Insider Momentum: Buy vs Sell ratio in recent trades
-                buys = len([t for t in insider_data if "Buy" in t.get("transactionType", "")])
-                sells = len([t for t in insider_data if "Sale" in t.get("transactionType", "")])
+                buys = len(
+                    [t for t in insider_data if "Buy" in t.get("transactionType", "")]
+                )
+                sells = len(
+                    [t for t in insider_data if "Sale" in t.get("transactionType", "")]
+                )
                 total = buys + sells
                 if total > 0:
                     ratio = (buys / total) * 100
@@ -314,7 +321,6 @@ class FundamentalAgent:
                     )
                 else:
                     intelligence["insider_momentum"] = "No Recent Activity"
-
 
         except Exception as e:
             logger.error(f"[{ticker}] ⚠️ Failed to fetch intelligence metrics: {e}")
@@ -374,7 +380,7 @@ class FundamentalAgent:
             data = await self._fetch_fmp("quote", symbol, version="stable")
             if data and isinstance(data, list):
                 return float(data[0].get("price", 0) or 0)
-        
+
         # Fallback to a hardcoded 1.0 would be bad, but we return 0.0 to indicate failure
         return 0.0
 
@@ -436,7 +442,13 @@ class FundamentalAgent:
         Fetches VIX (Fear Index) and major indices performance.
         Refactored to isolate ^VIX which often causes 402/403 on standard plans.
         """
-        results = {"vix": 0.0, "spy_perf": 0.0, "qqq_perf": 0.0, "qqq_price": 0.0, "spy_price": 0.0}
+        results = {
+            "vix": 0.0,
+            "spy_perf": 0.0,
+            "qqq_perf": 0.0,
+            "qqq_price": 0.0,
+            "spy_price": 0.0,
+        }
 
         if self.fmp_key:
             # 1. Fetch SPY/QQQ (ETFs - usually free on stable quote)
@@ -446,12 +458,16 @@ class FundamentalAgent:
                     sym = item.get("symbol")
                     price = float(item.get("price", 0) or 0)
                     if sym == "SPY":
-                        results["spy_perf"] = float(item.get("changesPercentage", 0) or 0)
+                        results["spy_perf"] = float(
+                            item.get("changesPercentage", 0) or 0
+                        )
                         results["spy_price"] = price
                     elif sym == "QQQ":
-                        results["qqq_perf"] = float(item.get("changesPercentage", 0) or 0)
+                        results["qqq_perf"] = float(
+                            item.get("changesPercentage", 0) or 0
+                        )
                         results["qqq_price"] = price
-            
+
             # 2. Fetch VIX separately to avoid stalling the index batch
             vix_data = await self._fetch_fmp("quote", "^VIX", version="stable")
             if vix_data and isinstance(vix_data, list) and len(vix_data) > 0:
@@ -479,7 +495,8 @@ class FundamentalAgent:
                 if qqq_res:
                     results["qqq_price"] = float(qqq_res.get("c", 0))
                     results["qqq_perf"] = float(qqq_res.get("dp", 0))
-            except Exception: pass
+            except Exception:
+                pass
 
         return results
 
@@ -607,17 +624,23 @@ class FundamentalAgent:
         if income_data and isinstance(income_data, list):
             financials["income"] = income_data
         else:
-            logger.warning(f"[{ticker}] ⚠️ FMP income-statement returned no list-based data.")
+            logger.warning(
+                f"[{ticker}] ⚠️ FMP income-statement returned no list-based data."
+            )
 
         if balance_data and isinstance(balance_data, list):
             financials["balance"] = balance_data
         else:
-            logger.warning(f"[{ticker}] ⚠️ FMP balance-sheet-statement returned no list-based data.")
+            logger.warning(
+                f"[{ticker}] ⚠️ FMP balance-sheet-statement returned no list-based data."
+            )
 
         if cash_data and isinstance(cash_data, list):
             financials["cash"] = cash_data
         else:
-            logger.warning(f"[{ticker}] ⚠️ FMP cash-flow-statement returned no list-based data.")
+            logger.warning(
+                f"[{ticker}] ⚠️ FMP cash-flow-statement returned no list-based data."
+            )
 
         return financials
 
@@ -673,7 +696,9 @@ class FundamentalAgent:
 
             if len(inc) < 2 or len(bal) < 2 or len(cfs) < 2:
                 # Log specific counts to help debug "None" results vs "0"
-                logger.debug(f"[{ticker}] F-Score Data Gaps: Inc={len(inc)}, Bal={len(bal)}, Cash={len(cfs)}")
+                logger.debug(
+                    f"[{ticker}] F-Score Data Gaps: Inc={len(inc)}, Bal={len(bal)}, Cash={len(cfs)}"
+                )
                 return None  # Distinguish: None=Missing, 0=Poor Fundamentals
 
             # Year 0 (Current/Most Recent), Year 1 (Previous)
@@ -769,7 +794,9 @@ class FundamentalAgent:
 
             if score <= 2:
                 # USE PRINT FOR TERMINAL VISIBILITY
-                print(f"📉 F-SCORE DRILLDOWN [{ticker}]: Score={score}. Missed: {', '.join(missed)}")
+                print(
+                    f"📉 F-SCORE DRILLDOWN [{ticker}]: Score={score}. Missed: {', '.join(missed)}"
+                )
                 if i0:
                     print(f"   Sample Keys: {list(i0.keys())[:10]}")
 
@@ -882,10 +909,10 @@ class FundamentalAgent:
             # Extract f_score from metrics_json if available
         #     # Let's check the query in _get_cached_evaluation.
         #     # (Self-correction: I need to check _get_cached_evaluation definition)
-            
+
         #     # Actually, I'll update _get_cached_evaluation to include metrics_json
         #     # and then parse it here.
-            
+
         #     # For now, if we match cache:
         #     try:
         #         # We need to extract the F-Score part from the reason if we don't have metrics_json
@@ -895,12 +922,12 @@ class FundamentalAgent:
         #         f_score = int(f_score_match.group(1)) if f_score_match else 0
         #     except Exception:
         #         f_score = 0
-                
+
         #     return (
-        #         cached["is_healthy"], 
-        #         cached["health_reason"], 
-        #         cached["is_deep_healthy"], 
-        #         cached["deep_health_reason"], 
+        #         cached["is_healthy"],
+        #         cached["health_reason"],
+        #         cached["is_deep_healthy"],
+        #         cached["deep_health_reason"],
         #         f_score
         #     )
         cached = None

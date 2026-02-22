@@ -29,7 +29,7 @@ market_data = {
     "qty": 0.0,
     "holding_value": 0.0,
     "avg_price": 0.0,
-    "hwm": 0.0
+    "hwm": 0.0,
 }
 
 agent = SignalAgent(hurdle_rate=0.015, vol_threshold=0.35)

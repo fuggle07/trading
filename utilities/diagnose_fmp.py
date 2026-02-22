@@ -26,7 +26,9 @@ for url in endpoints:
         if r.status_code == 200:
             data = r.json()
             if isinstance(data, dict) and "Error Message" in data:
-                print(f"❌ {clean_url}: 200 OK but API Error: {data['Error Message'][:50]}...")
+                print(
+                    f"❌ {clean_url}: 200 OK but API Error: {data['Error Message'][:50]}..."
+                )
             else:
                 print(f"✅ {clean_url}: SUCCESS")
         else:
