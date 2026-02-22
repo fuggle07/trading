@@ -32,10 +32,13 @@ unit_tests:
 # 3. Build - Verify Docker Build
 docker_build:
   stage: build
-  image: docker:latest
+  image: docker:24.0.5
   services:
-    - docker:dind
+    - name: docker:24.0.5-dind
+      alias: docker
   script:
+    - sleep 5 # Allow the dind service daemon time to start
+    - docker info
     - docker build -t trading-bot ./bot
   only:
     - main
