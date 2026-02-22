@@ -49,7 +49,18 @@ deploy_production:
   stage: deploy
   image: $GOOGLE_SDK_IMAGE
   script:
-    - echo "$GOOGLE_CREDENTIALS" > sa-key.json
+    - |
+      if [ -f "$GOOGLE_CREDENTIALS" ]; then
+        cp "$GOOGLE_CREDENTIALS" sa-key.json
+      else
+        echo "$GOOGLE_CREDENTIALS" > sa-key.json
+      fi
+    - |
+      if ! grep -q "{" sa-key.json; then
+        echo "❌ ERROR: GOOGLE_CREDENTIALS is empty or invalid!"
+        echo "Please add your GCP Service Account JSON as a CI/CD Variable in GitLab (Settings > CI/CD > Variables)."
+        exit 1
+      fi
     - gcloud auth activate-service-account --key-file sa-key.json
     - gcloud config set project $PROJECT_ID
     - gcloud builds submit . --tag us-central1-docker.pkg.dev/$PROJECT_ID/trading-node-repo/trading-bot:latest
