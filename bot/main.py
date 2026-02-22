@@ -525,9 +525,9 @@ async def run_audit():
                 "qty": held_tickers.get(ticker, {}).get("holdings", 0.0),
                 "holding_value": held_tickers.get(ticker, {}).get("market_value", 0.0),
                 "avg_price": held_tickers.get(ticker, {}).get("avg_price", 0.0),
-                "hwm": _high_water_marks.get(ticker, 0.0),
                 "prediction_confidence": intel.get("confidence", 0),
                 "is_low_exposure": exposure < MIN_EXPOSURE_THRESHOLD,
+                "exposure_ratio": float(exposure / MIN_EXPOSURE_THRESHOLD) if MIN_EXPOSURE_THRESHOLD > 0 else 1.0,
                 "band_width": float(intel.get("band_width", 0.0)),
                 "vix": float(macro_data.get("vix", 0.0)),
                 "volume": intel.get("volume", 0.0),
@@ -680,17 +680,18 @@ async def run_audit():
                 "SWAP",
                 f"Rotating out of {weakest_link} into {rising_star} | AI: {star_ai} | F-Score: {star_f_score} | Sent: {star_sent:.2f} | Vlty: {star_vol:.1f}% | Eff: {best_star_effective_conf}",
             )
-            signals[weakest_link] = {
-                "action": "SELL",
-                "reason": "CONVICTION_SWAP",
-                "price": ticker_intel[weakest_link]["price"],
-            }
-            if rising_star not in signals or signals[rising_star]["action"] != "BUY":
-                signals[rising_star] = {
-                    "action": "BUY",
-                    "reason": "CONVICTION_ROTATION",
-                    "price": ticker_intel[rising_star]["price"],
-                }
+            if weakest_link not in signals:
+                signals[weakest_link] = {}
+            signals[weakest_link]["action"] = "SELL"
+            signals[weakest_link]["reason"] = "CONVICTION_SWAP"
+            signals[weakest_link]["price"] = ticker_intel[weakest_link]["price"]
+
+            if rising_star not in signals or signals[rising_star].get("action") != "BUY":
+                if rising_star not in signals:
+                    signals[rising_star] = {}
+                signals[rising_star]["action"] = "BUY"
+                signals[rising_star]["reason"] = "CONVICTION_ROTATION"
+                signals[rising_star]["price"] = ticker_intel[rising_star]["price"]
     elif exposure < MIN_EXPOSURE_THRESHOLD and rising_star:
         # Deployment Logic: If we have cash, buy the best thing available
         # BUT: Respect volatility and hygiene checks
@@ -736,11 +737,11 @@ async def run_audit():
                     "BUY",
                     f"Initial Deployment: AI: {star_ai} | F-Score: {star_f_score} | Sent: {star_sent:.2f} | Vlty: {star_vol:.1f}% | Eff: {best_star_effective_conf}",
                 )
-                signals[rising_star] = {
-                    "action": "BUY",
-                    "reason": "INITIAL_DEPLOYMENT",
-                    "price": ticker_intel[rising_star]["price"],
-                }
+                if rising_star not in signals:
+                    signals[rising_star] = {}
+                signals[rising_star]["action"] = "BUY"
+                signals[rising_star]["reason"] = "INITIAL_DEPLOYMENT"
+                signals[rising_star]["price"] = ticker_intel[rising_star]["price"]
 
 
     # --- Phase 3: Coordinated Execution ---
@@ -809,8 +810,8 @@ async def run_audit():
                     _position_entry_times.pop(ticker, None)
                     _scaled_out_tickers.discard(ticker)
 
-            # Record stop-loss cooldown if it was a negative exit
-            if "STOP_LOSS" in reason or "SENTIMENT" in reason:
+            # Record cooldown to prevent immediate re-buying (Stop Loss or Profit Take)
+            if any(k in reason for k in ["STOP_LOSS", "SENTIMENT", "SELL_PARTIAL", "EXIT_SELL"]):
                 _stop_loss_cooldown[ticker] = datetime.now(timezone.utc) + timedelta(
                     minutes=STOP_LOSS_COOLDOWN_MINUTES
                 )
@@ -867,14 +868,14 @@ async def run_audit():
             is_star = sig.get("meta", {}).get("is_star", False)
             vix = float(macro_data.get("vix", 0.0))
 
-            # 1. Stop-loss cooldown guard — skip re-entry within 30 min of a stop
+            # 1. Re-entry cooldown guard — skip re-entry within 30 min of a stop-loss or profit-take
             cooldown_until = _stop_loss_cooldown.get(ticker)
             if cooldown_until is not None and datetime.now(timezone.utc) < cooldown_until:
                 remaining = int(
                     (cooldown_until - datetime.now(timezone.utc)).total_seconds() / 60
                 )
                 log_decision(
-                    ticker, "SKIP", f"Stop-loss cooldown active ({remaining}m remaining)"
+                    ticker, "SKIP", f"Re-entry cooldown active ({remaining}m remaining)"
                 )
                 continue
 

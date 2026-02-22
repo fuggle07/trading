@@ -32,18 +32,22 @@ class TestFundamentalAgent(unittest.IsolatedAsyncioTestCase):
         """Test deep health F-Score calculation."""
         mock_health.return_value = (True, "Healthy")
         mock_financials.return_value = {
-            "income": [{"revenue": 1000, "netIncome": 100, "weightedAverageShsOut": 10}],
-            "balance": [{"totalAssets": 500}],
-            "cash": [{"operatingCashFlow": 150}]
+            "income": [
+                {"revenue": 1000, "netIncome": 100, "grossProfit": 500, "weightedAverageShsOut": 10},
+                {"revenue": 800, "netIncome": 50, "grossProfit": 300, "weightedAverageShsOut": 10}
+            ],
+            "balance": [
+                {"totalAssets": 500, "totalLiabilities": 100, "totalDebt": 100, "totalCurrentAssets": 200, "totalCurrentLiabilities": 100},
+                {"totalAssets": 400, "totalLiabilities": 120, "totalDebt": 120, "totalCurrentAssets": 150, "totalCurrentLiabilities": 80}
+            ],
+            "cash": [
+                {"operatingCashFlow": 150},
+                {"operatingCashFlow": 100}
+            ]
         }
-        # mock_fmp returns for metrics-ttm, ratios-ttm, quote
-        mock_fmp.side_effect = [
-            [{"freeCashFlowPerShareTTM": 10}], # metrics
-            [{"priceToEarningsRatioTTM": 20}], # ratios
-            [{"price": 150}] # quote
-        ]
+        self.agent.fmp_key = "MOCK_KEY"
         
-        is_deep, reason, f_score = await self.agent.evaluate_deep_health("NVDA")
+        _, _, is_deep, reason, f_score = await self.agent.evaluate_deep_health("NVDA")
         self.assertIsInstance(is_deep, bool)
         self.assertIsInstance(f_score, int)
         self.assertIn("F-Score", reason)

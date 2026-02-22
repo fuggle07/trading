@@ -35,8 +35,9 @@ If you already own the stock, the bot checks your P&L **before** looking at new 
 
 ### Step C: Technical Baseline
 *   **IF** Price ≤ Lower Bollinger Band AND Sentiment ≥ 0.4: **Baseline = BUY**.
-*   **IF** Price ≥ Upper Bollinger Band: **Baseline = SELL**.
-*   **IF** RSI ≤ 30 AND Sentiment > 0.4: **Baseline = RSI_OVERSOLD_BUY** (overrides HOLD).
+*   **IF** Price ≥ Upper Bollinger Band AND Volume > 1.5× Average Volume: **Baseline = MOMENTUM_BREAKOUT** (Aggressive BUY, overrides normal SELL).
+*   **IF** Price ≥ Upper Bollinger Band (with normal volume): **Baseline = SELL** (Mean reversion).
+*   **IF** RSI ≤ 30 AND Sentiment > 0.4: **Baseline = RSI_OVERSOLD_BUY** (Overrides HOLD).
 *   **OTHERWISE**: **Baseline = HOLD**.
 
 ### Step D: The Sentiment Gate (For Buying)

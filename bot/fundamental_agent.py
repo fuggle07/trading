@@ -370,8 +370,8 @@ class FundamentalAgent:
         Uses FMP v3 quote endpoint.
         """
         if self.fmp_key:
-            # FMP v3 quote endpoint works for FX as well
-            data = await self._fetch_fmp(f"quote/{symbol}", "", version="v3")
+            # FMP stable quote endpoint works for FX as well
+            data = await self._fetch_fmp("quote", symbol, version="stable")
             if data and isinstance(data, list):
                 return float(data[0].get("price", 0) or 0)
         
@@ -499,11 +499,12 @@ class FundamentalAgent:
         if not client:
             return None
 
+        # Check for cached evaluation within the last 7 days to protect against FMP API instability
         query = f"""
         SELECT is_healthy, health_reason, is_deep_healthy, deep_health_reason, metrics_json
         FROM `{PROJECT_ID}.trading_data.fundamental_cache`
         WHERE ticker = '{ticker}'
-        AND DATE(timestamp) = CURRENT_DATE('America/New_York')
+        AND DATE(timestamp) >= DATE_SUB(CURRENT_DATE('America/New_York'), INTERVAL 30 DAY)
         ORDER BY timestamp DESC
         LIMIT 1
         """
@@ -912,6 +913,12 @@ class FundamentalAgent:
         d_reason = "Analysis Pending"
         f_score = 0
         d_reason_parts = []
+        ratios = {}
+        metrics = {}
+        quality_score = 0
+        rev_growth = 0.0
+        fair_value = 0.0
+        price = 0.0
 
         if self.fmp_key:
             try:

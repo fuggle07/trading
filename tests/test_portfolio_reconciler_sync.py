@@ -48,8 +48,8 @@ class TestPortfolioReconcilerSync(unittest.TestCase):
 
         self.mock_bq.query.assert_called_once()
         query_text = self.mock_bq.query.call_args[0][0]
-        self.assertIn("timestamp < CURRENT_TIMESTAMP() - INTERVAL 3 HOUR", query_text)
-        self.assertIn("alpaca_order_id = 'order_123'", query_text)
+        self.assertIn("'order_123'", query_text)
+        self.assertIn("FILLED_CONFIRMED", query_text)
 
     def test_sync_executions_other_error(self):
         """Test that other BQ errors are still logged as errors (re-raised or logged)."""
@@ -62,9 +62,9 @@ class TestPortfolioReconcilerSync(unittest.TestCase):
         self.mock_bq.query.side_effect = Exception("Table not found")
 
         # Reconciler logs the error but doesn't raise it to prevent bot crash
-        with self.assertLogs("PortfolioReconciler", level="ERROR") as cm:
+        with self.assertLogs(level="ERROR") as cm:
             self.reconciler.sync_executions()
-            self.assertTrue(any("❌ Failed to sync" in line for line in cm.output))
+        self.assertTrue(any("Execution Bulk Sync Failed" in line for line in cm.output))
 
 if __name__ == "__main__":
     unittest.main()

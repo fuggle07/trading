@@ -22,7 +22,7 @@ VOLATILITY_SENSITIVITY="1.0"
 MORTGAGE_HURDLE_RATE="0.054" # 5.4%
 CAPITAL_USD="50000.0" # Your potential offset withdrawal
 MIN_EDGE_THRESHOLD="0.015" # 1.5% minimum predicted gain to override brokerage drag
-MIN_EXPOSURE_THRESHOLD="0.65" # 65% target exposure
+MIN_EXPOSURE_THRESHOLD="0.85" # 85% target exposure
 
 # 3. Construct/Update env.yaml
 # We use a heredoc to ensure clean YAML formatting for GCP.

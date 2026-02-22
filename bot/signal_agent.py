@@ -77,12 +77,10 @@ class SignalAgent:
         # Calculate Band Width % (Volatility Filter)
         band_width = (up - lo) / price
         
-        effective_vol_threshold = self.vol_threshold
-        if is_low_exposure:
-            # Relax volatility filter by 50% when exposure is low to force activity
-            effective_vol_threshold *= Decimal("1.5")
-
-        if band_width > effective_vol_threshold:
+        # We enforce a strict strict volatility limit (e.g. 35%). 
+        # Previously, if the bot had low exposure, it would relax this by 50% (up to 52.5%), 
+        # allowing dangerously erratic stocks through.
+        if band_width > self.vol_threshold:
             return "VOLATILE_IGNORE"
 
         if price >= up:
@@ -172,12 +170,25 @@ class SignalAgent:
             conviction = 0
         else:
             final_action = "IDLE"
-            # ENHANCEMENT: Low Exposure Aggression
+            # ENHANCEMENT: Low Exposure Aggression (Dynamic Slope)
             if is_low_exposure:
+                exposure_ratio = float(market_data.get("exposure_ratio", 1.0))
+                
+                # Dynamic thresholds: Scale down as we have less exposure
+                if exposure_ratio < 0.3:
+                    target_sent = 0.0
+                    target_ai = 60
+                elif exposure_ratio < 0.6:
+                    target_sent = 0.1
+                    target_ai = 65
+                else:
+                    target_sent = 0.2
+                    target_ai = 70
+
                 # Use effective_ai_score so new tickers can bypass the 0 score
-                if sentiment >= 0.2 and effective_ai_score >= 70:
+                if sentiment >= target_sent and effective_ai_score >= target_ai:
                     final_action = "BUY"
-                    conviction = 70
+                    conviction = 70 + int((1.0 - exposure_ratio) * 15) # Boost conviction slightly if deep low
                     technical_signal = "PROACTIVE_WARRANTED_ENTRY"
             
             # --- RSI OVERLAY (Oversold Aggression) ---
@@ -217,10 +228,10 @@ class SignalAgent:
                 conviction = 100
                 technical_signal = f"EXIT_{exit_signal}"
 
-                # Double check for RSI overbought even if should_exit said HOLD
-                if rsi >= 85:
-                    final_action = "SELL_ALL"
-                    technical_signal = "RSI_EXTREME_OVERBOUGHT"
+            # Double check for RSI overbought even if should_exit said HOLD
+            if rsi >= 85:
+                final_action = "SELL_ALL"
+                technical_signal = "RSI_EXTREME_OVERBOUGHT"
 
         # 3. Fundamental Overlay (The Gatekeeper)
         # We now BLOCK buys if fundamentals are weak.
@@ -307,7 +318,7 @@ class SignalAgent:
         ai_score = fundamentals.get("score", 0)
         
         if (
-            ai_score >= 85
+            effective_ai_score >= 85
             and fundamentals.get("f_score") is not None
             and fundamentals.get("f_score", 0) >= 7
             and fundamentals.get("is_deep_healthy", True)
@@ -324,6 +335,7 @@ class SignalAgent:
             "meta": {
                 "sentiment": sentiment,
                 "ai_score": ai_score,
+                "effective_ai_score": effective_ai_score,
                 "volatility": volatility_pct,
                 "technical": technical_signal,
                 "rsi": rsi,
@@ -338,8 +350,19 @@ class SignalAgent:
         # Added Price, Holding Qty, and Holding Value for better at-a-glance monitoring
         qty = market_data.get("qty", 0.0)
         holding_val = market_data.get("holding_value", 0.0)
-        f_score = fundamentals.get("f_score", "N/A") if fundamentals else "N/A"
-        reason = f"{dry_run_prefix}Price: ${current_price:,.2f} | Held: {qty:,.1f} (${holding_val:,.2f}) | AI: {effective_ai_score} | F-Score: {f_score} | Sent: {sentiment:.2f} | Vlty: {volatility_pct:.1f}% | Conf: {conviction} | Signal: {technical_signal}"
+        f_score_str = str(fundamentals.get("f_score", "N/A")) if fundamentals else "N/A"
+        
+        reason = (
+            f"{dry_run_prefix}"
+            f"AI: {effective_ai_score:>2} | "
+            f"Sent: {sentiment:>5.2f} | "
+            f"F-Score: {f_score_str:>4} | "
+            f"Vlty: {volatility_pct:>4.1f}% | "
+            f"Price: ${current_price:>9,.2f} | "
+            f"Held: {qty:>5,.1f} (${holding_val:>9,.2f}) | "
+            f"Signal: {technical_signal:<25} | "
+            f"Conf: {conviction:>3}"
+        )
         decision["reason"] = reason
 
         # Log it using the correct signature: (ticker, action, reason, details)
