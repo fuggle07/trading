@@ -130,7 +130,7 @@ resource "google_cloud_run_v2_service" "trading_bot" {
       }
       env {
         name  = "BASE_TICKERS"
-        value = "TSLA,NVDA,AMD,PLTR,COIN,META,GOOG,MSFT,GOLD,NEM,AMZN,AVGO,CRM,ORCL,LMT"
+        value = "TSLA,NVDA,AMD,MU,PLTR,COIN,META,AAPL,MSFT,GOLD,AMZN,AVGO,ASML,LLY,LMT"
       }
       env {
         name  = "INITIAL_CASH"

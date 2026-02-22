@@ -45,8 +45,8 @@ The bot relies on the following secrets, stored in **GCP Secret Manager** and in
 | `ALPHA_VANTAGE_KEY` | Alpha Vantage | Supplementary fundamental data (fallback) |
 | `MORTGAGE_RATE` | — | Annualised home loan rate (e.g., `0.054`) |
 | `INITIAL_CASH` | — | Starting cash pool (default `50000.0`) |
-| `BASE_TICKERS` | — | Comma-separated watchlist (default `TSLA,NVDA,MU,AMD,PLTR,COIN,META,MSTR`). **Note**: Hedge tickers (e.g., PSQ) are now auto-injected and do not need to be listed here. |
-| `MIN_EXPOSURE_THRESHOLD` | — | Min portfolio exposure before aggression (default `0.65`) |
+| `BASE_TICKERS` | — | Comma-separated watchlist (default `TSLA,NVDA,AMD,MU,PLTR,COIN,META,AAPL,MSFT,GOLD,AMZN,AVGO,ASML,LLY,LMT`). **Note**: Hedge tickers (e.g., PSQ) are now auto-injected and do not need to be listed here. |
+| `MIN_EXPOSURE_THRESHOLD` | — | Min portfolio exposure before aggression (default `0.85`) |
 | `VOLATILITY_SENSITIVITY` | — | Multiplier on the vol threshold (default `1.0`) |
 
 **Sync local secrets to GCP Secret Manager:**
@@ -61,8 +61,8 @@ The bot relies on the following secrets, stored in **GCP Secret Manager** and in
 ### The "Aberfeldie" Constraint
 *   **Capital Pool**: **$100,000 USD** (Paper Trading / Simulation mode via Alpaca).
 *   **Hurdle Rate**: Set via `MORTGAGE_RATE` env var (e.g., `0.054` = 5.4%).
-    *   Tax-adjusted effective hurdle: `Rate × (1 - 0.35)` ≈ **3.5%** annualised.
-    *   The bot only deploys capital for opportunities with a high probability of beating this benchmark.
+*   **Performance Benchmark**: Tax-adjusted effective hurdle: `Rate × (1 - 0.35)` ≈ **3.5%** annualised.
+*   **Deployment Logic**: Brokerage cash is considered "idle." The bot prioritizes deployment (up to 85% exposure) without restrictive hurdle gates, as Alpaca cash is external to the mortgage offset.
 
 ### API Rate Limits
 *   **FMP Free Tier**: ~250 requests/day. The bot fetches 3 financial statement endpoints + 3 intelligence metrics + per-ticker technicals per cycle. Monitor usage during heavy cycles.

@@ -71,7 +71,7 @@ graph TD
 - **Role**: The central nervous system.
 - **Function**:
     - Initializes all managers and API clients.
-    - Runs the watchlist: `TSLA, NVDA, MU, AMD, PLTR, COIN, META, MSTR` (configurable via `BASE_TICKERS` env var).
+    - Runs the watchlist: `TSLA, NVDA, AMD, MU, PLTR, COIN, META, AAPL, MSFT, GOLD, AMZN, AVGO, ASML, LLY, LMT` (configurable via `BASE_TICKERS` env var).
     - **Hedge Auto-Injection**: Automatically includes `PSQ` in every audit cycle for protection.
     - Fetches data in parallel: Alpaca candles, FMP technicals, Finnhub news, fundamental health, macro context.
     - Coordinates: Data → Signal → Execution → Logging.
@@ -83,7 +83,7 @@ graph TD
 - **Logic**: Hybrid Technical + Fundamental + Sentiment pipeline with **Dynamic Risk Scaling**.
 - **Strategy Pipeline**:
     1.  **Holiday Filter**: Skips processing if the market is closed.
-    2.  **Volatility Gate**: Skips trading if Bollinger Band width > threshold (default 25%).
+    2.  **Volatility Gate**: Skips trading if Bollinger Band width > threshold (default 35%).
     3.  **Institutional Exit Logic** (runs before buy signals):
         - **Partial Scaling**: SELL 50% of the position if profit hits **+5%**.
         - **Trailing Stop-Loss**: Activates once profit hits **+3%**. Exits the position if the price pulls back **2% from its High Water Mark (HWM)**.
@@ -91,13 +91,14 @@ graph TD
         - **RSI Overbought Exit**: SELL if RSI ≥ 85.
     4.  **Macro Hedging**: 
         - Determines hedge status based on VIX and QQQ Trend.
+        - **AI-Aware**: Consults Gemini sentiment for PSQ before entering a hedge (Veto power).
         - **Caution (2%)**, **Fear (5%)**, or **Panic (10%)** target percentages.
     5.  **Dynamic Position Sizing**: Calculates optimal allocation (up to 40% cap) based on **Conviction**, **VIX**, and **Band Width**.
     6.  **Technical Baseline**:
         - BUY if `Price ≤ Lower Band` AND Sentiment ≥ 0.4.
         - SELL if `Price ≥ Upper Band`.
         - RSI Oversold Aggression: BUY if RSI ≤ 30 AND Sentiment > 0.4.
-    7.  **Low Exposure Aggression** (`PROACTIVE_WARRANTED_ENTRY`): If portfolio < 65% invested, allows entry into leaders even if not at technical extremes.
+    7.  **Low Exposure Aggression** (`PROACTIVE_WARRANTED_ENTRY`): If portfolio < 85% invested, allows entry into leaders even if not at technical extremes.
     8.  **Fundamental Gatekeeper**: Blocks BUY if F-Score is critically low or basic health fails.
     9.  **Star Rating**: Flags elite opportunities (AI ≥ 90, F-Score ≥ 7) with a minimum 20% capital floor.
 

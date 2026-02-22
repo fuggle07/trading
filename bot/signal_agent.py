@@ -453,19 +453,17 @@ class SignalAgent:
 
         return False
 
-    def evaluate_macro_hedge(self, macro_data: Dict) -> tuple[str, float]:
+    def evaluate_macro_hedge(self, macro_data: Dict, ai_sentiment: float = 0.0) -> tuple[str, float]:
         """
         Determines the portfolio hedge status and target percentage based on market risk.
-        Returns: (status, target_percentage)
-        
-        Tiers:
-        - Panic (10%): VIX > 45
-        - Fear (5%):  QQQ < SMA-50 AND VIX > 35
-        - Caution (2%): QQQ < SMA-50 OR VIX > 30
-        - Minimal: Market is healthy
+        Now AI-Aware: Checks Gemini sentiment for the hedge ticker (e.g. PSQ) before triggering.
         """
         indices = macro_data.get("indices", {})
         vix = float(macro_data.get("vix", 0.0))
+
+        # Check for Gemini Veto: If AI hates the hedge (thinks market will recover), skip it.
+        if ai_sentiment < -0.2:
+            return "CLEAR_HEDGE", 0.0
 
         # 1. Nasdaq Trend Check
         qqq_price = indices.get("qqq_price", 0.0)

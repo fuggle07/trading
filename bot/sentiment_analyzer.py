@@ -28,7 +28,7 @@ class SentimentAnalyzer:
         Analyzes a list of news items and returns (score, reasoning).
         score: float -1.0 to 1.0. Returns (0.0, "") if analysis fails or no news provided.
         """
-        if not self.model or not news_items:
+        if not self.model:
             return 0.0, ""
 
         # Limit to top 5 news items to fit context window efficiently and stay relevant

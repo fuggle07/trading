@@ -318,12 +318,12 @@ async def fetch_sentiment(ticker, lessons="", context=None):
             finnhub_client.company_news, ticker, _from=_from, to=_to
         )
 
-        if news:
+        if news or context:
             print(
-                f"[{ticker}] 📰 Found {len(news)} news items for {ticker}. Asking Gemini..."
+                f"[{ticker}] 🧠 Asking Gemini for conviction (News count: {len(news) if news else 0})..."
             )
             result = await sentiment_analyzer.analyze_news(
-                ticker, news, lessons, context=context
+                ticker, news or [], lessons, context=context
             )
             sentiment_score, gemini_reasoning = (
                 result if isinstance(result, tuple) else (result, "")
@@ -371,7 +371,7 @@ async def run_audit():
     Phase 2: Portfolio Analysis & Conviction Swapping
     Phase 3: Execution (SELLs first, then BUYs)
     """
-    tickers_env = os.environ.get("BASE_TICKERS", "TSLA,NVDA,AMD,PLTR,COIN,META,GOOG,MSFT,GOLD,NEM,AMZN,AVGO,CRM,ORCL,LMT")
+    tickers_env = os.environ.get("BASE_TICKERS", "TSLA,NVDA,AMD,MU,PLTR,COIN,META,AAPL,MSFT,GOLD,AMZN,AVGO,ASML,LLY,LMT")
     base_tickers = [t.strip() for t in tickers_env.split(",") if t.strip()]
 
     # --- Phase 0: Reconciliation (Source of Truth) ---
@@ -803,10 +803,11 @@ async def run_audit():
                 {"ticker": ticker, "signal": action, "status": status, "reason": reason}
             )
 
-    # 1.5 Portfolio Hedge Check
-    # If market is bearish or VIX is high, we buy inverse ETFs (e.g., PSQ)
+    # 1.5 Portfolio Hedge Check - Now AI-Aware
     hedge_ticker = "PSQ"
-    hedge_action, target_pct = signal_agent.evaluate_macro_hedge(macro_data)
+    # Get the AI-derived sentiment for the hedge ticker if it exists
+    ps_score = signals.get(hedge_ticker, {}).get("meta", {}).get("sentiment", 0.0)
+    hedge_action, target_pct = signal_agent.evaluate_macro_hedge(macro_data, ps_score)
     
     current_hedge_pos = held_tickers.get(hedge_ticker, {})
     current_hedge_val = float(current_hedge_pos.get("market_value", 0.0))
