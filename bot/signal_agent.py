@@ -70,6 +70,10 @@ class SignalAgent:
         up = Decimal(str(upper))
         lo = Decimal(str(lower))
 
+        # Prevent Division by Zero
+        if price <= 0:
+            return "HOLD"
+            
         # Calculate Band Width % (Volatility Filter)
         band_width = (up - lo) / price
         

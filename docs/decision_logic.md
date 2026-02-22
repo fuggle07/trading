@@ -90,7 +90,7 @@ Unlike fixed sizing, the bot now calculates the exact USD for every trade based 
 ## 3. Portfolio-Level Logic (The Conviction Swap)
 
 This is the "Auditor" logic. At the portfolio level, the bot identifies:
-*   **Weakest Link**: The held stock with the lowest Conviction Score, prioritizing those with failing Deep Health or Sentiment Collapse (`< -0.3`).
+*   **Weakest Link**: The held stock with the lowest Conviction Score, prioritizing those with failing Deep Health or Sentiment Collapse (`< -0.1`).
 *   **Rising Star**: The non-held stock with a Blended Conviction Score **>= 80** AND strictly positive sentiment (**>= 0.2**).
 *   **The Swap**: Sells the Weakest Link to fund the Rising Star.
 *   **Hurdle**: Swaps if the Rising Star's conviction is higher, with higher sentiment breaking ties.

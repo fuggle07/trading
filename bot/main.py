@@ -588,7 +588,7 @@ async def run_audit():
         effective_conf = meta.get("effective_ai_score", 0)
         is_deep = ticker_intel[t].get("is_deep_healthy", True)
         sentiment = float(meta.get("sentiment", 0.0))
-        sentiment_collapse = sentiment < -0.3
+        sentiment_collapse = sentiment < -0.1
 
         # We evaluate the lowest absolute conviction amongst held tickers, even if it's > 50
         if weakest_link is None:
@@ -597,7 +597,7 @@ async def run_audit():
         else:
             current_is_deep = ticker_intel[weakest_link].get("is_deep_healthy", True)
             current_sent = float(signals[weakest_link].get("meta", {}).get("sentiment", 0.0))
-            current_sent_collapse = current_sent < -0.3
+            current_sent_collapse = current_sent < -0.1
 
             # Prioritise fundamental failure over sentiment failure over raw score
             if current_is_deep and not is_deep:
