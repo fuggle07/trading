@@ -212,12 +212,7 @@ resource "google_bigquery_dataset" "system_logs" {
   delete_contents_on_destroy = false
 }
 
-resource "google_logging_project_bucket_config" "audit_log_bucket" {
-  project        = var.project_id
-  location       = "us-central1"
-  retention_days = 365
-  bucket_id      = "system-audit-trail"
-}
+
 
 resource "google_logging_project_sink" "master_log_sink" {
   name        = "trading-system-master-sink"
