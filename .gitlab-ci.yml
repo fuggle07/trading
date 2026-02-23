@@ -86,6 +86,10 @@ deploy_production:
       fi
     - gcloud auth activate-service-account --key-file sa-key.json
     - gcloud config set project $PROJECT_ID
+    - apt-get update && apt-get install -y gnupg software-properties-common curl
+    - curl -fsSL https://apt.releases.hashicorp.com/gpg | apt-key add -
+    - apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+    - apt-get update && apt-get install terraform -y
     - cd terraform
     - terraform init
     - terraform apply -auto-approve -var="project_id=$PROJECT_ID" -var="deploy_time=$(date +%s)"
