@@ -13,6 +13,8 @@ declare -a PROTECTED_FILES=(
   "env.yaml"
   ".env"
   "secrets.sh"
+  "sa-key.json"
+  "sa-key*.json"
 )
 
 for file in "${PROTECTED_FILES[@]}"; do
