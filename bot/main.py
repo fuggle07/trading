@@ -979,9 +979,9 @@ async def run_audit():
 
     if hedge_action == "BUY_HEDGE":
         # Check if we need to enter OR top up (if current is significantly below target)
-        # We top up if target is more than 20% higher than current (to avoid tiny churn)
+        # We top up only if target is more than 50% higher than current (to avoid tiny linear churn)
         needs_entry = hedge_ticker not in held_tickers
-        needs_topup = current_hedge_val < (target_hedge_val * 0.8)
+        needs_topup = current_hedge_val < (target_hedge_val * 0.5)
 
         if needs_entry or needs_topup:
             order_val = target_hedge_val - current_hedge_val
