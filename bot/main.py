@@ -955,12 +955,14 @@ async def run_audit():
 
         if needs_entry or needs_topup:
             order_val = target_hedge_val - current_hedge_val
+            hedge_price = float(ticker_intel.get(hedge_ticker, {}).get("price", 0.0))
+
             if effective_enabled:
                 exec_res = execution_manager.place_order(
                     hedge_ticker,
                     "BUY",
                     0,
-                    0.0,  # Market buy
+                    hedge_price,  # Fetch current price instead of 0.0
                     reason=f"MACRO_HEDGE_{int(target_pct*100)}PCT_TRIGGERED",
                     cash_available=float(order_val),
                 )
@@ -977,9 +979,14 @@ async def run_audit():
                 )
 
     elif hedge_action == "CLEAR_HEDGE" and hedge_ticker in held_tickers:
+        hedge_price = float(ticker_intel.get(hedge_ticker, {}).get("price", 0.0))
         if effective_enabled:
             exec_res = execution_manager.place_order(
-                hedge_ticker, "SELL", 0, 0.0, reason="MACRO_HEDGE_CLEARED"  # Sell all
+                hedge_ticker,
+                "SELL",
+                0,
+                hedge_price,
+                reason="MACRO_HEDGE_CLEARED",  # Sell all
             )
             log_decision(
                 hedge_ticker,
@@ -1355,13 +1362,34 @@ async def process_ticker_intelligence(
 ):
     print(f"[{ticker}] 📡 Gathering Intel for {ticker}...")
     try:
-        # Quote: use pre-fetched batch result; fall back to Finnhub if missing
-        res_quote = batch_quotes.get(ticker)
-        if not res_quote and finnhub_client:
+        # If Finnhub/FMP returned 0.0 or missed it, fallback to Alpaca
+        if (
+            res_quote
+            and isinstance(res_quote, dict)
+            and float(res_quote.get("c", 0.0)) == 0.0
+        ):
+            res_quote = None
+
+        if not res_quote and stock_historical_client:
+            from alpaca.data.requests import StockLatestTradeRequest
+
             try:
-                res_quote = await asyncio.to_thread(finnhub_client.quote, ticker)
-            except Exception:
-                res_quote = None
+                req = StockLatestTradeRequest(symbol_or_symbols=[ticker])
+                trade_res = await asyncio.to_thread(
+                    stock_historical_client.get_stock_latest_trade, req
+                )
+                if ticker in trade_res:
+                    # Mock Finnhub format so downstream logic works
+                    res_quote = {
+                        "c": float(trade_res[ticker].price),
+                        "v": float(trade_res[ticker].size),
+                        "av": 0.0,
+                    }
+                    print(
+                        f"[{ticker}] 🟡 Using Alpaca fallback quote: ${res_quote['c']}"
+                    )
+            except Exception as e:
+                logger.warning(f"[{ticker}] Alpaca quote fallback failed: {e}")
 
         intelligence_task = fundamental_agent.get_intelligence_metrics(ticker)
         deep_health_task = fundamental_agent.evaluate_deep_health(ticker)
