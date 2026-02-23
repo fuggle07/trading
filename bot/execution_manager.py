@@ -1,5 +1,6 @@
 import logging
 import os
+import requests
 from google.cloud import bigquery
 from datetime import datetime, timezone
 from alpaca.trading.client import TradingClient
@@ -236,3 +237,33 @@ class ExecutionManager:
             logger.warning(
                 f"[{data.get('ticker', 'Unknown')}] Failed to log to BigQuery ({self.table_id}): {e}"
             )
+
+    def _send_discord_alert(self, action, quantity, ticker, price, reason, mode):
+        """Sends a notification to the configured Discord webhook using an embed block."""
+        if not self.discord_webhook:
+            return
+
+        try:
+            color = 3066993 if action == "BUY" else 15158332
+            embed = {
+                "title": f"[{mode}] Trade Executed: {action} {ticker}",
+                "color": color,
+                "fields": [
+                    {"name": "Action", "value": action, "inline": True},
+                    {"name": "Ticker", "value": ticker, "inline": True},
+                    {"name": "Quantity", "value": str(quantity), "inline": True},
+                    {"name": "Price", "value": f"${price:.2f}", "inline": True},
+                    {"name": "Reason", "value": reason, "inline": False},
+                ],
+                "footer": {"text": "Aberfeldie Trading Node"}
+            }
+            payload = {
+                "username": "Trader Bot",
+                "embeds": [embed]
+            }
+            
+            resp = requests.post(self.discord_webhook, json=payload, timeout=5)
+            if resp.status_code >= 400:
+                logger.warning(f"Failed to send Discord alert: {resp.status_code} - {resp.text}")
+        except Exception as e:
+            logger.warning(f"Error sending Discord alert: {e}")
