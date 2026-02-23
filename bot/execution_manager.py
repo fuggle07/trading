@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
+import requests
 
 # Configure logging
 logger = logging.getLogger("execution-manager")
@@ -21,6 +22,7 @@ class ExecutionManager:
         self.bq_client = None
         self.table_id = "trading_data.executions"
         self.portfolio_manager = portfolio_manager
+        self.discord_webhook = os.getenv("DISCORD_WEBHOOK_URL")
 
         # Alpaca Setup
         self.alpaca_key = os.getenv("ALPACA_API_KEY")
@@ -151,6 +153,17 @@ class ExecutionManager:
                 logger.info(
                     f"[{ticker}] ✅ Alpaca Order Submitted: {alpaca_order_id} ({order.status})"
                 )
+                
+                mode = "Paper" if self.paper_trading else "LIVE"
+                # Send Discord Notification
+                self._send_discord_alert(
+                    action=action,
+                    quantity=quantity,
+                    ticker=ticker,
+                    price=price,
+                    reason=reason,
+                    mode=mode
+                )
 
             except Exception as e:
                 logger.error(f"[{ticker}] ❌ Alpaca Execution Failed: {e}")
@@ -205,21 +218,13 @@ class ExecutionManager:
             "details": execution_data,
         }
 
-    def _log_to_bigquery(self, data: dict):
-        """Logs execution data to BigQuery."""
+    def _log_to_bigquery(self, data):
+        """Internal helper to stream a single row to BigQuery."""
         if not self.bq_client:
             return
 
         try:
-            # Check if schema supports alpaca_order_id, if not it might ignore it or fail?
-            # BQ insert_rows_json usually handles extra fields by ignoring them if not in schema
-            # OR failing if strictly defined.
-            # Safe bet: The current schema likely doesn't have 'alpaca_order_id'.
-            # We should probably update the TF schema, but for now let's be safe and maybe put it in 'reason' or similar if needed?
-            # Actually, `executions` table is likely auto-created or defined in TF.
-            # Let's inspect IF we need to update TF.
-
-            errors = self.bq_client.insert_rows_json(self.table_id, [data], timeout=5)
+            errors = self.bq_client.insert_rows_json(self.table_id, [data])
             if errors:
                 logger.error(
                     f"[{data.get('ticker', 'Unknown')}] BigQuery Insert Errors: {errors}"
