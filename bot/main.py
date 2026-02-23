@@ -843,8 +843,9 @@ async def run_audit():
     # Determine if we have any actionable trades to print the header
     hedge_ticker = "PSQ"
     ps_score = signals.get(hedge_ticker, {}).get("meta", {}).get("sentiment", 0.0)
+    is_already_hedged = hedge_ticker in held_tickers
     hedge_eval_action, hedge_eval_target_pct = signal_agent.evaluate_macro_hedge(
-        macro_data, ps_score
+        macro_data, ps_score, is_hedged=is_already_hedged
     )
     current_hedge_pos = held_tickers.get(hedge_ticker, {})
     current_hedge_val = float(current_hedge_pos.get("market_value", 0.0))
@@ -967,7 +968,10 @@ async def run_audit():
     hedge_ticker = "PSQ"
     # Get the AI-derived sentiment for the hedge ticker if it exists
     ps_score = signals.get(hedge_ticker, {}).get("meta", {}).get("sentiment", 0.0)
-    hedge_action, target_pct = signal_agent.evaluate_macro_hedge(macro_data, ps_score)
+    is_already_hedged = hedge_ticker in held_tickers
+    hedge_action, target_pct = signal_agent.evaluate_macro_hedge(
+        macro_data, ps_score, is_hedged=is_already_hedged
+    )
 
     current_hedge_pos = held_tickers.get(hedge_ticker, {})
     current_hedge_val = float(current_hedge_pos.get("market_value", 0.0))

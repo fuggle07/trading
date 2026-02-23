@@ -548,32 +548,48 @@ class SignalAgent:
         return False
 
     def evaluate_macro_hedge(
-        self, macro_data: Dict, ai_sentiment: float = 0.0
+        self, macro_data: Dict, ai_sentiment: float = 0.0, is_hedged: bool = False
     ) -> tuple[str, float]:
         """
         Determines the portfolio hedge status and target percentage based on market risk.
+        Uses a continuous scaling function (VIX) and hysteresis to prevent flip-flopping.
         Now AI-Aware: Checks Gemini sentiment for the hedge ticker (e.g. PSQ) before triggering.
         """
-        indices = macro_data.get("indices", {})
         vix = float(macro_data.get("vix", 0.0))
 
         # Check for Gemini Veto: If AI hates the hedge (thinks market will recover), skip it.
         if ai_sentiment < -0.2:
             return "CLEAR_HEDGE", 0.0
 
-        # 1. Nasdaq Trend Check
-        qqq_price = indices.get("qqq_price", 0.0)
-        qqq_sma50 = indices.get("qqq_sma50", 0.0)
-        is_bearish_trend = qqq_price > 0 and qqq_sma50 > 0 and qqq_price < qqq_sma50
+        # Base Thresholds for Hysteresis
+        # Lower the exit threshold by 3 points to create a buffer
+        entry_threshold = 28.0
+        exit_threshold = 25.0
+        max_vix = 50.0
 
-        # --- DYNAMIC SCALING TIERS ---
-        if vix > 45.0:
-            return "BUY_HEDGE", 0.10  # Panic level
+        # Hysteresis Check: Do we stay in or get out?
+        if not is_hedged and vix < entry_threshold:
+            return "CLEAR_HEDGE", 0.0
+        if is_hedged and vix < exit_threshold:
+            return "CLEAR_HEDGE", 0.0
 
-        if is_bearish_trend and vix > 35.0:
-            return "BUY_HEDGE", 0.05  # High Fear
+        # At this point, we are hedging. Calculate scaled size.
+        # Scale between 2% at entry_threshold up to 10% at max_vix
+        # Cap VIX at max_vix for the math.
+        effective_vix = min(max_vix, max(entry_threshold, vix))
 
-        if is_bearish_trend or vix > 30.0:
-            return "BUY_HEDGE", 0.02  # Caution
+        # Calculate linear interpolation
+        pct_range = effective_vix - entry_threshold
+        max_range = max_vix - entry_threshold
 
-        return "CLEAR_HEDGE", 0.0
+        # Map 0 to max_range -> 0.02 to 0.10
+        base_hedge = 0.02
+        max_hedge = 0.10
+
+        slope = (max_hedge - base_hedge) / max_range if max_range > 0 else 0
+        scaled_hedge = base_hedge + (slope * pct_range)
+
+        # Round to 3 decimal places e.g., 0.025 -> 2.5% to limit floating point churn
+        scaled_hedge = round(scaled_hedge, 3)
+
+        return "BUY_HEDGE", scaled_hedge
