@@ -308,10 +308,19 @@ class FundamentalAgent:
             if insider_data and isinstance(insider_data, list):
                 # Calculate Insider Momentum: Buy vs Sell ratio in recent trades
                 buys = len(
-                    [t for t in insider_data if "Buy" in t.get("transactionType", "")]
+                    [
+                        t
+                        for t in insider_data
+                        if "Purchase" in str(t.get("transactionType", ""))
+                        or "Buy" in str(t.get("transactionType", ""))
+                    ]
                 )
                 sells = len(
-                    [t for t in insider_data if "Sale" in t.get("transactionType", "")]
+                    [
+                        t
+                        for t in insider_data
+                        if "Sale" in str(t.get("transactionType", ""))
+                    ]
                 )
                 total = buys + sells
                 if total > 0:
