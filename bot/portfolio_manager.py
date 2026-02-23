@@ -140,7 +140,7 @@ class PortfolioManager:
         Calculates total equity across all positions.
         current_prices: dict of {ticker: price}
         """
-        query = f"SELECT asset_name, holdings, cash_balance FROM `{self.table_id}`"
+        query = f"SELECT asset_name, holdings, cash_balance, avg_price FROM `{self.table_id}`"
         results = list(self.client.query(query).result())
 
         total_cash = 0.0
@@ -151,6 +151,7 @@ class PortfolioManager:
             ticker = row.asset_name
             cash = row.cash_balance
             holdings = row.holdings
+            avg_price = getattr(row, "avg_price", 0.0)
 
             # Special handling for USD
             if ticker == "USD":
@@ -172,6 +173,7 @@ class PortfolioManager:
                     "cash": cash,
                     "holdings": holdings,
                     "market_value": market_value,
+                    "avg_price": avg_price if avg_price is not None else 0.0,
                 }
             )
 
