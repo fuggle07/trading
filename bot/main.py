@@ -433,7 +433,17 @@ async def run_audit():
 
             p_market_val = 0.0
             for s, q in early_quotes.items():
-                p_market_val += float(held_tickers[s]) * float(q.ask_price)
+                ap = float(q.ask_price) if q.ask_price is not None else 0.0
+                bp = float(q.bid_price) if q.bid_price is not None else 0.0
+                # Fallback to bid if ask is 0 or missing, otherwise use ask
+                price_to_use = ap if ap > 0 else bp
+
+                if price_to_use == 0.0:
+                    print(
+                        f"⚠️ Warning: Could not get valid price quote for {s} from Alpaca. Valuing at 0."
+                    )
+
+                p_market_val += float(held_tickers[s]) * price_to_use
 
             p_cash = portfolio_manager.get_cash_balance()
             p_equity = p_cash + p_market_val
