@@ -1,11 +1,11 @@
 {
   "version": 4,
   "terraform_version": "1.5.7",
-  "serial": 245,
-  "lineage": "8c2032f8-6ac4-cefe-b96c-359afe2f72f5",
+  "serial": 394,
+  "lineage": "62872230-e886-e63a-2dd3-2c1decddaab4",
   "outputs": {
     "dashboard_url": {
-      "value": "https://console.cloud.google.com/monitoring/dashboards/custom/562c7a86-85d3-4d83-85b0-7592d945856b?project=utopian-calling-429014-r9",
+      "value": "https://console.cloud.google.com/monitoring/dashboards/custom/2e31d26f-534e-446c-8601-083f0497f2fe?project=utopian-calling-429014-r9",
       "type": "string"
     },
     "service_url": {
@@ -70,11 +70,9 @@
             "registry_uri": "us-central1-docker.pkg.dev/utopian-calling-429014-r9/trading-node-repo",
             "remote_repository_config": [],
             "repository_id": "trading-node-repo",
-            "terraform_labels": {
-              "goog-terraform-provisioned": "true"
-            },
+            "terraform_labels": {},
             "timeouts": null,
-            "update_time": "2026-02-19T01:18:28.427632Z",
+            "update_time": "2026-02-23T08:20:46.500920Z",
             "virtual_repository_config": [],
             "vulnerability_scanning_config": [
               {
@@ -85,7 +83,7 @@
             ]
           },
           "sensitive_attributes": [],
-          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19"
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMCJ9"
         }
       ]
     },
@@ -159,27 +157,25 @@
             "effective_labels": {
               "goog-terraform-provisioned": "true"
             },
-            "etag": "P6B39sklYVU6x11uYt4iGA==",
+            "etag": "rpSpeKI4lgMiUPs4XIThRg==",
             "external_catalog_dataset_options": [],
             "external_dataset_reference": [],
             "friendly_name": "",
             "id": "projects/utopian-calling-429014-r9/datasets/system_logs",
             "is_case_insensitive": false,
             "labels": {},
-            "last_modified_time": 1771301825126,
+            "last_modified_time": 1771513972312,
             "location": "us-central1",
             "max_time_travel_hours": "168",
             "project": "utopian-calling-429014-r9",
             "resource_tags": {},
             "self_link": "https://bigquery.googleapis.com/bigquery/v2/projects/utopian-calling-429014-r9/datasets/system_logs",
             "storage_billing_model": "",
-            "terraform_labels": {
-              "goog-terraform-provisioned": "true"
-            },
+            "terraform_labels": {},
             "timeouts": null
           },
           "sensitive_attributes": [],
-          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19"
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMCJ9"
         }
       ]
     },
@@ -260,32 +256,30 @@
             "default_encryption_configuration": [],
             "default_partition_expiration_ms": 0,
             "default_table_expiration_ms": 0,
-            "delete_contents_on_destroy": true,
+            "delete_contents_on_destroy": false,
             "description": "",
             "effective_labels": {
               "goog-terraform-provisioned": "true"
             },
-            "etag": "bhZc/IsUqkHIS6ivvsbEyg==",
+            "etag": "wx+QFAPe4cWJUI5UtSOyuA==",
             "external_catalog_dataset_options": [],
             "external_dataset_reference": [],
             "friendly_name": "Aberfeldie Trading Analytics",
             "id": "projects/utopian-calling-429014-r9/datasets/trading_data",
             "is_case_insensitive": false,
             "labels": {},
-            "last_modified_time": 1771302024913,
+            "last_modified_time": 1771514103815,
             "location": "us-central1",
             "max_time_travel_hours": "168",
             "project": "utopian-calling-429014-r9",
             "resource_tags": {},
             "self_link": "https://bigquery.googleapis.com/bigquery/v2/projects/utopian-calling-429014-r9/datasets/trading_data",
             "storage_billing_model": "",
-            "terraform_labels": {
-              "goog-terraform-provisioned": "true"
-            },
+            "terraform_labels": {},
             "timeouts": null
           },
           "sensitive_attributes": [],
-          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19"
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMCJ9"
         }
       ]
     },
@@ -334,7 +328,7 @@
               "goog-terraform-provisioned": "true"
             },
             "encryption_configuration": [],
-            "etag": "crHcFb+UItUcrnWvkOX5cg==",
+            "etag": "EWk0rN6hTHi3ZCT2s96BDw==",
             "expiration_time": 0,
             "external_catalog_table_options": [],
             "external_data_configuration": [],
@@ -344,13 +338,13 @@
             "ignore_auto_generated_schema": false,
             "ignore_schema_changes": null,
             "labels": {},
-            "last_modified_time": 1771428715742,
+            "last_modified_time": 1771828147960,
             "location": "us-central1",
             "materialized_view": [],
             "max_staleness": "",
-            "num_bytes": 518,
+            "num_bytes": 1372,
             "num_long_term_bytes": 0,
-            "num_rows": 4,
+            "num_rows": 10,
             "project": "utopian-calling-429014-r9",
             "range_partitioning": [],
             "require_partition_filter": false,
@@ -396,7 +390,7 @@
               "goog-terraform-provisioned": "true"
             },
             "encryption_configuration": [],
-            "etag": "RXpyPibvDeq/iSer+QCSJg==",
+            "etag": "SHL4wAcZXGJe5kGR4+7naQ==",
             "expiration_time": 0,
             "external_catalog_table_options": [],
             "external_data_configuration": [],
@@ -406,22 +400,146 @@
             "ignore_auto_generated_schema": false,
             "ignore_schema_changes": null,
             "labels": {},
-            "last_modified_time": 1771394484625,
+            "last_modified_time": 1771809213951,
             "location": "us-central1",
             "materialized_view": [],
             "max_staleness": "",
-            "num_bytes": 4430,
+            "num_bytes": 18326217,
             "num_long_term_bytes": 0,
-            "num_rows": 60,
+            "num_rows": 3899,
             "project": "utopian-calling-429014-r9",
             "range_partitioning": [],
             "require_partition_filter": false,
             "resource_tags": {},
-            "schema": "[{\"mode\":\"REQUIRED\",\"name\":\"timestamp\",\"type\":\"TIMESTAMP\"},{\"mode\":\"REQUIRED\",\"name\":\"ticker\",\"type\":\"STRING\"},{\"mode\":\"REQUIRED\",\"name\":\"is_healthy\",\"type\":\"BOOLEAN\"},{\"mode\":\"NULLABLE\",\"name\":\"health_reason\",\"type\":\"STRING\"},{\"mode\":\"REQUIRED\",\"name\":\"is_deep_healthy\",\"type\":\"BOOLEAN\"},{\"mode\":\"NULLABLE\",\"name\":\"deep_health_reason\",\"type\":\"STRING\"}]",
+            "schema": "[{\"mode\":\"REQUIRED\",\"name\":\"timestamp\",\"type\":\"TIMESTAMP\"},{\"mode\":\"REQUIRED\",\"name\":\"ticker\",\"type\":\"STRING\"},{\"mode\":\"REQUIRED\",\"name\":\"is_healthy\",\"type\":\"BOOLEAN\"},{\"mode\":\"NULLABLE\",\"name\":\"health_reason\",\"type\":\"STRING\"},{\"mode\":\"REQUIRED\",\"name\":\"is_deep_healthy\",\"type\":\"BOOLEAN\"},{\"mode\":\"NULLABLE\",\"name\":\"deep_health_reason\",\"type\":\"STRING\"},{\"description\":\"Raw FMP metrics snapshot (PE, F-Score, DCF, ROE etc.)\",\"mode\":\"NULLABLE\",\"name\":\"metrics_json\",\"type\":\"STRING\"}]",
             "schema_foreign_type_info": [],
             "self_link": "https://bigquery.googleapis.com/bigquery/v2/projects/utopian-calling-429014-r9/datasets/trading_data/tables/fundamental_cache",
             "table_constraints": [],
             "table_id": "fundamental_cache",
+            "table_metadata_view": null,
+            "table_replication_info": [],
+            "terraform_labels": {
+              "goog-terraform-provisioned": "true"
+            },
+            "time_partitioning": [],
+            "type": "TABLE",
+            "view": []
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA==",
+          "dependencies": [
+            "google_bigquery_dataset.trading_data"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "google_bigquery_table",
+      "name": "learning_insights",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "biglake_configuration": [],
+            "clustering": null,
+            "creation_time": 1771385054754,
+            "dataset_id": "trading_data",
+            "deletion_protection": false,
+            "description": "",
+            "effective_labels": {
+              "goog-terraform-provisioned": "true"
+            },
+            "encryption_configuration": [],
+            "etag": "RVaUK3OoqkKOR4HdTcuCqQ==",
+            "expiration_time": 0,
+            "external_catalog_table_options": [],
+            "external_data_configuration": [],
+            "friendly_name": "",
+            "generated_schema_columns": "",
+            "id": "projects/utopian-calling-429014-r9/datasets/trading_data/tables/learning_insights",
+            "ignore_auto_generated_schema": false,
+            "ignore_schema_changes": null,
+            "labels": {},
+            "last_modified_time": 1771624101654,
+            "location": "us-central1",
+            "materialized_view": [],
+            "max_staleness": "",
+            "num_bytes": 84602,
+            "num_long_term_bytes": 0,
+            "num_rows": 391,
+            "project": "utopian-calling-429014-r9",
+            "range_partitioning": [],
+            "require_partition_filter": false,
+            "resource_tags": {},
+            "schema": "[{\"mode\":\"REQUIRED\",\"name\":\"timestamp\",\"type\":\"TIMESTAMP\"},{\"mode\":\"REQUIRED\",\"name\":\"ticker\",\"type\":\"STRING\"},{\"mode\":\"REQUIRED\",\"name\":\"lesson\",\"type\":\"STRING\"},{\"description\":\"e.g., 'Macro Ignore', 'Over-reaction', 'Sector Correlation'\",\"mode\":\"NULLABLE\",\"name\":\"category\",\"type\":\"STRING\"}]",
+            "schema_foreign_type_info": [],
+            "self_link": "https://bigquery.googleapis.com/bigquery/v2/projects/utopian-calling-429014-r9/datasets/trading_data/tables/learning_insights",
+            "table_constraints": [],
+            "table_id": "learning_insights",
+            "table_metadata_view": null,
+            "table_replication_info": [],
+            "terraform_labels": {
+              "goog-terraform-provisioned": "true"
+            },
+            "time_partitioning": [],
+            "type": "TABLE",
+            "view": []
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA==",
+          "dependencies": [
+            "google_bigquery_dataset.trading_data"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "google_bigquery_table",
+      "name": "macro_snapshots",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "biglake_configuration": [],
+            "clustering": null,
+            "creation_time": 1771492503717,
+            "dataset_id": "trading_data",
+            "deletion_protection": false,
+            "description": "",
+            "effective_labels": {
+              "goog-terraform-provisioned": "true"
+            },
+            "encryption_configuration": [],
+            "etag": "H5k9/SlzKGVl5msGYyBppQ==",
+            "expiration_time": 0,
+            "external_catalog_table_options": [],
+            "external_data_configuration": [],
+            "friendly_name": "",
+            "generated_schema_columns": "",
+            "id": "projects/utopian-calling-429014-r9/datasets/trading_data/tables/macro_snapshots",
+            "ignore_auto_generated_schema": false,
+            "ignore_schema_changes": null,
+            "labels": {},
+            "last_modified_time": 1771809203627,
+            "location": "us-central1",
+            "materialized_view": [],
+            "max_staleness": "",
+            "num_bytes": 437688,
+            "num_long_term_bytes": 0,
+            "num_rows": 601,
+            "project": "utopian-calling-429014-r9",
+            "range_partitioning": [],
+            "require_partition_filter": false,
+            "resource_tags": {},
+            "schema": "[{\"mode\":\"REQUIRED\",\"name\":\"timestamp\",\"type\":\"TIMESTAMP\"},{\"description\":\"VIX fear index\",\"mode\":\"NULLABLE\",\"name\":\"vix\",\"type\":\"FLOAT\"},{\"description\":\"SPY % change\",\"mode\":\"NULLABLE\",\"name\":\"spy_perf\",\"type\":\"FLOAT\"},{\"description\":\"QQQ % change\",\"mode\":\"NULLABLE\",\"name\":\"qqq_perf\",\"type\":\"FLOAT\"},{\"description\":\"US 10Y Treasury Yield\",\"mode\":\"NULLABLE\",\"name\":\"yield_10y\",\"type\":\"FLOAT\"},{\"description\":\"US 2Y Treasury Yield\",\"mode\":\"NULLABLE\",\"name\":\"yield_2y\",\"type\":\"FLOAT\"},{\"description\":\"Data source: FMP/Finnhub/AlphaVantage\",\"mode\":\"NULLABLE\",\"name\":\"yield_source\",\"type\":\"STRING\"},{\"description\":\"High-impact economic events JSON\",\"mode\":\"NULLABLE\",\"name\":\"calendar_json\",\"type\":\"STRING\"}]",
+            "schema_foreign_type_info": [],
+            "self_link": "https://bigquery.googleapis.com/bigquery/v2/projects/utopian-calling-429014-r9/datasets/trading_data/tables/macro_snapshots",
+            "table_constraints": [],
+            "table_id": "macro_snapshots",
             "table_metadata_view": null,
             "table_replication_info": [],
             "terraform_labels": {
@@ -468,13 +586,13 @@
             "ignore_auto_generated_schema": false,
             "ignore_schema_changes": null,
             "labels": {},
-            "last_modified_time": 1771455690705,
+            "last_modified_time": 1771809221952,
             "location": "us-central1",
             "materialized_view": [],
             "max_staleness": "",
-            "num_bytes": 42584,
+            "num_bytes": 87959,
             "num_long_term_bytes": 0,
-            "num_rows": 566,
+            "num_rows": 1171,
             "project": "utopian-calling-429014-r9",
             "range_partitioning": [],
             "require_partition_filter": false,
@@ -520,7 +638,7 @@
               "goog-terraform-provisioned": "true"
             },
             "encryption_configuration": [],
-            "etag": "6GgDDLySIoda6DncWZUSPw==",
+            "etag": "kcJc1wudw3uXo0tZ0smQsw==",
             "expiration_time": 0,
             "external_catalog_table_options": [],
             "external_data_configuration": [],
@@ -530,13 +648,13 @@
             "ignore_auto_generated_schema": false,
             "ignore_schema_changes": null,
             "labels": {},
-            "last_modified_time": 1771425747112,
+            "last_modified_time": 1771828145569,
             "location": "us-central1",
             "materialized_view": [],
             "max_staleness": "",
-            "num_bytes": 302,
+            "num_bytes": 376,
             "num_long_term_bytes": 0,
-            "num_rows": 8,
+            "num_rows": 10,
             "project": "utopian-calling-429014-r9",
             "range_partitioning": [],
             "require_partition_filter": false,
@@ -546,6 +664,68 @@
             "self_link": "https://bigquery.googleapis.com/bigquery/v2/projects/utopian-calling-429014-r9/datasets/trading_data/tables/portfolio",
             "table_constraints": [],
             "table_id": "portfolio",
+            "table_metadata_view": null,
+            "table_replication_info": [],
+            "terraform_labels": {
+              "goog-terraform-provisioned": "true"
+            },
+            "time_partitioning": [],
+            "type": "TABLE",
+            "view": []
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA==",
+          "dependencies": [
+            "google_bigquery_dataset.trading_data"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "google_bigquery_table",
+      "name": "ticker_rankings",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "biglake_configuration": [],
+            "clustering": null,
+            "creation_time": 1771334647972,
+            "dataset_id": "trading_data",
+            "deletion_protection": false,
+            "description": "",
+            "effective_labels": {
+              "goog-terraform-provisioned": "true"
+            },
+            "encryption_configuration": [],
+            "etag": "Uai6GSh7vSfdxlH0XH06mg==",
+            "expiration_time": 0,
+            "external_catalog_table_options": [],
+            "external_data_configuration": [],
+            "friendly_name": "",
+            "generated_schema_columns": "",
+            "id": "projects/utopian-calling-429014-r9/datasets/trading_data/tables/ticker_rankings",
+            "ignore_auto_generated_schema": false,
+            "ignore_schema_changes": null,
+            "labels": {},
+            "last_modified_time": 1771727839464,
+            "location": "us-central1",
+            "materialized_view": [],
+            "max_staleness": "",
+            "num_bytes": 50720,
+            "num_long_term_bytes": 0,
+            "num_rows": 182,
+            "project": "utopian-calling-429014-r9",
+            "range_partitioning": [],
+            "require_partition_filter": false,
+            "resource_tags": {},
+            "schema": "[{\"mode\":\"REQUIRED\",\"name\":\"timestamp\",\"type\":\"TIMESTAMP\"},{\"mode\":\"REQUIRED\",\"name\":\"ticker\",\"type\":\"STRING\"},{\"mode\":\"REQUIRED\",\"name\":\"sentiment\",\"type\":\"FLOAT\"},{\"mode\":\"REQUIRED\",\"name\":\"confidence\",\"type\":\"INTEGER\"},{\"mode\":\"NULLABLE\",\"name\":\"reason\",\"type\":\"STRING\"},{\"description\":\"Full Gemini reasoning text\",\"mode\":\"NULLABLE\",\"name\":\"gemini_reasoning\",\"type\":\"STRING\"}]",
+            "schema_foreign_type_info": [],
+            "self_link": "https://bigquery.googleapis.com/bigquery/v2/projects/utopian-calling-429014-r9/datasets/trading_data/tables/ticker_rankings",
+            "table_constraints": [],
+            "table_id": "ticker_rankings",
             "table_metadata_view": null,
             "table_replication_info": [],
             "terraform_labels": {
@@ -582,7 +762,7 @@
               "goog-terraform-provisioned": "true"
             },
             "encryption_configuration": [],
-            "etag": "YZfuEvhd27WzsdXIOZ9Oiw==",
+            "etag": "6ejteCOWLBM4G05l83A0EA==",
             "expiration_time": 0,
             "external_catalog_table_options": [],
             "external_data_configuration": [],
@@ -592,18 +772,18 @@
             "ignore_auto_generated_schema": false,
             "ignore_schema_changes": null,
             "labels": {},
-            "last_modified_time": 1771455677611,
+            "last_modified_time": 1771809217917,
             "location": "us-central1",
             "materialized_view": [],
             "max_staleness": "",
-            "num_bytes": 99859,
+            "num_bytes": 2294699,
             "num_long_term_bytes": 0,
-            "num_rows": 3347,
+            "num_rows": 9348,
             "project": "utopian-calling-429014-r9",
             "range_partitioning": [],
             "require_partition_filter": false,
             "resource_tags": {},
-            "schema": "[{\"mode\":\"REQUIRED\",\"name\":\"timestamp\",\"type\":\"TIMESTAMP\"},{\"mode\":\"REQUIRED\",\"name\":\"ticker\",\"type\":\"STRING\"},{\"mode\":\"REQUIRED\",\"name\":\"price\",\"type\":\"FLOAT\"},{\"mode\":\"NULLABLE\",\"name\":\"sentiment_score\",\"type\":\"FLOAT\"}]",
+            "schema": "[{\"mode\":\"REQUIRED\",\"name\":\"timestamp\",\"type\":\"TIMESTAMP\"},{\"mode\":\"REQUIRED\",\"name\":\"ticker\",\"type\":\"STRING\"},{\"mode\":\"REQUIRED\",\"name\":\"price\",\"type\":\"FLOAT\"},{\"mode\":\"NULLABLE\",\"name\":\"sentiment_score\",\"type\":\"FLOAT\"},{\"description\":\"14-day RSI\",\"mode\":\"NULLABLE\",\"name\":\"rsi\",\"type\":\"FLOAT\"},{\"mode\":\"NULLABLE\",\"name\":\"sma_20\",\"type\":\"FLOAT\"},{\"mode\":\"NULLABLE\",\"name\":\"sma_50\",\"type\":\"FLOAT\"},{\"description\":\"Bollinger Band Upper\",\"mode\":\"NULLABLE\",\"name\":\"bb_upper\",\"type\":\"FLOAT\"},{\"description\":\"Bollinger Band Lower\",\"mode\":\"NULLABLE\",\"name\":\"bb_lower\",\"type\":\"FLOAT\"},{\"description\":\"Piotroski F-Score (0-9)\",\"mode\":\"NULLABLE\",\"name\":\"f_score\",\"type\":\"INTEGER\"},{\"description\":\"Signal conviction (0-100)\",\"mode\":\"NULLABLE\",\"name\":\"conviction\",\"type\":\"INTEGER\"},{\"description\":\"Gemini sentiment reasoning\",\"mode\":\"NULLABLE\",\"name\":\"gemini_reasoning\",\"type\":\"STRING\"}]",
             "schema_foreign_type_info": [],
             "self_link": "https://bigquery.googleapis.com/bigquery/v2/projects/utopian-calling-429014-r9/datasets/trading_data/tables/watchlist_logs",
             "table_constraints": [],
@@ -627,57 +807,6 @@
     },
     {
       "mode": "managed",
-      "type": "google_billing_budget",
-      "name": "budget_alert",
-      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
-      "instances": [
-        {
-          "schema_version": 1,
-          "attributes": {
-            "all_updates_rule": [],
-            "amount": [
-              {
-                "last_period_amount": false,
-                "specified_amount": [
-                  {
-                    "currency_code": "AUD",
-                    "nanos": 0,
-                    "units": "15"
-                  }
-                ]
-              }
-            ],
-            "billing_account": "017BBC-3B0075-8F989F",
-            "budget_filter": [
-              {
-                "calendar_period": "MONTH",
-                "credit_types": [],
-                "credit_types_treatment": "INCLUDE_ALL_CREDITS",
-                "custom_period": [],
-                "labels": {},
-                "projects": [],
-                "resource_ancestors": [],
-                "services": [],
-                "subaccounts": []
-              }
-            ],
-            "display_name": "Trading Bot Monthly Budget",
-            "id": "billingAccounts/017BBC-3B0075-8F989F/budgets/3ed32f3f-1bab-48ed-bb1a-2eb2bd7da552",
-            "name": "3ed32f3f-1bab-48ed-bb1a-2eb2bd7da552",
-            "ownership_scope": "",
-            "threshold_rules": [],
-            "timeouts": null
-          },
-          "sensitive_attributes": [],
-          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMSJ9",
-          "dependencies": [
-            "google_project_service.billing_budgets"
-          ]
-        }
-      ]
-    },
-    {
-      "mode": "managed",
       "type": "google_cloud_run_v2_service",
       "name": "trading_bot",
       "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
@@ -693,7 +822,7 @@
             "conditions": [
               {
                 "execution_reason": "",
-                "last_transition_time": "2026-02-19T01:19:23.696338Z",
+                "last_transition_time": "2026-02-23T06:43:18.550563Z",
                 "message": "",
                 "reason": "",
                 "revision_reason": "",
@@ -703,7 +832,7 @@
               },
               {
                 "execution_reason": "",
-                "last_transition_time": "2026-02-19T01:18:58.431953Z",
+                "last_transition_time": "2026-02-23T06:43:03.798630Z",
                 "message": "",
                 "reason": "",
                 "revision_reason": "",
@@ -723,21 +852,21 @@
             "effective_labels": {
               "goog-terraform-provisioned": "true"
             },
-            "etag": "\"CPTJ2cwGEJCW0tED/cHJvamVjdHMvdXRvcGlhbi1jYWxsaW5nLTQyOTAxNC1yOS9sb2NhdGlvbnMvdXMtY2VudHJhbDEvc2VydmljZXMvdHJhZGluZy1hdWRpdC1hZ2VudA\"",
+            "etag": "\"CMXt78wGEJiciXY/cHJvamVjdHMvdXRvcGlhbi1jYWxsaW5nLTQyOTAxNC1yOS9sb2NhdGlvbnMvdXMtY2VudHJhbDEvc2VydmljZXMvdHJhZGluZy1hdWRpdC1hZ2VudA\"",
             "expire_time": "",
-            "generation": "145",
+            "generation": "225",
             "id": "projects/utopian-calling-429014-r9/locations/us-central1/services/trading-audit-agent",
             "ingress": "INGRESS_TRAFFIC_ALL",
             "invoker_iam_disabled": false,
             "labels": {},
             "last_modifier": "pfuggle@gmail.com",
-            "latest_created_revision": "projects/utopian-calling-429014-r9/locations/us-central1/services/trading-audit-agent/revisions/trading-audit-agent-00143-b8n",
-            "latest_ready_revision": "projects/utopian-calling-429014-r9/locations/us-central1/services/trading-audit-agent/revisions/trading-audit-agent-00143-b8n",
+            "latest_created_revision": "projects/utopian-calling-429014-r9/locations/us-central1/services/trading-audit-agent/revisions/trading-audit-agent-00223-zr9",
+            "latest_ready_revision": "projects/utopian-calling-429014-r9/locations/us-central1/services/trading-audit-agent/revisions/trading-audit-agent-00223-zr9",
             "launch_stage": "GA",
             "location": "us-central1",
             "multi_region_settings": [],
             "name": "trading-audit-agent",
-            "observed_generation": "145",
+            "observed_generation": "225",
             "project": "utopian-calling-429014-r9",
             "reconciling": false,
             "scaling": [
@@ -788,6 +917,11 @@
                         ]
                       },
                       {
+                        "name": "ALPACA_PAPER_TRADING",
+                        "value": "True",
+                        "value_source": []
+                      },
+                      {
                         "name": "ALPHA_VANTAGE_KEY",
                         "value": "",
                         "value_source": [
@@ -803,12 +937,12 @@
                       },
                       {
                         "name": "BASE_TICKERS",
-                        "value": "NVDA,TSLA,AMD,PLTR,COIN,META,MSTR",
+                        "value": "TSLA,NVDA,AMD,MU,PLTR,COIN,META,AAPL,MSFT,GOLD,AMZN,AVGO,ASML,LLY,LMT,VRT,CEG,TSM",
                         "value_source": []
                       },
                       {
                         "name": "DEPLOY_TIME",
-                        "value": "1771463913",
+                        "value": "1771828921",
                         "value_source": []
                       },
                       {
@@ -826,13 +960,37 @@
                         ]
                       },
                       {
+                        "name": "FMP_KEY",
+                        "value": "",
+                        "value_source": [
+                          {
+                            "secret_key_ref": [
+                              {
+                                "secret": "FMP_KEY",
+                                "version": "latest"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
                         "name": "GOOGLE_CLOUD_PROJECT",
                         "value": "utopian-calling-429014-r9",
                         "value_source": []
                       },
                       {
+                        "name": "INITIAL_CASH",
+                        "value": "70000",
+                        "value_source": []
+                      },
+                      {
+                        "name": "MIN_EXPOSURE_THRESHOLD",
+                        "value": "0.85",
+                        "value_source": []
+                      },
+                      {
                         "name": "MORTGAGE_RATE",
-                        "value": "0.052",
+                        "value": "0.054",
                         "value_source": []
                       },
                       {
@@ -926,7 +1084,7 @@
             "terminal_condition": [
               {
                 "execution_reason": "",
-                "last_transition_time": "2026-02-19T01:19:23.734532Z",
+                "last_transition_time": "2026-02-23T06:43:18.587899Z",
                 "message": "",
                 "reason": "",
                 "revision_reason": "",
@@ -957,7 +1115,7 @@
               }
             ],
             "uid": "4f4f01a4-82a4-42f5-b0de-10a479edc771",
-            "update_time": "2026-02-19T01:18:44.976522Z",
+            "update_time": "2026-02-23T06:42:13.247615Z",
             "uri": "https://trading-audit-agent-ae4be7hzja-uc.a.run.app",
             "urls": [
               "https://trading-audit-agent-848550797370.us-central1.run.app",
@@ -967,7 +1125,6 @@
           "sensitive_attributes": [],
           "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19",
           "dependencies": [
-            "google_secret_manager_secret.secrets",
             "google_secret_manager_secret_version.initial_versions",
             "google_service_account.bot_sa"
           ]
@@ -984,7 +1141,7 @@
           "schema_version": 0,
           "attributes": {
             "condition": [],
-            "etag": "BwZLDoR3EMY=",
+            "etag": "BwZLLsnJnmM=",
             "id": "projects/utopian-calling-429014-r9/locations/us-central1/services/trading-audit-agent/roles/run.invoker/serviceAccount:trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
             "location": "us-central1",
             "member": "serviceAccount:trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
@@ -994,6 +1151,312 @@
           },
           "sensitive_attributes": [],
           "private": "bnVsbA==",
+          "dependencies": [
+            "google_cloud_run_v2_service.trading_bot",
+            "google_secret_manager_secret.secrets",
+            "google_secret_manager_secret_iam_member.secret_access",
+            "google_secret_manager_secret_version.initial_versions",
+            "google_service_account.bot_sa"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "google_cloud_scheduler_job",
+      "name": "audit_trigger",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "app_engine_http_target": [],
+            "attempt_deadline": "320s",
+            "description": "High-frequency audit (Every 1 minute during market hours)",
+            "http_target": [
+              {
+                "body": "",
+                "headers": {},
+                "http_method": "POST",
+                "oauth_token": [],
+                "oidc_token": [
+                  {
+                    "audience": "https://trading-audit-agent-ae4be7hzja-uc.a.run.app",
+                    "service_account_email": "trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com"
+                  }
+                ],
+                "uri": "https://trading-audit-agent-ae4be7hzja-uc.a.run.app/run-audit"
+              }
+            ],
+            "id": "projects/utopian-calling-429014-r9/locations/us-central1/jobs/trading-audit-trigger",
+            "name": "trading-audit-trigger",
+            "paused": false,
+            "project": "utopian-calling-429014-r9",
+            "pubsub_target": [],
+            "region": "us-central1",
+            "retry_config": [],
+            "schedule": "* 9-16 * * 1-5",
+            "state": "ENABLED",
+            "time_zone": "America/New_York",
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19",
+          "dependencies": [
+            "google_cloud_run_v2_service.trading_bot",
+            "google_secret_manager_secret.secrets",
+            "google_secret_manager_secret_iam_member.secret_access",
+            "google_secret_manager_secret_version.initial_versions",
+            "google_service_account.bot_sa"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "google_cloud_scheduler_job",
+      "name": "hindsight_trigger",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "app_engine_http_target": [],
+            "attempt_deadline": "320s",
+            "description": "Post-market hindsight reflection (6:00 PM ET)",
+            "http_target": [
+              {
+                "body": "",
+                "headers": {},
+                "http_method": "POST",
+                "oauth_token": [],
+                "oidc_token": [
+                  {
+                    "audience": "https://trading-audit-agent-ae4be7hzja-uc.a.run.app",
+                    "service_account_email": "trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com"
+                  }
+                ],
+                "uri": "https://trading-audit-agent-ae4be7hzja-uc.a.run.app/run-hindsight"
+              }
+            ],
+            "id": "projects/utopian-calling-429014-r9/locations/us-central1/jobs/trading-hindsight-reflection",
+            "name": "trading-hindsight-reflection",
+            "paused": false,
+            "project": "utopian-calling-429014-r9",
+            "pubsub_target": [],
+            "region": "us-central1",
+            "retry_config": [],
+            "schedule": "0 18 * * 1-5",
+            "state": "ENABLED",
+            "time_zone": "America/New_York",
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMCJ9",
+          "dependencies": [
+            "google_cloud_run_v2_service.trading_bot",
+            "google_secret_manager_secret.secrets",
+            "google_secret_manager_secret_iam_member.secret_access",
+            "google_secret_manager_secret_version.initial_versions",
+            "google_service_account.bot_sa"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "google_cloud_scheduler_job",
+      "name": "intraday_feedback_trigger",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "app_engine_http_target": [],
+            "attempt_deadline": "310s",
+            "description": "Hourly intraday AI feedback (Every hour during market hours)",
+            "http_target": [
+              {
+                "body": "",
+                "headers": {},
+                "http_method": "POST",
+                "oauth_token": [],
+                "oidc_token": [
+                  {
+                    "audience": "https://trading-audit-agent-ae4be7hzja-uc.a.run.app",
+                    "service_account_email": "trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com"
+                  }
+                ],
+                "uri": "https://trading-audit-agent-ae4be7hzja-uc.a.run.app/run-hindsight"
+              }
+            ],
+            "id": "projects/utopian-calling-429014-r9/locations/us-central1/jobs/trading-intraday-feedback",
+            "name": "trading-intraday-feedback",
+            "paused": false,
+            "project": "utopian-calling-429014-r9",
+            "pubsub_target": [],
+            "region": "us-central1",
+            "retry_config": [],
+            "schedule": "0 10-15 * * 1-5",
+            "state": "ENABLED",
+            "time_zone": "America/New_York",
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMCJ9",
+          "dependencies": [
+            "google_cloud_run_v2_service.trading_bot",
+            "google_secret_manager_secret.secrets",
+            "google_secret_manager_secret_iam_member.secret_access",
+            "google_secret_manager_secret_version.initial_versions",
+            "google_service_account.bot_sa"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "google_cloud_scheduler_job",
+      "name": "ticker_rank_midday",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "app_engine_http_target": [],
+            "attempt_deadline": "320s",
+            "description": "Midday ticker re-rank (12:00 PM ET) — absorbs morning price action",
+            "http_target": [
+              {
+                "body": "",
+                "headers": {},
+                "http_method": "POST",
+                "oauth_token": [],
+                "oidc_token": [
+                  {
+                    "audience": "https://trading-audit-agent-ae4be7hzja-uc.a.run.app",
+                    "service_account_email": "trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com"
+                  }
+                ],
+                "uri": "https://trading-audit-agent-ae4be7hzja-uc.a.run.app/rank-tickers"
+              }
+            ],
+            "id": "projects/utopian-calling-429014-r9/locations/us-central1/jobs/trading-ticker-ranker-midday",
+            "name": "trading-ticker-ranker-midday",
+            "paused": false,
+            "project": "utopian-calling-429014-r9",
+            "pubsub_target": [],
+            "region": "us-central1",
+            "retry_config": [],
+            "schedule": "0 12 * * 1-5",
+            "state": "ENABLED",
+            "time_zone": "America/New_York",
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19",
+          "dependencies": [
+            "google_cloud_run_v2_service.trading_bot",
+            "google_secret_manager_secret.secrets",
+            "google_secret_manager_secret_iam_member.secret_access",
+            "google_secret_manager_secret_version.initial_versions",
+            "google_service_account.bot_sa"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "google_cloud_scheduler_job",
+      "name": "ticker_rank_power_hour",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "app_engine_http_target": [],
+            "attempt_deadline": "320s",
+            "description": "Pre-power-hour ticker re-rank (2:00 PM ET) — 90-min runway before close",
+            "http_target": [
+              {
+                "body": "",
+                "headers": {},
+                "http_method": "POST",
+                "oauth_token": [],
+                "oidc_token": [
+                  {
+                    "audience": "https://trading-audit-agent-ae4be7hzja-uc.a.run.app",
+                    "service_account_email": "trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com"
+                  }
+                ],
+                "uri": "https://trading-audit-agent-ae4be7hzja-uc.a.run.app/rank-tickers"
+              }
+            ],
+            "id": "projects/utopian-calling-429014-r9/locations/us-central1/jobs/trading-ticker-ranker-power-hour",
+            "name": "trading-ticker-ranker-power-hour",
+            "paused": false,
+            "project": "utopian-calling-429014-r9",
+            "pubsub_target": [],
+            "region": "us-central1",
+            "retry_config": [],
+            "schedule": "0 14 * * 1-5",
+            "state": "ENABLED",
+            "time_zone": "America/New_York",
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19",
+          "dependencies": [
+            "google_cloud_run_v2_service.trading_bot",
+            "google_secret_manager_secret.secrets",
+            "google_secret_manager_secret_iam_member.secret_access",
+            "google_secret_manager_secret_version.initial_versions",
+            "google_service_account.bot_sa"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
+      "type": "google_cloud_scheduler_job",
+      "name": "ticker_rank_premarket",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "app_engine_http_target": [],
+            "attempt_deadline": "320s",
+            "description": "Pre-market sentiment scan (9:00 AM ET)",
+            "http_target": [
+              {
+                "body": "",
+                "headers": {},
+                "http_method": "POST",
+                "oauth_token": [],
+                "oidc_token": [
+                  {
+                    "audience": "https://trading-audit-agent-ae4be7hzja-uc.a.run.app",
+                    "service_account_email": "trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com"
+                  }
+                ],
+                "uri": "https://trading-audit-agent-ae4be7hzja-uc.a.run.app/rank-tickers"
+              }
+            ],
+            "id": "projects/utopian-calling-429014-r9/locations/us-central1/jobs/trading-ticker-ranker-premarket",
+            "name": "trading-ticker-ranker-premarket",
+            "paused": false,
+            "project": "utopian-calling-429014-r9",
+            "pubsub_target": [],
+            "region": "us-central1",
+            "retry_config": [],
+            "schedule": "0 9 * * 1-5",
+            "state": "ENABLED",
+            "time_zone": "America/New_York",
+            "timeouts": null
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19",
           "dependencies": [
             "google_cloud_run_v2_service.trading_bot",
             "google_secret_manager_secret.secrets",
@@ -1057,300 +1520,6 @@
     },
     {
       "mode": "managed",
-      "type": "google_logging_metric",
-      "name": "exposure_pct",
-      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
-      "instances": [
-        {
-          "schema_version": 0,
-          "attributes": {
-            "bucket_name": "",
-            "bucket_options": [
-              {
-                "explicit_buckets": [],
-                "exponential_buckets": [],
-                "linear_buckets": [
-                  {
-                    "num_finite_buckets": 20,
-                    "offset": 0,
-                    "width": 5
-                  }
-                ]
-              }
-            ],
-            "description": "",
-            "disabled": false,
-            "filter": "resource.type=\"cloud_run_revision\" AND jsonPayload.message=~\"Logged Performance\"",
-            "id": "trading/exposure_pct",
-            "label_extractors": null,
-            "metric_descriptor": [
-              {
-                "display_name": "",
-                "labels": [],
-                "metric_kind": "DELTA",
-                "unit": "1",
-                "value_type": "DISTRIBUTION"
-              }
-            ],
-            "name": "trading/exposure_pct",
-            "project": "utopian-calling-429014-r9",
-            "timeouts": null,
-            "value_extractor": "EXTRACT(jsonPayload.exposure_pct)"
-          },
-          "sensitive_attributes": [],
-          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19"
-        }
-      ]
-    },
-    {
-      "mode": "managed",
-      "type": "google_logging_metric",
-      "name": "market_value",
-      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
-      "instances": [
-        {
-          "schema_version": 0,
-          "attributes": {
-            "bucket_name": "",
-            "bucket_options": [
-              {
-                "explicit_buckets": [],
-                "exponential_buckets": [
-                  {
-                    "growth_factor": 2,
-                    "num_finite_buckets": 64,
-                    "scale": 0.01
-                  }
-                ],
-                "linear_buckets": []
-              }
-            ],
-            "description": "",
-            "disabled": false,
-            "filter": "resource.type=\"cloud_run_revision\" AND jsonPayload.message=~\"Logged Performance\"",
-            "id": "trading/market_value",
-            "label_extractors": null,
-            "metric_descriptor": [
-              {
-                "display_name": "",
-                "labels": [],
-                "metric_kind": "DELTA",
-                "unit": "1",
-                "value_type": "DISTRIBUTION"
-              }
-            ],
-            "name": "trading/market_value",
-            "project": "utopian-calling-429014-r9",
-            "timeouts": null,
-            "value_extractor": "EXTRACT(jsonPayload.total_market_value)"
-          },
-          "sensitive_attributes": [],
-          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19"
-        }
-      ]
-    },
-    {
-      "mode": "managed",
-      "type": "google_logging_metric",
-      "name": "paper_equity",
-      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
-      "instances": [
-        {
-          "schema_version": 0,
-          "attributes": {
-            "bucket_name": "",
-            "bucket_options": [
-              {
-                "explicit_buckets": [],
-                "exponential_buckets": [
-                  {
-                    "growth_factor": 2,
-                    "num_finite_buckets": 64,
-                    "scale": 0.01
-                  }
-                ],
-                "linear_buckets": []
-              }
-            ],
-            "description": "",
-            "disabled": false,
-            "filter": "resource.type=\"cloud_run_revision\" AND jsonPayload.message=~\"Logged Performance\"",
-            "id": "trading/paper_equity",
-            "label_extractors": {
-              "node_id": "EXTRACT(jsonPayload.node_id)"
-            },
-            "metric_descriptor": [
-              {
-                "display_name": "",
-                "labels": [
-                  {
-                    "description": "",
-                    "key": "node_id",
-                    "value_type": "STRING"
-                  }
-                ],
-                "metric_kind": "DELTA",
-                "unit": "1",
-                "value_type": "DISTRIBUTION"
-              }
-            ],
-            "name": "trading/paper_equity",
-            "project": "utopian-calling-429014-r9",
-            "timeouts": null,
-            "value_extractor": "EXTRACT(jsonPayload.paper_equity)"
-          },
-          "sensitive_attributes": [],
-          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMCJ9"
-        }
-      ]
-    },
-    {
-      "mode": "managed",
-      "type": "google_logging_metric",
-      "name": "prediction_confidence",
-      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
-      "instances": [
-        {
-          "schema_version": 0,
-          "attributes": {
-            "bucket_name": "",
-            "bucket_options": [
-              {
-                "explicit_buckets": [],
-                "exponential_buckets": [],
-                "linear_buckets": [
-                  {
-                    "num_finite_buckets": 10,
-                    "offset": 0,
-                    "width": 10
-                  }
-                ]
-              }
-            ],
-            "description": "",
-            "disabled": false,
-            "filter": "resource.type=\"cloud_run_revision\" AND jsonPayload.message=~\"Telemetry: Logged\"",
-            "id": "trading/prediction_confidence",
-            "label_extractors": {
-              "ticker": "EXTRACT(jsonPayload.ticker)"
-            },
-            "metric_descriptor": [
-              {
-                "display_name": "",
-                "labels": [
-                  {
-                    "description": "",
-                    "key": "ticker",
-                    "value_type": "STRING"
-                  }
-                ],
-                "metric_kind": "DELTA",
-                "unit": "1",
-                "value_type": "DISTRIBUTION"
-              }
-            ],
-            "name": "trading/prediction_confidence",
-            "project": "utopian-calling-429014-r9",
-            "timeouts": null,
-            "value_extractor": "EXTRACT(jsonPayload.prediction_confidence)"
-          },
-          "sensitive_attributes": [],
-          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19"
-        }
-      ]
-    },
-    {
-      "mode": "managed",
-      "type": "google_logging_metric",
-      "name": "sentiment_score",
-      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
-      "instances": [
-        {
-          "schema_version": 0,
-          "attributes": {
-            "bucket_name": "",
-            "bucket_options": [
-              {
-                "explicit_buckets": [],
-                "exponential_buckets": [],
-                "linear_buckets": [
-                  {
-                    "num_finite_buckets": 20,
-                    "offset": -1,
-                    "width": 0.1
-                  }
-                ]
-              }
-            ],
-            "description": "",
-            "disabled": false,
-            "filter": "resource.type=\"cloud_run_revision\" AND jsonPayload.message=~\"Telemetry: Logged\"",
-            "id": "trading/sentiment_score",
-            "label_extractors": {
-              "ticker": "EXTRACT(jsonPayload.ticker)"
-            },
-            "metric_descriptor": [
-              {
-                "display_name": "",
-                "labels": [
-                  {
-                    "description": "",
-                    "key": "ticker",
-                    "value_type": "STRING"
-                  }
-                ],
-                "metric_kind": "DELTA",
-                "unit": "1",
-                "value_type": "DISTRIBUTION"
-              }
-            ],
-            "name": "trading/sentiment_score",
-            "project": "utopian-calling-429014-r9",
-            "timeouts": null,
-            "value_extractor": "EXTRACT(jsonPayload.sentiment_score)"
-          },
-          "sensitive_attributes": [],
-          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19"
-        }
-      ]
-    },
-    {
-      "mode": "managed",
-      "type": "google_logging_metric",
-      "name": "trade_executed",
-      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
-      "instances": [
-        {
-          "schema_version": 0,
-          "attributes": {
-            "bucket_name": "",
-            "bucket_options": [],
-            "description": "Count of trades submitted to Alpaca",
-            "disabled": false,
-            "filter": "resource.type=\"cloud_run_revision\" AND textPayload=~\"✅ Alpaca Order Submitted\"",
-            "id": "trading/trade_executed",
-            "label_extractors": null,
-            "metric_descriptor": [
-              {
-                "display_name": "",
-                "labels": [],
-                "metric_kind": "DELTA",
-                "unit": "1",
-                "value_type": "INT64"
-              }
-            ],
-            "name": "trading/trade_executed",
-            "project": "utopian-calling-429014-r9",
-            "timeouts": null,
-            "value_extractor": ""
-          },
-          "sensitive_attributes": [],
-          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19"
-        }
-      ]
-    },
-    {
-      "mode": "managed",
       "type": "google_logging_project_bucket_config",
       "name": "audit_log_bucket",
       "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
@@ -1368,11 +1537,11 @@
             "location": "us-central1",
             "locked": false,
             "name": "projects/utopian-calling-429014-r9/locations/us-central1/buckets/system-audit-trail",
-            "project": "utopian-calling-429014-r9",
+            "project": "projects/utopian-calling-429014-r9",
             "retention_days": 365
           },
           "sensitive_attributes": [],
-          "private": "bnVsbA=="
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjAifQ=="
         }
       ]
     },
@@ -1399,7 +1568,7 @@
             "writer_identity": "serviceAccount:service-848550797370@gcp-sa-logging.iam.gserviceaccount.com"
           },
           "sensitive_attributes": [],
-          "private": "bnVsbA==",
+          "private": "eyJzY2hlbWFfdmVyc2lvbiI6IjAifQ==",
           "dependencies": [
             "google_bigquery_dataset.system_logs"
           ]
@@ -1446,12 +1615,12 @@
                   }
                 ],
                 "display_name": "Cloud Run 5xx Errors",
-                "name": "projects/utopian-calling-429014-r9/alertPolicies/14280625748352564993/conditions/14280625748352562908"
+                "name": "projects/utopian-calling-429014-r9/alertPolicies/2150786824658720115/conditions/2150786824658721880"
               }
             ],
             "creation_record": [
               {
-                "mutate_time": "2026-02-17T04:20:26.925490213Z",
+                "mutate_time": "2026-02-19T15:16:25.869882151Z",
                 "mutated_by": "pfuggle@gmail.com"
               }
             ],
@@ -1465,10 +1634,10 @@
               }
             ],
             "enabled": true,
-            "id": "projects/utopian-calling-429014-r9/alertPolicies/14280625748352564993",
-            "name": "projects/utopian-calling-429014-r9/alertPolicies/14280625748352564993",
+            "id": "projects/utopian-calling-429014-r9/alertPolicies/2150786824658720115",
+            "name": "projects/utopian-calling-429014-r9/alertPolicies/2150786824658720115",
             "notification_channels": [
-              "projects/utopian-calling-429014-r9/notificationChannels/353305082877387398"
+              "projects/utopian-calling-429014-r9/notificationChannels/14221980347955667179"
             ],
             "project": "utopian-calling-429014-r9",
             "severity": "",
@@ -1490,6 +1659,84 @@
     },
     {
       "mode": "managed",
+      "type": "google_monitoring_alert_policy",
+      "name": "trade_alert",
+      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
+      "instances": [
+        {
+          "schema_version": 0,
+          "attributes": {
+            "alert_strategy": [],
+            "combiner": "OR",
+            "conditions": [
+              {
+                "condition_absent": [],
+                "condition_matched_log": [],
+                "condition_monitoring_query_language": [],
+                "condition_prometheus_query_language": [],
+                "condition_sql": [],
+                "condition_threshold": [
+                  {
+                    "aggregations": [
+                      {
+                        "alignment_period": "60s",
+                        "cross_series_reducer": "",
+                        "group_by_fields": [],
+                        "per_series_aligner": "ALIGN_COUNT"
+                      }
+                    ],
+                    "comparison": "COMPARISON_GT",
+                    "denominator_aggregations": [],
+                    "denominator_filter": "",
+                    "duration": "60s",
+                    "evaluation_missing_data": "",
+                    "filter": "resource.type = \"cloud_run_revision\" AND metric.type = \"logging.googleapis.com/user/trading/trade_executed\"",
+                    "forecast_options": [],
+                    "threshold_value": 0,
+                    "trigger": []
+                  }
+                ],
+                "display_name": "Trade Logged",
+                "name": "projects/utopian-calling-429014-r9/alertPolicies/18228856447008764198/conditions/18228856447008767757"
+              }
+            ],
+            "creation_record": [
+              {
+                "mutate_time": "2026-02-19T23:39:32.837345875Z",
+                "mutated_by": "pfuggle@gmail.com"
+              }
+            ],
+            "display_name": "💰 Trade Executed (Aberfeldie Node)",
+            "documentation": [
+              {
+                "content": "The bot just submitted a trade! Check the dashboard for details.",
+                "links": [],
+                "mime_type": "text/markdown",
+                "subject": ""
+              }
+            ],
+            "enabled": true,
+            "id": "projects/utopian-calling-429014-r9/alertPolicies/18228856447008764198",
+            "name": "projects/utopian-calling-429014-r9/alertPolicies/18228856447008764198",
+            "notification_channels": [
+              "projects/utopian-calling-429014-r9/notificationChannels/14221980347955667179"
+            ],
+            "project": "utopian-calling-429014-r9",
+            "severity": "",
+            "timeouts": null,
+            "user_labels": {}
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19",
+          "dependencies": [
+            "google_logging_metric.trade_executed",
+            "google_monitoring_notification_channel.email_me"
+          ]
+        }
+      ]
+    },
+    {
+      "mode": "managed",
       "type": "google_monitoring_dashboard",
       "name": "nasdaq_bot_dashboard",
       "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
@@ -1497,8 +1744,8 @@
         {
           "schema_version": 0,
           "attributes": {
-            "dashboard_json": "{\"displayName\":\"Aberfeldie Node: NASDAQ Monitor\",\"etag\":\"f686021d9412205f353972b140057faa\",\"mosaicLayout\":{\"columns\":12,\"tiles\":[{\"height\":4,\"widget\":{\"title\":\"Cloud Run: Request Status (2xx vs 4xx/5xx)\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"60s\",\"crossSeriesReducer\":\"REDUCE_SUM\",\"groupByFields\":[\"metric.label.response_code_class\"],\"perSeriesAligner\":\"ALIGN_RATE\"},\"filter\":\"resource.type=\\\"cloud_run_revision\\\" AND resource.labels.service_name=\\\"trading-audit-agent\\\" AND metric.type=\\\"run.googleapis.com/request_count\\\"\"}}}]}},\"width\":4},{\"height\":4,\"widget\":{\"title\":\"💰 Paper Equity ($)\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"60s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/paper_equity\\\"\"}}}]}},\"width\":8,\"xPos\":4},{\"height\":4,\"widget\":{\"title\":\"⚖️ Capital Allocation\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"Cash\",\"plotType\":\"STACKED_AREA\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"60s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/total_cash\\\"\"}}},{\"legendTemplate\":\"Assets Value\",\"plotType\":\"STACKED_AREA\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"60s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/market_value\\\"\"}}}]}},\"width\":6,\"yPos\":4},{\"height\":4,\"widget\":{\"title\":\"🚜 Portfolio Exposure (%)\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"60s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/exposure_pct\\\"\"}}}]}},\"width\":6,\"xPos\":6,\"yPos\":4},{\"height\":4,\"widget\":{\"title\":\"🧠 AI Conviction (Confidence %)\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"groupByFields\":[\"metric.label.ticker\"],\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/prediction_confidence\\\"\"}}}]}},\"width\":6,\"yPos\":8},{\"height\":4,\"widget\":{\"title\":\"📰 Market Sentiment (-1 to +1)\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"groupByFields\":[\"metric.label.ticker\"],\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sentiment_score\\\"\"}}}]}},\"width\":6,\"xPos\":6,\"yPos\":8},{\"height\":4,\"widget\":{\"title\":\"⏳ Execution Latency (ms)\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"60s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_99\"},\"filter\":\"resource.type=\\\"cloud_run_revision\\\" AND resource.labels.service_name=\\\"trading-audit-agent\\\" AND metric.type=\\\"run.googleapis.com/request_latencies\\\"\"}}}]}},\"width\":12,\"yPos\":12}]},\"name\":\"projects/848550797370/dashboards/562c7a86-85d3-4d83-85b0-7592d945856b\"}",
-            "id": "projects/848550797370/dashboards/562c7a86-85d3-4d83-85b0-7592d945856b",
+            "dashboard_json": "{\"displayName\":\"Aberfeldie Node: NASDAQ Monitor\",\"etag\":\"a2ab3a091d72a5c6392b68ba7967c539\",\"mosaicLayout\":{\"columns\":12,\"tiles\":[{\"height\":4,\"widget\":{\"title\":\"Cloud Run: Request Status (2xx vs 4xx/5xx)\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"60s\",\"crossSeriesReducer\":\"REDUCE_SUM\",\"groupByFields\":[\"metric.label.response_code_class\"],\"perSeriesAligner\":\"ALIGN_RATE\"},\"filter\":\"resource.type=\\\"cloud_run_revision\\\" AND resource.labels.service_name=\\\"trading-audit-agent\\\" AND metric.type=\\\"run.googleapis.com/request_count\\\"\"}}}]}},\"width\":4},{\"height\":4,\"widget\":{\"title\":\"💰 Paper Equity ($)\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"60s\",\"crossSeriesReducer\":\"REDUCE_MAX\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/paper_equity\\\"\"}}}]}},\"width\":8,\"xPos\":4},{\"height\":4,\"widget\":{\"title\":\"⚖️ Capital Allocation\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"Cash\",\"plotType\":\"STACKED_AREA\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"60s\",\"crossSeriesReducer\":\"REDUCE_MAX\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/total_cash\\\"\"}}},{\"legendTemplate\":\"Assets Value\",\"plotType\":\"STACKED_AREA\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"60s\",\"crossSeriesReducer\":\"REDUCE_MAX\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/market_value\\\"\"}}}]}},\"width\":6,\"yPos\":4},{\"height\":4,\"widget\":{\"title\":\"🚜 Portfolio Exposure (%)\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"60s\",\"crossSeriesReducer\":\"REDUCE_MAX\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/exposure_pct\\\"\"}}}]}},\"width\":6,\"xPos\":6,\"yPos\":4},{\"height\":4,\"widget\":{\"title\":\"🌟 Stock Quality Levels (Conviction vs Time)\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"groupByFields\":[\"metric.label.ticker\"],\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/prediction_confidence\\\"\"}}}],\"thresholds\":[{\"label\":\"Star (\\u003e= 85)\",\"value\":85},{\"label\":\"Neutral (\\u003e= 60)\",\"value\":60},{\"label\":\"Sell (\\u003c 50)\",\"value\":50}]}},\"width\":6,\"yPos\":8},{\"height\":4,\"widget\":{\"title\":\"📰 Market Sentiment (-1 to +1)\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"groupByFields\":[\"metric.label.ticker\"],\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sentiment_score\\\"\"}}}]}},\"width\":6,\"xPos\":6,\"yPos\":8},{\"height\":4,\"widget\":{\"title\":\"⏳ Execution Latency (ms)\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"60s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_99\"},\"filter\":\"resource.type=\\\"cloud_run_revision\\\" AND resource.labels.service_name=\\\"trading-audit-agent\\\" AND metric.type=\\\"run.googleapis.com/request_latencies\\\"\"}}}]}},\"width\":12,\"yPos\":12},{\"height\":1,\"widget\":{\"text\":{\"format\":\"MARKDOWN\",\"style\":{}},\"title\":\"━━━━━━━━━━  PER-STOCK TECHNICAL METRICS  ━━━━━━━━━━\"},\"width\":12,\"yPos\":16},{\"height\":4,\"widget\":{\"title\":\"NVDA — Price \\u0026 Sentiment\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"Sentiment\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sentiment_score\\\" AND metric.labels.ticker=\\\"NVDA\\\"\"}}}]}},\"width\":4,\"yPos\":17},{\"height\":4,\"widget\":{\"title\":\"NVDA — Bollinger Bands \\u0026 SMAs\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"BB Upper\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/bb_upper\\\" AND metric.labels.ticker=\\\"NVDA\\\"\"}}},{\"legendTemplate\":\"SMA-20\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sma_20\\\" AND metric.labels.ticker=\\\"NVDA\\\"\"}}},{\"legendTemplate\":\"SMA-50\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sma_50\\\" AND metric.labels.ticker=\\\"NVDA\\\"\"}}},{\"legendTemplate\":\"BB Lower\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/bb_lower\\\" AND metric.labels.ticker=\\\"NVDA\\\"\"}}}]}},\"width\":4,\"xPos\":4,\"yPos\":17},{\"height\":4,\"widget\":{\"title\":\"NVDA — RSI / Conviction / F-Score\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"RSI\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/rsi\\\" AND metric.labels.ticker=\\\"NVDA\\\"\"}}},{\"legendTemplate\":\"Conviction\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/conviction\\\" AND metric.labels.ticker=\\\"NVDA\\\"\"}}},{\"legendTemplate\":\"F-Score\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/f_score\\\" AND metric.labels.ticker=\\\"NVDA\\\"\"}}}]}},\"width\":4,\"xPos\":8,\"yPos\":17},{\"height\":4,\"widget\":{\"title\":\"MU — Price \\u0026 Sentiment\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"Sentiment\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sentiment_score\\\" AND metric.labels.ticker=\\\"MU\\\"\"}}}]}},\"width\":4,\"yPos\":22},{\"height\":4,\"widget\":{\"title\":\"MU — Bollinger Bands \\u0026 SMAs\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"BB Upper\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/bb_upper\\\" AND metric.labels.ticker=\\\"MU\\\"\"}}},{\"legendTemplate\":\"SMA-20\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sma_20\\\" AND metric.labels.ticker=\\\"MU\\\"\"}}},{\"legendTemplate\":\"SMA-50\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sma_50\\\" AND metric.labels.ticker=\\\"MU\\\"\"}}},{\"legendTemplate\":\"BB Lower\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/bb_lower\\\" AND metric.labels.ticker=\\\"MU\\\"\"}}}]}},\"width\":4,\"xPos\":4,\"yPos\":22},{\"height\":4,\"widget\":{\"title\":\"MU — RSI / Conviction / F-Score\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"RSI\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/rsi\\\" AND metric.labels.ticker=\\\"MU\\\"\"}}},{\"legendTemplate\":\"Conviction\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/conviction\\\" AND metric.labels.ticker=\\\"MU\\\"\"}}},{\"legendTemplate\":\"F-Score\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/f_score\\\" AND metric.labels.ticker=\\\"MU\\\"\"}}}]}},\"width\":4,\"xPos\":8,\"yPos\":22},{\"height\":4,\"widget\":{\"title\":\"AMD — Price \\u0026 Sentiment\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"Sentiment\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sentiment_score\\\" AND metric.labels.ticker=\\\"AMD\\\"\"}}}]}},\"width\":4,\"yPos\":27},{\"height\":4,\"widget\":{\"title\":\"AMD — Bollinger Bands \\u0026 SMAs\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"BB Upper\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/bb_upper\\\" AND metric.labels.ticker=\\\"AMD\\\"\"}}},{\"legendTemplate\":\"SMA-20\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sma_20\\\" AND metric.labels.ticker=\\\"AMD\\\"\"}}},{\"legendTemplate\":\"SMA-50\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sma_50\\\" AND metric.labels.ticker=\\\"AMD\\\"\"}}},{\"legendTemplate\":\"BB Lower\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/bb_lower\\\" AND metric.labels.ticker=\\\"AMD\\\"\"}}}]}},\"width\":4,\"xPos\":4,\"yPos\":27},{\"height\":4,\"widget\":{\"title\":\"AMD — RSI / Conviction / F-Score\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"RSI\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/rsi\\\" AND metric.labels.ticker=\\\"AMD\\\"\"}}},{\"legendTemplate\":\"Conviction\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/conviction\\\" AND metric.labels.ticker=\\\"AMD\\\"\"}}},{\"legendTemplate\":\"F-Score\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/f_score\\\" AND metric.labels.ticker=\\\"AMD\\\"\"}}}]}},\"width\":4,\"xPos\":8,\"yPos\":27},{\"height\":4,\"widget\":{\"title\":\"PLTR — Price \\u0026 Sentiment\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"Sentiment\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sentiment_score\\\" AND metric.labels.ticker=\\\"PLTR\\\"\"}}}]}},\"width\":4,\"yPos\":32},{\"height\":4,\"widget\":{\"title\":\"PLTR — Bollinger Bands \\u0026 SMAs\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"BB Upper\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/bb_upper\\\" AND metric.labels.ticker=\\\"PLTR\\\"\"}}},{\"legendTemplate\":\"SMA-20\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sma_20\\\" AND metric.labels.ticker=\\\"PLTR\\\"\"}}},{\"legendTemplate\":\"SMA-50\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sma_50\\\" AND metric.labels.ticker=\\\"PLTR\\\"\"}}},{\"legendTemplate\":\"BB Lower\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/bb_lower\\\" AND metric.labels.ticker=\\\"PLTR\\\"\"}}}]}},\"width\":4,\"xPos\":4,\"yPos\":32},{\"height\":4,\"widget\":{\"title\":\"PLTR — RSI / Conviction / F-Score\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"RSI\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/rsi\\\" AND metric.labels.ticker=\\\"PLTR\\\"\"}}},{\"legendTemplate\":\"Conviction\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/conviction\\\" AND metric.labels.ticker=\\\"PLTR\\\"\"}}},{\"legendTemplate\":\"F-Score\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/f_score\\\" AND metric.labels.ticker=\\\"PLTR\\\"\"}}}]}},\"width\":4,\"xPos\":8,\"yPos\":32},{\"height\":4,\"widget\":{\"title\":\"COIN — Price \\u0026 Sentiment\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"Sentiment\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sentiment_score\\\" AND metric.labels.ticker=\\\"COIN\\\"\"}}}]}},\"width\":4,\"yPos\":37},{\"height\":4,\"widget\":{\"title\":\"COIN — Bollinger Bands \\u0026 SMAs\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"BB Upper\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/bb_upper\\\" AND metric.labels.ticker=\\\"COIN\\\"\"}}},{\"legendTemplate\":\"SMA-20\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sma_20\\\" AND metric.labels.ticker=\\\"COIN\\\"\"}}},{\"legendTemplate\":\"SMA-50\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sma_50\\\" AND metric.labels.ticker=\\\"COIN\\\"\"}}},{\"legendTemplate\":\"BB Lower\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/bb_lower\\\" AND metric.labels.ticker=\\\"COIN\\\"\"}}}]}},\"width\":4,\"xPos\":4,\"yPos\":37},{\"height\":4,\"widget\":{\"title\":\"COIN — RSI / Conviction / F-Score\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"RSI\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/rsi\\\" AND metric.labels.ticker=\\\"COIN\\\"\"}}},{\"legendTemplate\":\"Conviction\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/conviction\\\" AND metric.labels.ticker=\\\"COIN\\\"\"}}},{\"legendTemplate\":\"F-Score\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/f_score\\\" AND metric.labels.ticker=\\\"COIN\\\"\"}}}]}},\"width\":4,\"xPos\":8,\"yPos\":37},{\"height\":4,\"widget\":{\"title\":\"TSLA — Price \\u0026 Sentiment\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"Sentiment\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sentiment_score\\\" AND metric.labels.ticker=\\\"TSLA\\\"\"}}}]}},\"width\":4,\"yPos\":42},{\"height\":4,\"widget\":{\"title\":\"TSLA — Bollinger Bands \\u0026 SMAs\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"BB Upper\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/bb_upper\\\" AND metric.labels.ticker=\\\"TSLA\\\"\"}}},{\"legendTemplate\":\"SMA-20\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sma_20\\\" AND metric.labels.ticker=\\\"TSLA\\\"\"}}},{\"legendTemplate\":\"SMA-50\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sma_50\\\" AND metric.labels.ticker=\\\"TSLA\\\"\"}}},{\"legendTemplate\":\"BB Lower\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/bb_lower\\\" AND metric.labels.ticker=\\\"TSLA\\\"\"}}}]}},\"width\":4,\"xPos\":4,\"yPos\":42},{\"height\":4,\"widget\":{\"title\":\"TSLA — RSI / Conviction / F-Score\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"RSI\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/rsi\\\" AND metric.labels.ticker=\\\"TSLA\\\"\"}}},{\"legendTemplate\":\"Conviction\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/conviction\\\" AND metric.labels.ticker=\\\"TSLA\\\"\"}}},{\"legendTemplate\":\"F-Score\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/f_score\\\" AND metric.labels.ticker=\\\"TSLA\\\"\"}}}]}},\"width\":4,\"xPos\":8,\"yPos\":42},{\"height\":4,\"widget\":{\"title\":\"TSM — Price \\u0026 Sentiment\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"Sentiment\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sentiment_score\\\" AND metric.labels.ticker=\\\"TSM\\\"\"}}}]}},\"width\":4,\"yPos\":47},{\"height\":4,\"widget\":{\"title\":\"TSM — Bollinger Bands \\u0026 SMAs\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"BB Upper\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/bb_upper\\\" AND metric.labels.ticker=\\\"TSM\\\"\"}}},{\"legendTemplate\":\"SMA-20\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sma_20\\\" AND metric.labels.ticker=\\\"TSM\\\"\"}}},{\"legendTemplate\":\"SMA-50\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sma_50\\\" AND metric.labels.ticker=\\\"TSM\\\"\"}}},{\"legendTemplate\":\"BB Lower\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/bb_lower\\\" AND metric.labels.ticker=\\\"TSM\\\"\"}}}]}},\"width\":4,\"xPos\":4,\"yPos\":47},{\"height\":4,\"widget\":{\"title\":\"TSM — RSI / Conviction / F-Score\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"RSI\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/rsi\\\" AND metric.labels.ticker=\\\"TSM\\\"\"}}},{\"legendTemplate\":\"Conviction\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/conviction\\\" AND metric.labels.ticker=\\\"TSM\\\"\"}}},{\"legendTemplate\":\"F-Score\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/f_score\\\" AND metric.labels.ticker=\\\"TSM\\\"\"}}}]}},\"width\":4,\"xPos\":8,\"yPos\":47},{\"height\":4,\"widget\":{\"title\":\"VRT — Price \\u0026 Sentiment\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"Sentiment\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sentiment_score\\\" AND metric.labels.ticker=\\\"VRT\\\"\"}}}]}},\"width\":4,\"yPos\":52},{\"height\":4,\"widget\":{\"title\":\"VRT — Bollinger Bands \\u0026 SMAs\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"BB Upper\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/bb_upper\\\" AND metric.labels.ticker=\\\"VRT\\\"\"}}},{\"legendTemplate\":\"SMA-20\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sma_20\\\" AND metric.labels.ticker=\\\"VRT\\\"\"}}},{\"legendTemplate\":\"SMA-50\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sma_50\\\" AND metric.labels.ticker=\\\"VRT\\\"\"}}},{\"legendTemplate\":\"BB Lower\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/bb_lower\\\" AND metric.labels.ticker=\\\"VRT\\\"\"}}}]}},\"width\":4,\"xPos\":4,\"yPos\":52},{\"height\":4,\"widget\":{\"title\":\"VRT — RSI / Conviction / F-Score\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"RSI\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/rsi\\\" AND metric.labels.ticker=\\\"VRT\\\"\"}}},{\"legendTemplate\":\"Conviction\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/conviction\\\" AND metric.labels.ticker=\\\"VRT\\\"\"}}},{\"legendTemplate\":\"F-Score\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/f_score\\\" AND metric.labels.ticker=\\\"VRT\\\"\"}}}]}},\"width\":4,\"xPos\":8,\"yPos\":52},{\"height\":4,\"widget\":{\"title\":\"CEG — Price \\u0026 Sentiment\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"Sentiment\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sentiment_score\\\" AND metric.labels.ticker=\\\"CEG\\\"\"}}}]}},\"width\":4,\"yPos\":57},{\"height\":4,\"widget\":{\"title\":\"CEG — Bollinger Bands \\u0026 SMAs\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"BB Upper\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/bb_upper\\\" AND metric.labels.ticker=\\\"CEG\\\"\"}}},{\"legendTemplate\":\"SMA-20\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sma_20\\\" AND metric.labels.ticker=\\\"CEG\\\"\"}}},{\"legendTemplate\":\"SMA-50\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/sma_50\\\" AND metric.labels.ticker=\\\"CEG\\\"\"}}},{\"legendTemplate\":\"BB Lower\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/bb_lower\\\" AND metric.labels.ticker=\\\"CEG\\\"\"}}}]}},\"width\":4,\"xPos\":4,\"yPos\":57},{\"height\":4,\"widget\":{\"title\":\"CEG — RSI / Conviction / F-Score\",\"xyChart\":{\"chartOptions\":{\"mode\":\"COLOR\"},\"dataSets\":[{\"legendTemplate\":\"RSI\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/rsi\\\" AND metric.labels.ticker=\\\"CEG\\\"\"}}},{\"legendTemplate\":\"Conviction\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/conviction\\\" AND metric.labels.ticker=\\\"CEG\\\"\"}}},{\"legendTemplate\":\"F-Score\",\"plotType\":\"LINE\",\"targetAxis\":\"Y1\",\"timeSeriesQuery\":{\"timeSeriesFilter\":{\"aggregation\":{\"alignmentPeriod\":\"600s\",\"perSeriesAligner\":\"ALIGN_PERCENTILE_50\"},\"filter\":\"metric.type=\\\"logging.googleapis.com/user/trading/f_score\\\" AND metric.labels.ticker=\\\"CEG\\\"\"}}}]}},\"width\":4,\"xPos\":8,\"yPos\":57}]},\"name\":\"projects/848550797370/dashboards/2e31d26f-534e-446c-8601-083f0497f2fe\"}",
+            "id": "projects/848550797370/dashboards/2e31d26f-534e-446c-8601-083f0497f2fe",
             "project": "utopian-calling-429014-r9",
             "timeouts": null
           },
@@ -1520,11 +1767,11 @@
             "display_name": "Trading Bot Alerts",
             "enabled": true,
             "force_delete": false,
-            "id": "projects/utopian-calling-429014-r9/notificationChannels/353305082877387398",
+            "id": "projects/utopian-calling-429014-r9/notificationChannels/14221980347955667179",
             "labels": {
               "email_address": "pfuggle@gmail.com"
             },
-            "name": "projects/utopian-calling-429014-r9/notificationChannels/353305082877387398",
+            "name": "projects/utopian-calling-429014-r9/notificationChannels/14221980347955667179",
             "project": "utopian-calling-429014-r9",
             "sensitive_labels": [],
             "timeouts": null,
@@ -1547,7 +1794,7 @@
           "schema_version": 0,
           "attributes": {
             "condition": [],
-            "etag": "BwZLDoEvnrI=",
+            "etag": "BwZLdgBVhjg=",
             "id": "utopian-calling-429014-r9/roles/aiplatform.user/serviceAccount:trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
             "member": "serviceAccount:trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
             "project": "utopian-calling-429014-r9",
@@ -1571,7 +1818,7 @@
           "schema_version": 0,
           "attributes": {
             "condition": [],
-            "etag": "BwZLDoEvnrI=",
+            "etag": "BwZLdgBVhjg=",
             "id": "utopian-calling-429014-r9/roles/bigquery.jobUser/serviceAccount:trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
             "member": "serviceAccount:trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
             "project": "utopian-calling-429014-r9",
@@ -1595,35 +1842,11 @@
           "schema_version": 0,
           "attributes": {
             "condition": [],
-            "etag": "BwZLDoEvnrI=",
+            "etag": "BwZLdgBVhjg=",
             "id": "utopian-calling-429014-r9/roles/bigquery.dataEditor/serviceAccount:trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
             "member": "serviceAccount:trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
             "project": "utopian-calling-429014-r9",
             "role": "roles/bigquery.dataEditor"
-          },
-          "sensitive_attributes": [],
-          "private": "bnVsbA==",
-          "dependencies": [
-            "google_service_account.bot_sa"
-          ]
-        }
-      ]
-    },
-    {
-      "mode": "managed",
-      "type": "google_project_iam_member",
-      "name": "bq_job_user",
-      "provider": "provider[\"registry.terraform.io/hashicorp/google\"]",
-      "instances": [
-        {
-          "schema_version": 0,
-          "attributes": {
-            "condition": [],
-            "etag": "BwZLDoEvnrI=",
-            "id": "utopian-calling-429014-r9/roles/bigquery.jobUser/serviceAccount:trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
-            "member": "serviceAccount:trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
-            "project": "utopian-calling-429014-r9",
-            "role": "roles/bigquery.jobUser"
           },
           "sensitive_attributes": [],
           "private": "bnVsbA==",
@@ -1643,7 +1866,7 @@
           "schema_version": 0,
           "attributes": {
             "condition": [],
-            "etag": "BwZLDoEvnrI=",
+            "etag": "BwZLdgBVhjg=",
             "id": "utopian-calling-429014-r9/roles/bigquery.readSessionUser/serviceAccount:trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
             "member": "serviceAccount:trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
             "project": "utopian-calling-429014-r9",
@@ -1667,7 +1890,7 @@
           "schema_version": 0,
           "attributes": {
             "condition": [],
-            "etag": "BwZLDoEvnrI=",
+            "etag": "BwZLdgBVhjg=",
             "id": "utopian-calling-429014-r9/roles/bigquery.dataEditor/serviceAccount:service-848550797370@gcp-sa-logging.iam.gserviceaccount.com",
             "member": "serviceAccount:service-848550797370@gcp-sa-logging.iam.gserviceaccount.com",
             "project": "utopian-calling-429014-r9",
@@ -1833,9 +2056,7 @@
             "rotation": [],
             "secret_id": "ALPHA_VANTAGE_KEY",
             "tags": null,
-            "terraform_labels": {
-              "goog-terraform-provisioned": "true"
-            },
+            "terraform_labels": {},
             "timeouts": null,
             "topics": [],
             "ttl": null,
@@ -1843,7 +2064,7 @@
             "version_destroy_ttl": ""
           },
           "sensitive_attributes": [],
-          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19"
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMCJ9"
         },
         {
           "index_key": "APIFY_TOKEN",
@@ -1874,9 +2095,7 @@
             "rotation": [],
             "secret_id": "APIFY_TOKEN",
             "tags": null,
-            "terraform_labels": {
-              "goog-terraform-provisioned": "true"
-            },
+            "terraform_labels": {},
             "timeouts": null,
             "topics": [],
             "ttl": null,
@@ -1884,7 +2103,7 @@
             "version_destroy_ttl": ""
           },
           "sensitive_attributes": [],
-          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19"
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMCJ9"
         },
         {
           "index_key": "FINNHUB_KEY",
@@ -1915,9 +2134,7 @@
             "rotation": [],
             "secret_id": "FINNHUB_KEY",
             "tags": null,
-            "terraform_labels": {
-              "goog-terraform-provisioned": "true"
-            },
+            "terraform_labels": {},
             "timeouts": null,
             "topics": [],
             "ttl": null,
@@ -1925,7 +2142,46 @@
             "version_destroy_ttl": ""
           },
           "sensitive_attributes": [],
-          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19"
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMCJ9"
+        },
+        {
+          "index_key": "FMP_KEY",
+          "schema_version": 0,
+          "attributes": {
+            "annotations": {},
+            "create_time": "2026-02-19T04:15:40.435138Z",
+            "deletion_protection": false,
+            "effective_annotations": {},
+            "effective_labels": {
+              "goog-terraform-provisioned": "true"
+            },
+            "expire_time": "",
+            "id": "projects/utopian-calling-429014-r9/secrets/FMP_KEY",
+            "labels": {},
+            "name": "projects/848550797370/secrets/FMP_KEY",
+            "project": "utopian-calling-429014-r9",
+            "replication": [
+              {
+                "auto": [
+                  {
+                    "customer_managed_encryption": []
+                  }
+                ],
+                "user_managed": []
+              }
+            ],
+            "rotation": [],
+            "secret_id": "FMP_KEY",
+            "tags": null,
+            "terraform_labels": {},
+            "timeouts": null,
+            "topics": [],
+            "ttl": null,
+            "version_aliases": {},
+            "version_destroy_ttl": ""
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMCJ9"
         },
         {
           "index_key": "IBKR_KEY",
@@ -1956,9 +2212,7 @@
             "rotation": [],
             "secret_id": "IBKR_KEY",
             "tags": null,
-            "terraform_labels": {
-              "goog-terraform-provisioned": "true"
-            },
+            "terraform_labels": {},
             "timeouts": null,
             "topics": [],
             "ttl": null,
@@ -1966,7 +2220,7 @@
             "version_destroy_ttl": ""
           },
           "sensitive_attributes": [],
-          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19"
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH0sInNjaGVtYV92ZXJzaW9uIjoiMCJ9"
         }
       ]
     },
@@ -1981,7 +2235,7 @@
           "schema_version": 0,
           "attributes": {
             "condition": [],
-            "etag": "BwZLAlfgBo0=",
+            "etag": "BwZLLsWm46g=",
             "id": "projects/utopian-calling-429014-r9/secrets/ALPACA_API_KEY/roles/secretmanager.secretAccessor/serviceAccount:trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
             "member": "serviceAccount:trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
             "project": "utopian-calling-429014-r9",
@@ -2000,7 +2254,7 @@
           "schema_version": 0,
           "attributes": {
             "condition": [],
-            "etag": "BwZLAlfgD2A=",
+            "etag": "BwZLLsWm2iI=",
             "id": "projects/utopian-calling-429014-r9/secrets/ALPACA_API_SECRET/roles/secretmanager.secretAccessor/serviceAccount:trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
             "member": "serviceAccount:trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
             "project": "utopian-calling-429014-r9",
@@ -2019,7 +2273,7 @@
           "schema_version": 0,
           "attributes": {
             "condition": [],
-            "etag": "BwZLBRBNYhY=",
+            "etag": "BwZLLsWiML4=",
             "id": "projects/utopian-calling-429014-r9/secrets/ALPHA_VANTAGE_KEY/roles/secretmanager.secretAccessor/serviceAccount:trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
             "member": "serviceAccount:trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
             "project": "utopian-calling-429014-r9",
@@ -2038,7 +2292,7 @@
           "schema_version": 0,
           "attributes": {
             "condition": [],
-            "etag": "BwZK/XcJvcw=",
+            "etag": "BwZLLsWrZcg=",
             "id": "projects/utopian-calling-429014-r9/secrets/APIFY_TOKEN/roles/secretmanager.secretAccessor/serviceAccount:trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
             "member": "serviceAccount:trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
             "project": "utopian-calling-429014-r9",
@@ -2057,7 +2311,7 @@
           "schema_version": 0,
           "attributes": {
             "condition": [],
-            "etag": "BwZK/XcLThU=",
+            "etag": "BwZLLsWvz4A=",
             "id": "projects/utopian-calling-429014-r9/secrets/FINNHUB_KEY/roles/secretmanager.secretAccessor/serviceAccount:trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
             "member": "serviceAccount:trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
             "project": "utopian-calling-429014-r9",
@@ -2072,11 +2326,30 @@
           ]
         },
         {
+          "index_key": "FMP_KEY",
+          "schema_version": 0,
+          "attributes": {
+            "condition": [],
+            "etag": "BwZLLsW5Tu4=",
+            "id": "projects/utopian-calling-429014-r9/secrets/FMP_KEY/roles/secretmanager.secretAccessor/serviceAccount:trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
+            "member": "serviceAccount:trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
+            "project": "utopian-calling-429014-r9",
+            "role": "roles/secretmanager.secretAccessor",
+            "secret_id": "projects/utopian-calling-429014-r9/secrets/FMP_KEY"
+          },
+          "sensitive_attributes": [],
+          "private": "bnVsbA==",
+          "dependencies": [
+            "google_secret_manager_secret.secrets",
+            "google_service_account.bot_sa"
+          ]
+        },
+        {
           "index_key": "IBKR_KEY",
           "schema_version": 0,
           "attributes": {
             "condition": [],
-            "etag": "BwZK/XcawP4=",
+            "etag": "BwZLLsWxoek=",
             "id": "projects/utopian-calling-429014-r9/secrets/IBKR_KEY/roles/secretmanager.secretAccessor/serviceAccount:trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
             "member": "serviceAccount:trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com",
             "project": "utopian-calling-429014-r9",
@@ -2102,20 +2375,20 @@
           "index_key": "ALPACA_API_KEY",
           "schema_version": 0,
           "attributes": {
-            "create_time": "2026-02-17T09:05:29.330042Z",
+            "create_time": "2026-02-19T15:15:25.357024Z",
             "deletion_policy": "DELETE",
             "destroy_time": "",
             "enabled": true,
-            "id": "projects/848550797370/secrets/ALPACA_API_KEY/versions/2",
+            "id": "projects/848550797370/secrets/ALPACA_API_KEY/versions/8",
             "is_secret_data_base64": false,
-            "name": "projects/848550797370/secrets/ALPACA_API_KEY/versions/2",
+            "name": "projects/848550797370/secrets/ALPACA_API_KEY/versions/8",
             "project": null,
             "secret": "projects/utopian-calling-429014-r9/secrets/ALPACA_API_KEY",
             "secret_data": "PLACEHOLDER_INIT",
             "secret_data_wo": null,
             "secret_data_wo_version": 0,
             "timeouts": null,
-            "version": "2"
+            "version": "8"
           },
           "sensitive_attributes": [],
           "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19",
@@ -2129,20 +2402,20 @@
           "index_key": "ALPACA_API_SECRET",
           "schema_version": 0,
           "attributes": {
-            "create_time": "2026-02-17T09:05:28.958909Z",
+            "create_time": "2026-02-19T15:15:25.355450Z",
             "deletion_policy": "DELETE",
             "destroy_time": "",
             "enabled": true,
-            "id": "projects/848550797370/secrets/ALPACA_API_SECRET/versions/2",
+            "id": "projects/848550797370/secrets/ALPACA_API_SECRET/versions/8",
             "is_secret_data_base64": false,
-            "name": "projects/848550797370/secrets/ALPACA_API_SECRET/versions/2",
+            "name": "projects/848550797370/secrets/ALPACA_API_SECRET/versions/8",
             "project": null,
             "secret": "projects/utopian-calling-429014-r9/secrets/ALPACA_API_SECRET",
             "secret_data": "PLACEHOLDER_INIT",
             "secret_data_wo": null,
             "secret_data_wo_version": 0,
             "timeouts": null,
-            "version": "2"
+            "version": "8"
           },
           "sensitive_attributes": [],
           "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19",
@@ -2156,20 +2429,20 @@
           "index_key": "ALPHA_VANTAGE_KEY",
           "schema_version": 0,
           "attributes": {
-            "create_time": "2026-02-17T10:47:01.119300Z",
+            "create_time": "2026-02-19T15:15:25.033560Z",
             "deletion_policy": "DELETE",
             "destroy_time": "",
             "enabled": true,
-            "id": "projects/848550797370/secrets/ALPHA_VANTAGE_KEY/versions/1",
+            "id": "projects/848550797370/secrets/ALPHA_VANTAGE_KEY/versions/5",
             "is_secret_data_base64": false,
-            "name": "projects/848550797370/secrets/ALPHA_VANTAGE_KEY/versions/1",
+            "name": "projects/848550797370/secrets/ALPHA_VANTAGE_KEY/versions/5",
             "project": null,
             "secret": "projects/utopian-calling-429014-r9/secrets/ALPHA_VANTAGE_KEY",
             "secret_data": "PLACEHOLDER_INIT",
             "secret_data_wo": null,
             "secret_data_wo_version": 0,
             "timeouts": null,
-            "version": "1"
+            "version": "5"
           },
           "sensitive_attributes": [],
           "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19",
@@ -2183,20 +2456,20 @@
           "index_key": "APIFY_TOKEN",
           "schema_version": 0,
           "attributes": {
-            "create_time": "2026-02-17T04:25:53.477131Z",
+            "create_time": "2026-02-19T15:15:25.388624Z",
             "deletion_policy": "DELETE",
             "destroy_time": "",
             "enabled": true,
-            "id": "projects/848550797370/secrets/APIFY_TOKEN/versions/13",
+            "id": "projects/848550797370/secrets/APIFY_TOKEN/versions/17",
             "is_secret_data_base64": false,
-            "name": "projects/848550797370/secrets/APIFY_TOKEN/versions/13",
+            "name": "projects/848550797370/secrets/APIFY_TOKEN/versions/17",
             "project": null,
             "secret": "projects/utopian-calling-429014-r9/secrets/APIFY_TOKEN",
             "secret_data": "PLACEHOLDER_INIT",
             "secret_data_wo": null,
             "secret_data_wo_version": 0,
             "timeouts": null,
-            "version": "13"
+            "version": "17"
           },
           "sensitive_attributes": [],
           "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19",
@@ -2210,20 +2483,47 @@
           "index_key": "FINNHUB_KEY",
           "schema_version": 0,
           "attributes": {
-            "create_time": "2026-02-17T04:25:53.132570Z",
+            "create_time": "2026-02-19T15:15:25.424914Z",
             "deletion_policy": "DELETE",
             "destroy_time": "",
             "enabled": true,
-            "id": "projects/848550797370/secrets/FINNHUB_KEY/versions/14",
+            "id": "projects/848550797370/secrets/FINNHUB_KEY/versions/18",
             "is_secret_data_base64": false,
-            "name": "projects/848550797370/secrets/FINNHUB_KEY/versions/14",
+            "name": "projects/848550797370/secrets/FINNHUB_KEY/versions/18",
             "project": null,
             "secret": "projects/utopian-calling-429014-r9/secrets/FINNHUB_KEY",
             "secret_data": "PLACEHOLDER_INIT",
             "secret_data_wo": null,
             "secret_data_wo_version": 0,
             "timeouts": null,
-            "version": "14"
+            "version": "18"
+          },
+          "sensitive_attributes": [],
+          "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19",
+          "dependencies": [
+            "google_secret_manager_secret.secrets",
+            "google_secret_manager_secret_iam_member.secret_access",
+            "google_service_account.bot_sa"
+          ]
+        },
+        {
+          "index_key": "FMP_KEY",
+          "schema_version": 0,
+          "attributes": {
+            "create_time": "2026-02-19T15:15:25.454371Z",
+            "deletion_policy": "DELETE",
+            "destroy_time": "",
+            "enabled": true,
+            "id": "projects/848550797370/secrets/FMP_KEY/versions/5",
+            "is_secret_data_base64": false,
+            "name": "projects/848550797370/secrets/FMP_KEY/versions/5",
+            "project": null,
+            "secret": "projects/utopian-calling-429014-r9/secrets/FMP_KEY",
+            "secret_data": "PLACEHOLDER_INIT",
+            "secret_data_wo": null,
+            "secret_data_wo_version": 0,
+            "timeouts": null,
+            "version": "5"
           },
           "sensitive_attributes": [],
           "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19",
@@ -2237,20 +2537,20 @@
           "index_key": "IBKR_KEY",
           "schema_version": 0,
           "attributes": {
-            "create_time": "2026-02-17T04:25:53.023755Z",
+            "create_time": "2026-02-19T15:15:25.356344Z",
             "deletion_policy": "DELETE",
             "destroy_time": "",
             "enabled": true,
-            "id": "projects/848550797370/secrets/IBKR_KEY/versions/13",
+            "id": "projects/848550797370/secrets/IBKR_KEY/versions/17",
             "is_secret_data_base64": false,
-            "name": "projects/848550797370/secrets/IBKR_KEY/versions/13",
+            "name": "projects/848550797370/secrets/IBKR_KEY/versions/17",
             "project": null,
             "secret": "projects/utopian-calling-429014-r9/secrets/IBKR_KEY",
             "secret_data": "PLACEHOLDER_INIT",
             "secret_data_wo": null,
             "secret_data_wo_version": 0,
             "timeouts": null,
-            "version": "13"
+            "version": "17"
           },
           "sensitive_attributes": [],
           "private": "eyJlMmJmYjczMC1lY2FhLTExZTYtOGY4OC0zNDM2M2JjN2M0YzAiOnsiY3JlYXRlIjoxMjAwMDAwMDAwMDAwLCJkZWxldGUiOjEyMDAwMDAwMDAwMDAsInVwZGF0ZSI6MTIwMDAwMDAwMDAwMH19",
@@ -2299,7 +2599,7 @@
           "schema_version": 0,
           "attributes": {
             "condition": [],
-            "etag": "BwZLDoES12M=",
+            "etag": "BwZLLsVRkFg=",
             "id": "projects/utopian-calling-429014-r9/serviceAccounts/trading-bot-executor@utopian-calling-429014-r9.iam.gserviceaccount.com/roles/iam.serviceAccountUser/serviceAccount:service-848550797370@gcp-sa-cloudscheduler.iam.gserviceaccount.com",
             "member": "serviceAccount:service-848550797370@gcp-sa-cloudscheduler.iam.gserviceaccount.com",
             "role": "roles/iam.serviceAccountUser",
