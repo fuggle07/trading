@@ -153,7 +153,7 @@ class ExecutionManager:
                 logger.info(
                     f"[{ticker}] ✅ Alpaca Order Submitted: {alpaca_order_id} ({order.status})"
                 )
-                
+
                 mode = "Paper" if self.paper_trading else "LIVE"
                 # Send Discord Notification
                 self._send_discord_alert(
@@ -162,7 +162,7 @@ class ExecutionManager:
                     ticker=ticker,
                     price=price,
                     reason=reason,
-                    mode=mode
+                    mode=mode,
                 )
 
             except Exception as e:
