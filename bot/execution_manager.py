@@ -72,6 +72,10 @@ class ExecutionManager:
             f"[{ticker}] PROCESSING {action} on {ticker} @ {price} | Cash Alloc: ${cash_available:.2f}"
         )
 
+        if price <= 0:
+            logger.warning(f"[{ticker}] ❌ REJECTED: Invalid execution price {price}")
+            return {"status": "REJECTED", "reason": "INVALID_PRICE"}
+
         # 0. Portfolio Validation (The Gatekeeper)
         # We keep the local validation to ensure our internal ledger stays sane
         if self.portfolio_manager:
@@ -255,15 +259,14 @@ class ExecutionManager:
                     {"name": "Price", "value": f"${price:.2f}", "inline": True},
                     {"name": "Reason", "value": reason, "inline": False},
                 ],
-                "footer": {"text": "Aberfeldie Trading Node"}
+                "footer": {"text": "Aberfeldie Trading Node"},
             }
-            payload = {
-                "username": "Trader Bot",
-                "embeds": [embed]
-            }
-            
+            payload = {"username": "Trader Bot", "embeds": [embed]}
+
             resp = requests.post(self.discord_webhook, json=payload, timeout=5)
             if resp.status_code >= 400:
-                logger.warning(f"Failed to send Discord alert: {resp.status_code} - {resp.text}")
+                logger.warning(
+                    f"Failed to send Discord alert: {resp.status_code} - {resp.text}"
+                )
         except Exception as e:
             logger.warning(f"Error sending Discord alert: {e}")
