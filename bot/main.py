@@ -684,14 +684,14 @@ async def run_audit():
 
         # Candidate Check: Must pass blended threshold (80 for Rising Stars) and have positive sentiment
         if effective_conf >= 80 and sentiment >= 0.2:
-            
+
             # --- CAPACITY CHECK ---
             is_star_flag = sig.get("meta", {}).get("is_star", False)
             already_held_val = float(held_tickers.get(t, {}).get("market_value", 0.0))
-            
+
             # Use fallback 60 if somehow conviction isn't on the signal object
             conviction_val = sig.get("conviction", 60)
-            
+
             target_alloc = signal_agent.calculate_position_size(
                 total_equity,
                 conviction_val,
@@ -699,20 +699,23 @@ async def run_audit():
                 band_width=float(ticker_intel[t].get("band_width", 0.03)),
                 is_star=is_star_flag,
             )
-            
+
             room_to_buy = max(0.0, target_alloc - already_held_val)
-            
+
             # Non-stars respect the global exposure cap proxy
             if not is_star_flag:
                 room_to_global_cap = float(
-                    max(0.0, total_equity * MIN_EXPOSURE_THRESHOLD - total_equity * exposure)
+                    max(
+                        0.0,
+                        total_equity * MIN_EXPOSURE_THRESHOLD - total_equity * exposure,
+                    )
                 )
                 room_to_buy = min(room_to_buy, room_to_global_cap)
 
             # We must be able to deploy at least $1000 to warrant swapping into this ticker
             if room_to_buy < 1000:
                 continue
-            
+
             is_better = False
             if rising_star is None:
                 is_better = True
@@ -746,7 +749,8 @@ async def run_audit():
         )
 
         if should_swap:
-            star_meta = star_intel.get("meta", {})
+            star_sig = signals.get(rising_star, {})
+            star_meta = star_sig.get("meta", {})
             star_sent = star_meta.get("sentiment", 0.0)
             star_vol = star_meta.get("volatility", 0.0)
             star_ai = star_meta.get("ai_score", 0)
