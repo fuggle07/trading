@@ -9,3 +9,6 @@ terraform/.terraform/
 *.tfstate.backup
 .terraform.lock.hcl
 secrets.sh
+# Service Account Key Files
+sa-key.json
+sa-key*.json
