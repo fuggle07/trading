@@ -1,5 +1,5 @@
 locals {
-  secret_names = toset(["FINNHUB_KEY", "IBKR_KEY", "APIFY_TOKEN", "ALPACA_API_KEY", "ALPACA_API_SECRET", "ALPHA_VANTAGE_KEY", "FMP_KEY"])
+  secret_names = toset(["FINNHUB_KEY", "IBKR_KEY", "APIFY_TOKEN", "ALPACA_API_KEY", "ALPACA_API_SECRET", "ALPHA_VANTAGE_KEY", "FMP_KEY", "DISCORD_WEBHOOK"])
 }
 
 # secret_manager.tf
