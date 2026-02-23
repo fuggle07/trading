@@ -13,6 +13,8 @@ REQUIRED_ROLES=(
  "roles/logging.logWriter"
  "roles/artifactregistry.writer"
  "roles/serviceusage.serviceUsageConsumer"
+ "roles/editor"
+ "roles/resourcemanager.projectIamAdmin"
 )
 
 echo "--- ABERFELDIE IAM AUDIT: $SA_EMAIL ---"
