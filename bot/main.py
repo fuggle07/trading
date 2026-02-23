@@ -526,7 +526,7 @@ async def run_audit():
     held_tickers = {
         item["ticker"]: item
         for item in val_data.get("breakdown", [])
-        if item.get("market_value", 0) > 0
+        if item.get("holdings", 0) > 0
     }
 
     # Generate Initial Signals
@@ -1362,6 +1362,14 @@ async def process_ticker_intelligence(
 ):
     print(f"[{ticker}] 📡 Gathering Intel for {ticker}...")
     try:
+        # Quote: use pre-fetched batch result; fall back to Finnhub if missing
+        res_quote = batch_quotes.get(ticker)
+        if not res_quote and finnhub_client:
+            try:
+                res_quote = await asyncio.to_thread(finnhub_client.quote, ticker)
+            except Exception:
+                res_quote = None
+
         # If Finnhub/FMP returned 0.0 or missed it, fallback to Alpaca
         if (
             res_quote
