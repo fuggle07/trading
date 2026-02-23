@@ -131,13 +131,7 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
             width = 6, height = 4, xPos = 0, yPos = 8
             widget = {
               title = "🌟 Stock Quality Levels (Conviction vs Time)"
-              xyChart = {
-                chartOptions = { mode = "COLOR" }
-                thresholds = [
-                  { label = "Star (>= 85)", value = 85 },
-                  { label = "Neutral (>= 60)", value = 60 },
-                  { label = "Sell (< 50)", value = 50 }
-                ]
+              timeSeriesTable = {
                 dataSets = [{
                   timeSeriesQuery = {
                     timeSeriesFilter = {
@@ -149,6 +143,9 @@ resource "google_monitoring_dashboard" "nasdaq_bot_dashboard" {
                       }
                     }
                   }
+                }]
+                metricVisualizations = [{
+                  number = {}
                 }]
               }
             }
