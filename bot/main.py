@@ -840,7 +840,33 @@ async def run_audit():
                 signals[rising_star]["price"] = ticker_intel[rising_star]["price"]
 
     # --- Phase 3: Coordinated Execution ---
-    print("🚀 Executing Coordinated Trades...")
+    # Determine if we have any actionable trades to print the header
+    hedge_ticker = "PSQ"
+    ps_score = signals.get(hedge_ticker, {}).get("meta", {}).get("sentiment", 0.0)
+    hedge_eval_action, hedge_eval_target_pct = signal_agent.evaluate_macro_hedge(
+        macro_data, ps_score
+    )
+    current_hedge_pos = held_tickers.get(hedge_ticker, {})
+    current_hedge_val = float(current_hedge_pos.get("market_value", 0.0))
+    target_hedge_val = total_equity * hedge_eval_target_pct
+
+    hedge_will_trade = False
+    if hedge_eval_action == "BUY_HEDGE":
+        if hedge_ticker not in held_tickers or current_hedge_val < (
+            target_hedge_val * 0.8
+        ):
+            hedge_will_trade = True
+    elif hedge_eval_action == "CLEAR_HEDGE" and hedge_ticker in held_tickers:
+        hedge_will_trade = True
+
+    has_trade_signals = any(
+        sig.get("action") in ["SELL", "SELL_ALL", "SELL_PARTIAL_50", "BUY"]
+        for sig in signals.values()
+    )
+
+    if has_trade_signals or hedge_will_trade:
+        print("🚀 Executing Coordinated Trades...")
+
     execution_results = []
 
     trading_enabled = os.environ.get("TRADING_ENABLED", "true").lower() == "true"
