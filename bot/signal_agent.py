@@ -78,7 +78,7 @@ class SignalAgent:
 
         # Prevent Division by Zero
         if price <= 0:
-            return "HOLD"
+            return "NEUTRAL"
 
         # Calculate Band Width % (Volatility Filter)
         band_width = (up - lo) / price
@@ -94,7 +94,7 @@ class SignalAgent:
         elif price <= lo:
             return "BUY"
 
-        return "HOLD"
+        return "NEUTRAL"
 
     def evaluate_strategy(
         self,
