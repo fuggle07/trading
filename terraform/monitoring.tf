@@ -1216,17 +1216,4 @@ resource "google_monitoring_alert_policy" "bot_failure" {
   }
 }
 
-# C. Budget Alert ($10.00)
-resource "google_billing_budget" "budget_alert" {
-  billing_account = var.billing_account
-  display_name    = "Trading Bot Monthly Budget"
 
-  amount {
-    specified_amount {
-      currency_code = "AUD"
-      units         = "15"
-    }
-  }
-
-  depends_on = [google_project_service.billing_budgets]
-}
