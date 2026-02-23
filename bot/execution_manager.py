@@ -224,7 +224,7 @@ class ExecutionManager:
             return
 
         try:
-            errors = self.bq_client.insert_rows_json(self.table_id, [data])
+            errors = self.bq_client.insert_rows_json(self.table_id, [data])  # type: ignore
             if errors:
                 logger.error(
                     f"[{data.get('ticker', 'Unknown')}] BigQuery Insert Errors: {errors}"

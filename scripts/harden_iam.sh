@@ -3,7 +3,7 @@
 # harden_iam.sh - Automated Least Privilege Enforcement
 # Directive: Ensure the Service Account has exactly what it needs and nothing more.
 
-PROJECT_ID="your-project-id"
+PROJECT_ID=$(gcloud config get-value project)
 SA_EMAIL="trading-bot-executor@${PROJECT_ID}.iam.gserviceaccount.com"
 
 # The 'Surgical List' of required roles
@@ -11,6 +11,7 @@ REQUIRED_ROLES=(
  "roles/secretmanager.secretAccessor"
  "roles/aiplatform.user"
  "roles/logging.logWriter"
+ "roles/artifactregistry.writer"
 )
 
 echo "--- ABERFELDIE IAM AUDIT: $SA_EMAIL ---"
