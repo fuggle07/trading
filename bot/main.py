@@ -518,7 +518,6 @@ async def run_audit():
         for item in val_data.get("breakdown", [])
         if item.get("market_value", 0) > 0
     }
-    non_held_tickers = [t for t in ticker_intel if t not in held_tickers]
 
     # Generate Initial Signals
     signals = {}
@@ -734,7 +733,6 @@ async def run_audit():
 
     # 3. Evaluate Swap
     if rising_star and weakest_link:
-        weakest_conf = ticker_intel[weakest_link].get("confidence", 0)
         star_intel = ticker_intel[rising_star]
 
         should_swap = signal_agent.check_conviction_swap(
@@ -1013,7 +1011,7 @@ async def run_audit():
                     log_decision(
                         ticker,
                         "SKIP",
-                        f"Morning Volatility Gate Active (until 10:00 AM ET)",
+                        "Morning Volatility Gate Active (until 10:00 AM ET)",
                     )
                     continue
 
@@ -1156,12 +1154,14 @@ async def run_audit():
 
         final_conv_prices = {t: intel["price"] for t, intel in ticker_intel.items()}
         perf_metrics = portfolio_manager.calculate_total_equity(final_conv_prices)
-        
+
         # Override with exact Alpaca Source of Truth if available to prevent pricing drift
         if reconciler.trading_client:
             alp_acc = await asyncio.to_thread(reconciler.trading_client.get_account)
             perf_metrics["total_cash"] = float(alp_acc.cash)
-            perf_metrics["total_market_value"] = float(alp_acc.long_market_value) + float(alp_acc.short_market_value)
+            perf_metrics["total_market_value"] = float(
+                alp_acc.long_market_value
+            ) + float(alp_acc.short_market_value)
             perf_metrics["total_equity"] = float(alp_acc.equity)
 
         log_performance(

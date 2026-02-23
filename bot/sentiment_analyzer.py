@@ -69,7 +69,7 @@ class SentimentAnalyzer:
         Analyze the following data for the stock '{ticker}' to derive a high-conviction decision.
 
         {lessons}
-        
+
         {context_text}
 
         News Data:

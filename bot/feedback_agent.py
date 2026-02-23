@@ -51,7 +51,7 @@ class FeedbackAgent:
             SELECT ticker, sentiment_score as sentiment, price as start_price, timestamp,
                    ROW_NUMBER() OVER(PARTITION BY ticker ORDER BY timestamp DESC) as rn
             FROM `{self.watchlist_table}`
-            WHERE timestamp BETWEEN TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 90 MINUTE) 
+            WHERE timestamp BETWEEN TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 90 MINUTE)
                                 AND TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 60 MINUTE)
         ),
         current_state AS (
@@ -71,7 +71,7 @@ class FeedbackAgent:
         WHERE p.rn = 1 AND c.rn = 1
         AND (
             (p.sentiment > 0.3 AND ((c.end_price - p.start_price) / p.start_price) < -0.005) -- Bullish but dropped > 0.5%
-            OR 
+            OR
             (p.sentiment < -0.3 AND ((c.end_price - p.start_price) / p.start_price) > 0.005) -- Bearish but rose > 0.5%
         )
         """

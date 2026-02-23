@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from alpaca.trading.client import TradingClient
 from alpaca.trading.requests import MarketOrderRequest
 from alpaca.trading.enums import OrderSide, TimeInForce
-import requests
+
 
 # Configure logging
 logger = logging.getLogger("execution-manager")

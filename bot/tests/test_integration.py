@@ -12,11 +12,10 @@ async def test_service_connectivity_dry_run():
     Mocks BigQuery to prevent any real ledger updates.
     """
     # 1. Setup Mocks for Infrastructure
-    with patch("google.cloud.bigquery.Client") as mock_bq_client:
-        mock_bq = mock_bq_client.return_value
+    with patch("google.cloud.bigquery.Client"):
+        # mock_bq_client.return_value not needed
 
-        # 2. Mock Portfolio Manager to return a safe test state
-        _pm = PortfolioManager(mock_bq, "test-project.trading_data.portfolio")
+        # 2. Portfolio Manager not needed specifically here
 
         # 3. Define the internal endpoints (using your local defaults)
         finance_url = "http://localhost:8081/price/QQQ"

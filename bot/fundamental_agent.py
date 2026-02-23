@@ -67,7 +67,7 @@ class FundamentalAgent:
                     try:
                         err_text = await response.text()
                         logger.warning(f"FMP [{status}]: {url} | {err_text[:120]}")
-                    except:
+                    except Exception:
                         logger.warning(f"FMP [{status}]: {url}")
         except Exception as e:
             logger.warning(f"FMP exception: {url} | {e}")
@@ -704,7 +704,7 @@ class FundamentalAgent:
             # Year 0 (Current/Most Recent), Year 1 (Previous)
             i0, i1 = inc[0], inc[1]
             b0, b1 = bal[0], bal[1]
-            c0, _c1 = cfs[0], cfs[1]
+            c0 = cfs[0]
 
             # --- Profitability (4 pts) ---
             net_income = float(i0.get("netIncome", 0))

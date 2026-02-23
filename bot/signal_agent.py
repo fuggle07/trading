@@ -303,7 +303,6 @@ class SignalAgent:
             # HURDLE 2: Deep Financial Health (F-Score)
             # F-Score is 0-9. None = Data Missing.
             f_score = fundamentals.get("f_score")
-            ai_confidence = fundamentals.get("score", 0)
 
             if f_score is None:
                 # CASE A: Missing Data -> Require reasonable AI Confidence to proceed blindly
