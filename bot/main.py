@@ -1134,19 +1134,6 @@ async def run_audit():
                 {"ticker": ticker, "signal": "BUY", "status": status, "reason": reason}
             )
 
-    # Performance Logging
-    try:
-        from bot.telemetry import log_performance
-
-        final_conv_prices = {t: intel["price"] for t, intel in ticker_intel.items()}
-        perf_metrics = portfolio_manager.calculate_total_equity(final_conv_prices)
-        log_performance(
-            bq_client, f"{PROJECT_ID}.trading_data.performance_logs", perf_metrics
-        )
-        execution_results.append({"type": "performance_summary", "data": perf_metrics})
-    except Exception as e:
-        print(f"❌ Perf Log Fail: {e}")
-
     # --- Phase 4: Post-Trade Reconciliation ---
     # Triggered only if any actual orders were attempted (not just dry-run intent)
     executed_trades = [
@@ -1162,6 +1149,27 @@ async def run_audit():
             await asyncio.to_thread(reconciler.sync_executions)
         except Exception as e:
             print(f"⚠️ Post-Trade Sync Warning: {e}")
+
+    # Performance Logging (Post-Trade Source of Truth)
+    try:
+        from bot.telemetry import log_performance
+
+        final_conv_prices = {t: intel["price"] for t, intel in ticker_intel.items()}
+        perf_metrics = portfolio_manager.calculate_total_equity(final_conv_prices)
+        
+        # Override with exact Alpaca Source of Truth if available to prevent pricing drift
+        if reconciler.trading_client:
+            alp_acc = await asyncio.to_thread(reconciler.trading_client.get_account)
+            perf_metrics["total_cash"] = float(alp_acc.cash)
+            perf_metrics["total_market_value"] = float(alp_acc.long_market_value) + float(alp_acc.short_market_value)
+            perf_metrics["total_equity"] = float(alp_acc.equity)
+
+        log_performance(
+            bq_client, f"{PROJECT_ID}.trading_data.performance_logs", perf_metrics
+        )
+        execution_results.append({"type": "performance_summary", "data": perf_metrics})
+    except Exception as e:
+        print(f"❌ Perf Log Fail: {e}")
 
     # --- Phase 5: Intraday Reflection ---
     # We do this asynchronously/fire-and-forget ideally, but here we wait to capture logs
