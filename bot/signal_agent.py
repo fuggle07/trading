@@ -511,7 +511,7 @@ class SignalAgent:
 
         # 4. Negative Sentiment Shift — tighten exit threshold if VIX is elevated
         sentiment_exit_threshold = -0.3 if vix > 25 else -0.4
-        if sentiment < sentiment_exit_threshold:
+        if sentiment <= sentiment_exit_threshold:
             return "SELL_ALL"
 
         return "HOLD"
