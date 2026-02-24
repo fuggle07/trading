@@ -23,14 +23,15 @@ When the bot evaluates a stock (e.g., NVDA), it follows this step-by-step logic:
 ### Step A: The Exit Override (Institutional Risk Model)
 If you already own the stock, the bot checks your P&L **before** looking at new opportunities:
 *   **Partial Scaling (+5%)**: If the stock is up 5% from your average cost, the bot **SELLS 50%**. This locks in gains while leaving half exposed to further upside.
-*   **Trailing Stop-Loss**: 
-    1.  **Activation**: Becomes active once a ticker is up **+3%**.
-    2.  **Trigger**: If the price pulls back **2% from its High Water Mark (HWM)**, the bot exits the remaining position.
+*   **Volatility-Scaled Trailing Stop**: 
+    1.  **Limit**: Scales continuously from **-3.5%** up to **-8.0%** from the High Water Mark (HWM), depending on the stock's historical volatility. Wild stocks get a longer leash.
+    2.  **Activation**: Becomes fully active dynamically (usually around **+3%** to **+6%** profit) once the stock clears expected market noise.
+*   **Dynamic Hard Stop-Loss**: Scales continuously from a strict **-2.5%** floor all the way to **-12.0%** for highly volatile assets, protecting capital without premature whipsawing.
 *   **Sentiment Crash**: If sentiment drops below **-0.4**, the bot exits even if price looks fine.
 *   **RSI Overbought (≥ 85)**: Exit to capture extreme momentum exhaustion.
 
 ### Step B: The Volatility Filter
-*   **Check**: Are the price swings too wild? (Band Width > 35% normally; relaxed to 52.5% when exposure is low).
+*   **Check**: Are the price swings too wild? (Band Width > **42.5%** normally; relaxed to 52.5% when exposure is low).
 *   **Action**: If yes, the bot **SITS OUT**. It avoids catching a falling knife.
 
 ### Step C: Technical Baseline
@@ -76,15 +77,16 @@ The bot continuously monitors the **VIX** and **NASDAQ Trend (QQQ vs SMA-50)**. 
 | **Fear** | QQQ < SMA-50 AND VIX > 35 | 5% |
 | **Panic** | VIX > 45 | 10% |
 
-### Step H: Dynamic Position Sizing
-Unlike fixed sizing, the bot now calculates the exact USD for every trade based on three factors:
-1.  **Conviction (AI Score)**: Higher conviction → Larger size.
-2.  **VIX (Market Risk)**: High VIX → Squeezes position sizes down to preserve cash.
-3.  **Band Width (Volatility)**: High volatility → Reduces exposure.
+### Step H: Volatility-Scaled Position Sizing (Risk Parity)
+Unlike fixed sizing, the bot mathematically equates physical dollar risk across all assets using a dynamic risk-parity formula:
+1.  **Risk Budget**: Determines the absolute maximum USD you are willing to lose on the trade (scales strictly from 0.4% to 1.0% of total equity based on AI Conviction).
+2.  **Fear & Volatility Dampers**: The absolute Risk Budget is reduced by multipliers if the VIX is elevated (> 20) or the specific ticker's Bollinger Bands are exceptionally wide (> 5%).
+3.  **Dynamic Stop Division**: The final Risk Budget is divided precisely by the stock's custom dynamic stop-loss distance (between 2.5% and 12.0%). 
+    * *Result:* Extremely volatile stocks (like AMD with a 10% stop) will automatically scale your purchased shares down heavily compared to stable stocks (like LLY with a 2.5% stop). If either stock hits its unique stop, you lose the exact identical amount of dollars.
+4.  **Cascading Executions**: During active trading, the bot buys highest-conviction stocks first, immediately deducting the exact cost from its local working memory. Subsequent runner-up trades perfectly scale down into the remaining fraction of available cash until the pool hits $1,000. 
 
-**Formula**: `Base Size × (Conviction/100) × (1 - (VIX/100)) × (1 - (Width/0.5))`
-*   **Max Cap**: 40% of total equity.
-*   **Star Floor**: Elite trades are guaranteed at least 20% allocation.
+*   **Max Cap**: 40% of total equity per position.
+*   **Star Floor**: Elite trades are guaranteed at least a 20% allocation.
 
 ---
 
@@ -125,16 +127,17 @@ The Aberfeldie Node operates on a **"Beat the Bank"** philosophy. Every dollar i
 
 | Input | Threshold | Role |
 | :--- | :--- | :--- |
-| **Vol Filter** | > 35% (> 52.5% low-exposure) | Safety Brake — skips trade |
+| **Vol Filter** | > 42.5% (> 52.5% low-exposure) | Safety Brake — skips trade |
 | **Bollinger Band** | Lower / Upper | Initial Buy / Sell signal |
 | **RSI (14)** | ≤ 30 / ≥ 80 | Oversold aggression / Overbought exit |
 | **Sentiment Gate** | ≥ 0.4 (≥ 0.2 low-exposure) | Permission to BUY |
 | **Sentiment Exit** | < -0.4 | Forced SELL |
-| **F-Score** | ≤ 1 | High-confidence turnaround play only (relaxed sentiment for low-exposure) |
+| **F-Score** | ≤ 1 | High-confidence turnaround play only |
 | **F-Score** | < 5 normal / < 2 low-exposure | Fundamental rejection |
 | **F-Score** | ≥ 7 | Conviction bonus (+10) |
-| **AI Confidence** | ≥ 85 + F-Score ≥ 7 | Star rating — conviction swap priority |
-| **Profit Target** | +5% | Exit to lock gain |
-| **Stop Loss** | -2.5% | Exit to protect capital |
+| **AI Confidence** | ≥ 80 + F-Score ≥ 7 | Star rating — conviction swap priority |
+| **Profit Target** | +5% | Exit to lock half gain |
+| **Trailing Stop** | -3.5% to -8.0% | Dynamic high-water mark trailing exit |
+| **Stop Loss** | -2.5% to -12.0% | Exit to protect capital (Volatility-scaled) |
 | **Mortgage Rate** | Env var `MORTGAGE_RATE` | Raw bank benchmark |
-| **Benchmark** | Rate × 0.65 (3.5%) | Effective benchmark to beat (Performance target) |
+| **Benchmark** | Rate × 0.65 (3.5%) | Effective benchmark to beat |
