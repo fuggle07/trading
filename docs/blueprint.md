@@ -99,9 +99,8 @@ graph TD
         - BUY if `Price ≤ Lower Band` AND Sentiment ≥ 0.4.
         - SELL if `Price ≥ Upper Band`.
         - RSI Oversold Aggression: BUY if RSI ≤ 30 AND Sentiment > 0.4.
-    7.  **Low Exposure Aggression** (`PROACTIVE_WARRANTED_ENTRY`): If portfolio < 85% invested, allows entry into leaders even if not at technical extremes.
-    8.  **Fundamental Gatekeeper**: Blocks BUY if F-Score is critically low or basic health fails.
-    9.  **Star Rating**: Flags elite opportunities (AI ≥ 85, F-Score ≥ 7) with a minimum 20% capital floor.
+    7.  **Fundamental Gatekeeper**: Blocks BUY if F-Score is critically low or basic health fails.
+    8.  **Star Rating**: Flags elite opportunities (AI ≥ 85, F-Score ≥ 7) with a minimum 20% capital floor.
 
 ### C. Execution Manager (`execution_manager.py`)
 - **Role**: The trader.

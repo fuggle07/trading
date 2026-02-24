@@ -31,7 +31,7 @@ If you already own the stock, the bot checks your P&L **before** looking at new 
 *   **RSI Overbought (≥ 85)**: Exit to capture extreme momentum exhaustion.
 
 ### Step B: The Volatility Filter
-*   **Check**: Are the price swings too wild? (Band Width > **42.5%** normally; relaxed to 52.5% when exposure is low).
+*   **Check**: Are the price swings too wild? (Band Width > **42.5%** normally).
 *   **Action**: If yes, the bot **SITS OUT**. It avoids catching a falling knife.
 
 ### Step C: Technical Baseline
@@ -59,11 +59,11 @@ If you already own the stock, the bot checks your P&L **before** looking at new 
     | :--- | :--- | :--- |
     | `None` (missing data) | AI Confidence < 70 | REJECT — insufficient data |
     | `None` (missing data) | AI Confidence ≥ 70 AND Sentiment ≥ 0.2 | BUY with reduced conviction (data-missing bypass) |
-    | `≤ 1` (critically weak) | AI ≥ 70 AND Sentiment ≥ 0.4 (0.2 if low-exposure) | BUY as turnaround play (high-confidence override) |
+    | `≤ 1` (critically weak) | AI ≥ 70 AND Sentiment ≥ 0.4 | BUY as turnaround play (high-confidence override) |
     | `≤ 1` (critically weak) | Otherwise | REJECT |
     | `2–4` (below threshold) | AI Confidence below bypass threshold | REJECT |
     | `2–4` (below threshold) | AI Confidence above bypass threshold | BUY (F-Score bypassed by high conviction) |
-    | `≥ 5` normal / `≥ 2` low-exposure | — | BUY permitted |
+    | `≥ 5` | — | BUY permitted |
 
 *   **Basic Health Check**: If EPS < 0 or PE > 100 (`is_healthy = False`), BUY is also rejected.
 
@@ -127,13 +127,13 @@ The Aberfeldie Node operates on a **"Beat the Bank"** philosophy. Every dollar i
 
 | Input | Threshold | Role |
 | :--- | :--- | :--- |
-| **Vol Filter** | > 42.5% (> 52.5% low-exposure) | Safety Brake — skips trade |
+| **Vol Filter** | > 42.5% | Safety Brake — skips trade |
 | **Bollinger Band** | Lower / Upper | Initial Buy / Sell signal |
 | **RSI (14)** | ≤ 30 / ≥ 80 | Oversold aggression / Overbought exit |
-| **Sentiment Gate** | ≥ 0.4 (≥ 0.2 low-exposure) | Permission to BUY |
+| **Sentiment Gate** | ≥ 0.4 | Permission to BUY |
 | **Sentiment Exit** | < -0.4 | Forced SELL |
 | **F-Score** | ≤ 1 | High-confidence turnaround play only |
-| **F-Score** | < 5 normal / < 2 low-exposure | Fundamental rejection |
+| **F-Score** | < 5 | Fundamental rejection |
 | **F-Score** | ≥ 7 | Conviction bonus (+10) |
 | **AI Confidence** | ≥ 80 + F-Score ≥ 7 | Star rating — conviction swap priority |
 | **Profit Target** | +5% | Exit to lock half gain |
