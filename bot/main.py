@@ -558,9 +558,7 @@ async def run_audit():
                 "avg_price": held_tickers.get(ticker, {}).get("avg_price", 0.0),
                 "prediction_confidence": intel.get("confidence", 0),
                 "is_low_exposure": exposure < 0.85,
-                "exposure_ratio": (
-                    float(exposure / 0.85)
-                ),
+                "exposure_ratio": (float(exposure / 0.85)),
                 "band_width": float(intel.get("band_width", 0.0)),
                 "vix": float(macro_data.get("vix", 0.0)),
                 "volume": intel.get("volume", 0.0),
@@ -779,7 +777,6 @@ async def run_audit():
                 signals[rising_star]["action"] = "BUY"
                 signals[rising_star]["reason"] = "CONVICTION_ROTATION"
                 signals[rising_star]["price"] = ticker_intel[rising_star]["price"]
-
 
     # --- Phase 3: Coordinated Execution ---
     # Determine if we have any actionable trades to print the header
