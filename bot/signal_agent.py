@@ -494,9 +494,9 @@ class SignalAgent:
             return "SELL_PARTIAL_50"
 
         # 2. Trailing Stop: Activates after +3% gain.
-        #    Sell remaining if pulls back 2% from peak (HWM).
+        #    Sell remaining if pulls back 3.5% from peak (HWM).
         if p_change >= 0.03 or hwm >= hold_price * 1.03:
-            if hwm > 0 and current_price <= hwm * 0.98:
+            if hwm > 0 and current_price <= hwm * 0.965:
                 return "SELL_ALL"
 
         # 3. Dynamic stop loss: scale with volatility so we don't whipsaw on volatile stocks.
