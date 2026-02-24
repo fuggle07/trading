@@ -451,25 +451,12 @@ class SignalAgent:
 
         # 1. Determine Risk Budget (% of equity to lose if stopped at 2.5%)
         # Scale risk linearly from 0.4% (at 40 conf) to 1.0% (at 100 conf)
-        risk_pct = Decimal(str(max(0.004, min(0.01, (conviction / 100.0) * 0.01))))
-
-        # 2. VIX Damper (Fear Adjustment)
-        # If VIX > 20, reduce risk budget. E.g., VIX 40 reduces risk by 20%.
-        if vix > 20:
-            fear_factor = Decimal(str(max(0.5, 1.0 - ((vix - 20) / 100.0))))
-            risk_pct *= fear_factor
-
-        # 3. Ticker Volatility Damper
-        # If Band Width > 5%, reduce risk budget (less certainty in wide bands)
-        if band_width > 0.05:
-            vol_damper = Decimal(str(max(0.6, 1.0 - (band_width - 0.05))))
-            risk_pct *= vol_damper
-
-        # 4. Derive Position Size from Risk Budget
-        # Since our stop is ~2.5% (dynamic), we solve: Size * 0.025 = Equity * risk_pct
-        # Size = (Equity * risk_pct) / 0.025
-        # We use 0.025 as the standard stop-loss distance for sizing math.
-        allocation = (equity * risk_pct) / Decimal("0.025")
+        # 3. Derive Position Size from Risk Budget using Volatility-Adjusted Stop
+        # Calculate the actual dynamic stop distance that should_exit() will use (between 2.5% and 12%)
+        dynamic_stop_distance = max(0.025, min(0.12, float(band_width) * 0.50)) if band_width > 0 else 0.025
+        
+        # We solve: Size * dynamic_stop_distance = Equity * risk_pct
+        allocation = (equity * risk_pct) / Decimal(str(dynamic_stop_distance))
 
         # 5. Elite/Star Minimums
         if is_star and allocation < (equity * Decimal("0.20")):
@@ -501,16 +488,19 @@ class SignalAgent:
         if p_change >= 0.05 and not has_scaled_out:
             return "SELL_PARTIAL_50"
 
-        # 2. Trailing Stop: Activates after +3% gain.
-        #    Sell remaining if pulls back 3.5% from peak (HWM).
-        if p_change >= 0.03 or hwm >= hold_price * 1.03:
-            if hwm > 0 and current_price <= hwm * 0.965:
+        # 2. Dynamic Trailing Stop
+        # Base limit is 3.5%, but scales up to 8% for highly volatile stocks.
+        trailing_limit = max(0.035, min(0.08, band_width * 0.40)) if band_width > 0 else 0.035
+        activation_point = max(0.03, trailing_limit * 0.8) # Activate once we clear most of the noise
+
+        if p_change >= activation_point or hwm >= hold_price * (1.0 + activation_point):
+            if hwm > 0 and current_price <= hwm * (1.0 - trailing_limit):
                 return "SELL_ALL"
 
-        # 3. Dynamic stop loss: scale with volatility so we don't whipsaw on volatile stocks.
-        #    Base = 2.5%. Volatile stocks get a wider stop, capped at 6%.
+        # 3. Dynamic stop loss (Floor): scale with volatility so we don't whipsaw on volatile entries.
+        #    Base = 2.5%. Volatile stocks get a wider stop, capped at 12%.
         if band_width > 0:
-            dynamic_stop = max(0.025, min(0.06, band_width * 0.50))
+            dynamic_stop = max(0.025, min(0.12, band_width * 0.50))
         else:
             dynamic_stop = 0.025
 
