@@ -22,8 +22,3 @@ variable "initial_cash" {
   default     = 70000.0
 }
 
-variable "min_exposure_threshold" {
-  description = "Target minimum portfolio exposure (e.g., 0.65 for 65%)"
-  type        = number
-  default     = 0.85
-}

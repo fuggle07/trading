@@ -85,6 +85,7 @@ Here is the current list of 18 world-class companies your bot is watching, and t
 *   **TSLA (Tesla)**: Far more than just an EV company; a bet on the future of robotics and autonomous transport.
 *   **PLTR (Palantir)**: The AI "operating system" used by the most secretive governments and successful enterprises.
 *   **COIN (Coinbase)**: The primary gateway to the crypto economy; as digital assets grow, so does their influence.
+*   **IWM (iShares Russell 2000 ETF)**: An ETF tracking 2000 small-cap stocks; provides exposure to the broader economy and companies with high growth potential.
 
 ### The Growth Monopolies (Best in Class)
 *   **ASML (ASML Holding)**: The "monopoly of monopolies"—they make the only machines capable of printing the world’s most advanced chips.

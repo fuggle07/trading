@@ -145,16 +145,13 @@ resource "google_cloud_run_v2_service" "trading_bot" {
       }
       env {
         name  = "BASE_TICKERS"
-        value = "TSLA,NVDA,AMD,MU,PLTR,COIN,META,AAPL,MSFT,GOLD,AMZN,AVGO,ASML,LLY,LMT,VRT,CEG,TSM"
+        value = "TSLA,NVDA,AMD,MU,PLTR,COIN,META,AAPL,MSFT,GOLD,AMZN,AVGO,ASML,LLY,LMT,VRT,CEG,TSM,IWM"
       }
       env {
         name  = "INITIAL_CASH"
         value = tostring(var.initial_cash)
       }
-      env {
-        name  = "MIN_EXPOSURE_THRESHOLD"
-        value = tostring(var.min_exposure_threshold)
-      }
+
       env {
         name  = "ALPACA_PAPER_TRADING"
         value = "True"

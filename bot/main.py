@@ -74,9 +74,6 @@ signal_agent = SignalAgent(
     hurdle_rate=tax_adjusted_hurdle, vol_threshold=final_vol_threshold
 )
 
-# Exposure Threshold
-MIN_EXPOSURE_THRESHOLD = float(os.environ.get("MIN_EXPOSURE_THRESHOLD", 0.85))
-print(f"📊 Minimum Portfolio Exposure Threshold: {MIN_EXPOSURE_THRESHOLD:.1%}")
 
 # Stop-loss cooldown registry — prevents re-entering a position within
 # STOP_LOSS_COOLDOWN_MINUTES of a stop being triggered. In-memory: resets on restart.
@@ -388,7 +385,7 @@ async def run_audit():
     """
     tickers_env = os.environ.get(
         "BASE_TICKERS",
-        "TSLA,NVDA,AMD,MU,PLTR,COIN,META,AAPL,MSFT,GOLD,AMZN,AVGO,ASML,LLY,LMT,VRT,CEG,TSM",
+        "TSLA,NVDA,AMD,MU,PLTR,COIN,META,AAPL,MSFT,GOLD,AMZN,AVGO,ASML,LLY,LMT,VRT,CEG,TSM,IWM",
     )
     base_tickers = [t.strip() for t in tickers_env.split(",") if t.strip()]
 
@@ -560,11 +557,9 @@ async def run_audit():
                 "holding_value": held_tickers.get(ticker, {}).get("market_value", 0.0),
                 "avg_price": held_tickers.get(ticker, {}).get("avg_price", 0.0),
                 "prediction_confidence": intel.get("confidence", 0),
-                "is_low_exposure": exposure < MIN_EXPOSURE_THRESHOLD,
+                "is_low_exposure": exposure < 0.85,
                 "exposure_ratio": (
-                    float(exposure / MIN_EXPOSURE_THRESHOLD)
-                    if MIN_EXPOSURE_THRESHOLD > 0
-                    else 1.0
+                    float(exposure / 0.85)
                 ),
                 "band_width": float(intel.get("band_width", 0.0)),
                 "vix": float(macro_data.get("vix", 0.0)),
@@ -716,7 +711,7 @@ async def run_audit():
                 room_to_global_cap = float(
                     max(
                         0.0,
-                        total_equity * MIN_EXPOSURE_THRESHOLD - total_equity * exposure,
+                        total_equity * 0.85 - total_equity * exposure,
                     )
                 )
                 room_to_buy = min(room_to_buy, room_to_global_cap)
@@ -784,7 +779,7 @@ async def run_audit():
                 signals[rising_star]["action"] = "BUY"
                 signals[rising_star]["reason"] = "CONVICTION_ROTATION"
                 signals[rising_star]["price"] = ticker_intel[rising_star]["price"]
-    elif exposure < MIN_EXPOSURE_THRESHOLD and rising_star:
+    elif exposure < 0.85 and rising_star:
         # Deployment Logic: If we have cash, buy the best thing available
         # BUT: Respect volatility and hygiene checks
         existing_sig = signals.get(rising_star, {})
@@ -1260,7 +1255,7 @@ async def run_ranker_endpoint():
     """Trigger the morning ticker ranking job."""
     base = os.environ.get(
         "BASE_TICKERS",
-        "TSLA,NVDA,AMD,MU,PLTR,COIN,META,AAPL,MSFT,GOLD,AMZN,AVGO,ASML,LLY,LMT,VRT,CEG,TSM",
+        "TSLA,NVDA,AMD,MU,PLTR,COIN,META,AAPL,MSFT,GOLD,AMZN,AVGO,ASML,LLY,LMT,VRT,CEG,TSM,IWM",
     ).split(",")
     held = list(portfolio_manager.get_held_tickers().keys())
     tickers = list(set(base + held))
