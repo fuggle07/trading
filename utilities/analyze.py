@@ -11,7 +11,9 @@ WHERE timestamp > TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 24 HOUR)
 ORDER BY timestamp ASC
 """
 for row in client.query(q_exec).result():
-    print(f"[{row.timestamp}] {row.action} {row.quantity}x {row.ticker} @ ${row.price} - Status: {row.status} (Reason: {row.reason})")
+    print(
+        f"[{row.timestamp}] {row.action} {row.quantity}x {row.ticker} @ ${row.price} - Status: {row.status} (Reason: {row.reason})"
+    )
 
 print("\n=== PAST 24H EQUITY ===")
 q_perf = """
