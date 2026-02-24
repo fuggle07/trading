@@ -1071,16 +1071,8 @@ async def run_audit():
                 )
                 continue
 
-            # Exposure Allocation Strategy
-            # If exposure >= MIN_EXPOSURE_THRESHOLD, only allow BUY if ticker is "Star Rated"
-            if running_exposure >= MIN_EXPOSURE_THRESHOLD and not is_star:
-                log_decision(
-                    ticker,
-                    "SKIP",
-                    f"Baseline Exposure Hit ({running_exposure:.1%} >= {MIN_EXPOSURE_THRESHOLD:.0%}). {ticker} is not 'Star Rated'.",
-                )
-                continue
-
+            # Removed old 85% hard-ceiling for non-Stars.
+            # We now trust the conviction and dynamic swap logic.
             # Calculate Allocation
             cash_pool = float(portfolio_manager.get_cash_balance())
             already_held_value = float(
@@ -1110,17 +1102,7 @@ async def run_audit():
             # Buy amount = Target Allocation - Current Holdings
             allocation = max(0, target_allocation - already_held_value)
 
-            # Cap Check: Respect the exposure baseline for non-Stars
-            if not is_star:
-                room_to_exposure_target = float(
-                    max(
-                        0.0,
-                        total_equity * MIN_EXPOSURE_THRESHOLD
-                        - total_equity * running_exposure,
-                    )
-                )
-                allocation = float(min(allocation, room_to_exposure_target))
-
+            # No longer artificially clipping non-Stars. Position size entirely driven by conviction math.
             # Final liquidity check
             allocation = min(allocation, cash_pool)
 
