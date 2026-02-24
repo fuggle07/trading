@@ -1412,7 +1412,7 @@ async def process_ticker_intelligence(
                 logger.warning(f"[{ticker}] Alpaca quote fallback failed: {e}")
 
         # Bypass fundamental checks for ETFs as they lack standard company financial statements
-        if ticker in ["PSQ"]:
+        if ticker in ["PSQ", "IWM"]:
 
             async def mock_intel():
                 return {}
