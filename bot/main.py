@@ -63,7 +63,7 @@ print(f"🏦 Mortgage Rate: {raw_mortgage_rate:.2%}")
 print(f"📉 Tax-Adjusted Hurdle: {tax_adjusted_hurdle:.2%}")
 
 # Handle Volatility Sensitivity
-base_vol_threshold = 0.375
+base_vol_threshold = 0.425
 vol_sensitivity = float(os.environ.get("VOLATILITY_SENSITIVITY", 1.0))
 final_vol_threshold = base_vol_threshold * vol_sensitivity
 

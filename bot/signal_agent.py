@@ -13,7 +13,7 @@ class SignalAgent:
     def __init__(
         self,
         risk_profile: float = 0.02,
-        vol_threshold: float = 0.375,
+        vol_threshold: float = 0.425,
         hurdle_rate: float = 0.015,
     ):
         self.risk_per_trade = Decimal(str(risk_profile))
