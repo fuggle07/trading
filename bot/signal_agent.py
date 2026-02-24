@@ -451,7 +451,21 @@ class SignalAgent:
 
         # 1. Determine Risk Budget (% of equity to lose if stopped at 2.5%)
         # Scale risk linearly from 0.4% (at 40 conf) to 1.0% (at 100 conf)
-        # 3. Derive Position Size from Risk Budget using Volatility-Adjusted Stop
+        risk_pct = Decimal(str(max(0.004, min(0.01, (conviction / 100.0) * 0.01))))
+
+        # 2. VIX Damper (Fear Adjustment)
+        # If VIX > 20, reduce risk budget. E.g., VIX 40 reduces risk by 20%.
+        if vix > 20:
+            fear_factor = Decimal(str(max(0.5, 1.0 - ((vix - 20) / 100.0))))
+            risk_pct *= fear_factor
+
+        # 3. Ticker Volatility Damper
+        # If Band Width > 5%, reduce risk budget (less certainty in wide bands)
+        if band_width > 0.05:
+            vol_damper = Decimal(str(max(0.6, 1.0 - (band_width - 0.05))))
+            risk_pct *= vol_damper
+
+        # 4. Derive Position Size from Risk Budget using Volatility-Adjusted Stop
         # Calculate the actual dynamic stop distance that should_exit() will use (between 2.5% and 12%)
         dynamic_stop_distance = (
             max(0.025, min(0.12, float(band_width) * 0.50)) if band_width > 0 else 0.025
