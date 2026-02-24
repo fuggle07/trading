@@ -96,13 +96,22 @@ class SentimentAnalyzer:
             }
 
             import asyncio
+            import concurrent.futures
+            from functools import partial
 
+            if not hasattr(self, "_executor"):
+                self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=30)
+
+            func = partial(
+                self.model.generate_content,
+                prompt,
+                safety_settings=safety_settings,
+                generation_config={"response_mime_type": "application/json"},
+            )
+
+            loop = asyncio.get_running_loop()
             response = await asyncio.wait_for(
-                self.model.generate_content_async(
-                    prompt,
-                    safety_settings=safety_settings,
-                    generation_config={"response_mime_type": "application/json"},
-                ),
+                loop.run_in_executor(self._executor, func),
                 timeout=45,
             )
 
