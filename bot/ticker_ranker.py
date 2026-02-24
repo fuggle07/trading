@@ -98,10 +98,8 @@ class TickerRanker:
             import asyncio
 
             response = await asyncio.wait_for(
-                asyncio.to_thread(
-                    self.sentiment_analyzer.model.generate_content, prompt
-                ),
-                timeout=30,
+                self.sentiment_analyzer.model.generate_content_async(prompt),
+                timeout=45,
             )
             text = response.text.strip()
 

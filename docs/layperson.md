@@ -9,7 +9,6 @@ Welcome to the **Aberfeldie Node**. This document explains how your autonomous t
 The bot follows a single, aggressive rule: **Idle cash is losing money.**
 
 In the past, the bot was cautious, waiting for "perfect" opportunities. Now, it treats your brokerage account like a battlefield where every dollar must be "at war" to earn its keep. 
-*   **The Target**: The bot aims to keep at least **85%** of your money invested at all times.
 *   **The Benchmark**: It knows that any cash not invested could be sitting in your mortgage offset account saving you interest. If it can't find a stock that it expects will beat that mortgage rate, it looks for the next best opportunity to deploy that capital.
 
 ---

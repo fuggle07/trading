@@ -98,13 +98,12 @@ class SentimentAnalyzer:
             import asyncio
 
             response = await asyncio.wait_for(
-                asyncio.to_thread(
-                    self.model.generate_content,
+                self.model.generate_content_async(
                     prompt,
                     safety_settings=safety_settings,
                     generation_config={"response_mime_type": "application/json"},
                 ),
-                timeout=30,
+                timeout=45,
             )
 
             result_text = response.text.strip()
