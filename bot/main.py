@@ -1429,8 +1429,20 @@ async def process_ticker_intelligence(
             except Exception as e:
                 logger.warning(f"[{ticker}] Alpaca quote fallback failed: {e}")
 
-        intelligence_task = fundamental_agent.get_intelligence_metrics(ticker)
-        deep_health_task = fundamental_agent.evaluate_deep_health(ticker)
+        # Bypass fundamental checks for ETFs as they lack standard company financial statements
+        if ticker in ["PSQ"]:
+
+            async def mock_intel():
+                return {}
+
+            async def mock_health():
+                return (True, "ETF Bypass", True, "ETF Bypass", None)
+
+            intelligence_task = mock_intel()
+            deep_health_task = mock_health()
+        else:
+            intelligence_task = fundamental_agent.get_intelligence_metrics(ticker)
+            deep_health_task = fundamental_agent.evaluate_deep_health(ticker)
         history_task = fetch_historical_data(ticker)
         confidence_task = get_latest_confidence(ticker)
 
