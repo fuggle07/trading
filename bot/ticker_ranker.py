@@ -104,7 +104,9 @@ class TickerRanker:
             loop = asyncio.get_running_loop()
             response = await asyncio.wait_for(
                 loop.run_in_executor(
-                    self._executor, self.sentiment_analyzer.model.generate_content, prompt
+                    self._executor,
+                    self.sentiment_analyzer.model.generate_content,
+                    prompt,
                 ),
                 timeout=45,
             )
