@@ -414,7 +414,7 @@ class SignalAgent:
         f_score_str = str(fundamentals.get("f_score", "N/A")) if fundamentals else "N/A"
 
         if avg_price > 0:
-            delta_pct = (current_price / avg_price) * 100.0
+            delta_pct = (current_price / avg_price * 100.0) - 100.0
             ave_cost_str = f"${avg_price:>9,.2f}"
             delta_str = f"{delta_pct:>6.1f}%"
         else:
