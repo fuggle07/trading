@@ -510,7 +510,8 @@ class SignalAgent:
             return "SELL_ALL"
 
         # 4. Negative Sentiment Shift — tighten exit threshold if VIX is elevated
-        sentiment_exit_threshold = -0.3 if vix > 25 else -0.4
+        # Relaxed from -0.3/-0.4 to -0.6/-0.7 so we don't dump healthy blue chips on slight headwinds
+        sentiment_exit_threshold = -0.6 if vix > 25 else -0.7
         if sentiment <= sentiment_exit_threshold:
             return "SELL_ALL"
 
@@ -557,8 +558,9 @@ class SignalAgent:
         """
         vix = float(macro_data.get("vix", 0.0))
 
-        # Check for Gemini Veto: If AI hates the hedge (thinks market will recover), skip it.
-        if ai_sentiment < -0.2:
+        # Check for Gemini Veto: AI must heavily hate the inverse ETF specifically to override the VIX.
+        # Relaxed limit to -0.6 to prevent flip-flopping from standard background noise
+        if ai_sentiment <= -0.6:
             return "CLEAR_HEDGE", 0.0
 
         # Base Thresholds for Hysteresis
