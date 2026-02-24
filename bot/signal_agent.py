@@ -413,6 +413,14 @@ class SignalAgent:
         holding_val = market_data.get("holding_value", 0.0)
         f_score_str = str(fundamentals.get("f_score", "N/A")) if fundamentals else "N/A"
 
+        if avg_price > 0:
+            delta_pct = (current_price / avg_price) * 100.0
+            ave_cost_str = f"${avg_price:>9,.2f}"
+            delta_str = f"{delta_pct:>6.1f}%"
+        else:
+            ave_cost_str = "       N/A"
+            delta_str = "    N/A"
+
         reason = (
             f"{dry_run_prefix}"
             f"AI: {effective_ai_score:>2} | "
@@ -420,6 +428,8 @@ class SignalAgent:
             f"F-Score: {f_score_str:>4} | "
             f"Vlty: {volatility_pct:>4.1f}% | "
             f"Price: ${current_price:>9,.2f} | "
+            f"Ave Cost: {ave_cost_str} | "
+            f"Delta %: {delta_str} | "
             f"Held: {qty:>5,.1f} (${holding_val:>9,.2f}) | "
             f"Signal: {technical_signal:<25} | "
             f"Conf: {conviction:>3}"
