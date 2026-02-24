@@ -83,17 +83,18 @@ graph TD
 - **Logic**: Hybrid Technical + Fundamental + Sentiment pipeline with **Dynamic Risk Scaling**.
 - **Strategy Pipeline**:
     1.  **Holiday Filter**: Skips processing if the market is closed.
-    2.  **Volatility Gate**: Skips trading if Bollinger Band width > threshold (default 35%).
+    2.  **Volatility Gate**: Skips trading if Bollinger Band width > threshold (default 42.5%).
     3.  **Institutional Exit Logic** (runs before buy signals):
         - **Partial Scaling**: SELL 50% of the position if profit hits **+5%**.
-        - **Trailing Stop-Loss**: Activates once profit hits **+3%**. Exits the position if the price pulls back **2% from its High Water Mark (HWM)**.
+        - **Trailing Stop-Loss**: Activates dynamically once profit clears market noise. Exits if the price pulls back between **3.5% and 8.0%** from its High Water Mark (HWM).
+        - **Dynamic Hard Stop-Loss**: Volatility-scaled floor from a strict **-2.5%** down to **-12.0%** for highly volatile assets.
         - **Sentiment Exit**: SELL if Sentiment < -0.4.
         - **RSI Overbought Exit**: SELL if RSI ≥ 85.
     4.  **Macro Hedging**: 
         - Determines hedge status based on VIX and QQQ Trend.
         - **AI-Aware**: Consults Gemini sentiment for PSQ before entering a hedge (Veto power).
         - **Caution (2%)**, **Fear (5%)**, or **Panic (10%)** target percentages.
-    5.  **Dynamic Position Sizing**: Calculates optimal allocation (up to 40% cap) based on **Conviction**, **VIX**, and **Band Width**.
+    5.  **Dynamic Position Sizing (Risk Parity)**: Calculates maximum USD limit to ensure identical dollar risk across all assets, based on **Conviction**, and **Dynamic Stop-Loss Distance**. (Stacks new signals up to a strict 40% maximum portfolio concentration per ticker).
     6.  **Technical Baseline**:
         - BUY if `Price ≤ Lower Band` AND Sentiment ≥ 0.4.
         - SELL if `Price ≥ Upper Band`.
