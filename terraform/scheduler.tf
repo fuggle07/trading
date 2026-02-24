@@ -86,8 +86,8 @@ resource "google_cloud_scheduler_job" "ticker_rank_power_hour" {
 
 resource "google_cloud_scheduler_job" "audit_trigger" {
   name             = "trading-audit-trigger"
-  description      = "High-frequency audit (Every 1 minute during market hours)"
-  schedule         = "* 9-16 * * 1-5"
+  description      = "High-frequency audit (Every 2 minutes during market hours)"
+  schedule         = "*/2 9-16 * * 1-5"
   time_zone        = "America/New_York"
   attempt_deadline = "320s"
 

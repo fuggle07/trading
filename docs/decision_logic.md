@@ -85,7 +85,7 @@ Unlike fixed sizing, the bot mathematically equates physical dollar risk across 
     * *Result:* Extremely volatile stocks (like AMD with a 10% stop) will automatically scale your purchased shares down heavily compared to stable stocks (like LLY with a 2.5% stop). If either stock hits its unique stop, you lose the exact identical amount of dollars.
 4.  **Cascading Executions**: During active trading, the bot buys highest-conviction stocks first, immediately deducting the exact cost from its local working memory. Subsequent runner-up trades perfectly scale down into the remaining fraction of available cash until the pool hits $1,000. 
 
-*   **Max Cap**: 40% of total equity per position.
+*   **Max Cap**: 20% of total equity per position.
 *   **Star Floor**: Elite trades are guaranteed at least a 20% allocation.
 
 ---

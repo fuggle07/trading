@@ -1042,7 +1042,7 @@ async def run_audit():
             )
 
             # Max Allowed to Buy = Absolute Maximum Strategy Cap (40%) - Currently Held Value
-            max_permitted_buy = max(0, (total_equity * 0.40) - already_held_value)
+            max_permitted_buy = max(0, (total_equity * 0.20) - already_held_value)
 
             # Buy amount = Target Allocation chunk (We treat every signal as a fresh addition to max out winners)
             allocation = target_allocation

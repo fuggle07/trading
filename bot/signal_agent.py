@@ -489,7 +489,7 @@ class SignalAgent:
             allocation = equity * Decimal("0.20")
 
         # 6. Hard Caps (Max 40% per stock)
-        max_cap = equity * Decimal("0.40")
+        max_cap = equity * Decimal("0.20")
         return float(min(allocation, max_cap))
 
     def should_exit(

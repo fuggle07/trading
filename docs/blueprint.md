@@ -94,7 +94,7 @@ graph TD
         - Determines hedge status based on VIX and QQQ Trend.
         - **AI-Aware**: Consults Gemini sentiment for PSQ before entering a hedge (Veto power).
         - **Caution (2%)**, **Fear (5%)**, or **Panic (10%)** target percentages.
-    5.  **Dynamic Position Sizing (Risk Parity)**: Calculates maximum USD limit to ensure identical dollar risk across all assets, based on **Conviction**, and **Dynamic Stop-Loss Distance**. (Stacks new signals up to a strict 40% maximum portfolio concentration per ticker).
+    5.  **Dynamic Position Sizing (Risk Parity)**: Calculates maximum USD limit to ensure identical dollar risk across all assets, based on **Conviction**, and **Dynamic Stop-Loss Distance**. (Stacks new signals up to a strict 20% maximum portfolio concentration per ticker).
     6.  **Technical Baseline**:
         - BUY if `Price ≤ Lower Band` AND Sentiment ≥ 0.4.
         - SELL if `Price ≥ Upper Band`.
