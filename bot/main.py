@@ -1119,6 +1119,10 @@ async def run_audit():
                     running_exposure += (
                         (allocation / total_equity) if total_equity > 0 else 0
                     )
+                    
+                    # IMMEDIATELY deduct from local cash_pool so dry-runs realistically cascade
+                    cash_pool -= allocation
+                    cash_pool = max(0, cash_pool)
                 else:
                     log_decision(
                         ticker,
@@ -1146,6 +1150,14 @@ async def run_audit():
                     running_exposure += (
                         (allocation / total_equity) if total_equity > 0 else 0
                     )
+                    
+                    # IMMEDIATELY deduct from local cash_pool so the next ticker in the loop 
+                    # only sizes against truly remaining cash.
+                    if "FILLED" in status or "SUBMITTED" in status or "FILLED" in exec_res.get("status", ""):
+                        # execution_manager.place_order syncs BigQuery, but we need to update our local loop variable
+                        cash_pool -= allocation
+                        cash_pool = max(0, cash_pool)
+
                 else:
                     log_decision(
                         ticker,
