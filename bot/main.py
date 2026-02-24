@@ -779,60 +779,7 @@ async def run_audit():
                 signals[rising_star]["action"] = "BUY"
                 signals[rising_star]["reason"] = "CONVICTION_ROTATION"
                 signals[rising_star]["price"] = ticker_intel[rising_star]["price"]
-    elif exposure < 0.85 and rising_star:
-        # Deployment Logic: If we have cash, buy the best thing available
-        # BUT: Respect volatility and hygiene checks
-        existing_sig = signals.get(rising_star, {})
-        existing_action = existing_sig.get("action", "IDLE")
 
-        # Extract technical signal from meta if available
-        meta = existing_sig.get("meta", {})
-        tech_signal = meta.get("technical", "UNKNOWN")
-
-        # Check if the signal explicitly forbids trading
-        is_valid_candidate = True
-
-        # Reject if:
-        # 1. Action is explicitly SELL
-        # 2. Technical signal is VOLATILE_IGNORE
-        # 3. Action is IDLE (meaning no buy signal was generated normally)
-        if existing_action == "SELL" or tech_signal == "VOLATILE_IGNORE":
-            is_valid_candidate = False
-
-        # We also generally shouldn't override IDLE unless we are VERY sure,
-        # but 'Initial Deployment' is meant to be aggressive.
-        # However, if it was IDLE because of volatility, tech_signal would catch it.
-
-        if is_valid_candidate and (
-            rising_star not in signals or signals[rising_star]["action"] != "BUY"
-        ):
-            # Check for volatility
-            if tech_signal == "VOLATILE_IGNORE":
-                logger.debug(
-                    f"Initial Deployment: Skipping {rising_star} due to high volatility."
-                )
-            elif existing_action == "SELL":
-                logger.debug(
-                    f"Initial Deployment: Skipping {rising_star} due to SELL signal."
-                )
-            else:
-                star_intel_data = ticker_intel[rising_star]
-                star_meta = star_intel_data.get("meta", {})
-                star_sent = star_meta.get("sentiment", 0.0)
-                star_vol = star_meta.get("volatility", 0.0)
-                star_ai = star_meta.get("ai_score", 0)
-                star_f_score = star_intel_data.get("f_score", "N/A")
-
-                log_decision(
-                    rising_star,
-                    "BUY",
-                    f"Initial Deployment: AI: {star_ai} | F-Score: {star_f_score} | Sent: {star_sent:.2f} | Vlty: {star_vol:.1f}% | Eff: {best_star_effective_conf}",
-                )
-                if rising_star not in signals:
-                    signals[rising_star] = {}
-                signals[rising_star]["action"] = "BUY"
-                signals[rising_star]["reason"] = "INITIAL_DEPLOYMENT"
-                signals[rising_star]["price"] = ticker_intel[rising_star]["price"]
 
     # --- Phase 3: Coordinated Execution ---
     # Determine if we have any actionable trades to print the header
