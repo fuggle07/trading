@@ -198,6 +198,19 @@ class SignalAgent:
         if current_price >= indicators.get("upper", 0) and volume > (1.5 * avg_volume):
             technical_signal = "MOMENTUM_BREAKOUT"
 
+        # --- STAR RATING CLASSIFICATION ---
+        # Star = High AI Conviction (80+) + Elite Fundamentals (F-Score 7+) + Deeply Healthy
+        is_star = False
+        ai_score = fundamentals.get("score", 0)
+
+        if (
+            effective_ai_score >= 80
+            and fundamentals.get("f_score") is not None
+            and fundamentals.get("f_score", 0) >= 7
+            and fundamentals.get("is_deep_healthy", True)
+        ):
+            is_star = True
+
         # Logic for Final Decision
         final_action = "IDLE"
         conviction = 0
@@ -211,6 +224,11 @@ class SignalAgent:
             # Momentum requires even stronger sentiment confirmation
             final_action = "BUY"
             conviction = 80 + int(sentiment * 20)
+        elif is_star and technical_signal == "NEUTRAL" and sentiment >= 0.5:
+            # Stars with strong sentiment can be bought proactively without waiting for lower band
+            final_action = "BUY"
+            conviction = 80 + int(sentiment * 20)
+            technical_signal = "PROACTIVE_STAR_ENTRY"
         elif technical_signal == "SELL":
             final_action = "SELL"
             conviction = 80
@@ -365,18 +383,8 @@ class SignalAgent:
             # We keep the core action (BUY/SELL) so the bot logs the intent clearly.
             # main.py handles the actual execution avoidance via is_market_open().
 
-        # 5. Star Rating Classification
-        # Star = High AI Conviction (80+) + Elite Fundamentals (F-Score 7+) + Deeply Healthy
-        is_star = False
-        ai_score = fundamentals.get("score", 0)
-
-        if (
-            effective_ai_score >= 80
-            and fundamentals.get("f_score") is not None
-            and fundamentals.get("f_score", 0) >= 7
-            and fundamentals.get("is_deep_healthy", True)
-        ):
-            is_star = True
+        # 5. Star Rating Prefix Application
+        if is_star and not technical_signal.startswith("STAR_"):
             technical_signal = f"STAR_{technical_signal}"
 
         decision = {
