@@ -453,8 +453,10 @@ class SignalAgent:
         # Scale risk linearly from 0.4% (at 40 conf) to 1.0% (at 100 conf)
         # 3. Derive Position Size from Risk Budget using Volatility-Adjusted Stop
         # Calculate the actual dynamic stop distance that should_exit() will use (between 2.5% and 12%)
-        dynamic_stop_distance = max(0.025, min(0.12, float(band_width) * 0.50)) if band_width > 0 else 0.025
-        
+        dynamic_stop_distance = (
+            max(0.025, min(0.12, float(band_width) * 0.50)) if band_width > 0 else 0.025
+        )
+
         # We solve: Size * dynamic_stop_distance = Equity * risk_pct
         allocation = (equity * risk_pct) / Decimal(str(dynamic_stop_distance))
 
@@ -490,8 +492,12 @@ class SignalAgent:
 
         # 2. Dynamic Trailing Stop
         # Base limit is 3.5%, but scales up to 8% for highly volatile stocks.
-        trailing_limit = max(0.035, min(0.08, band_width * 0.40)) if band_width > 0 else 0.035
-        activation_point = max(0.03, trailing_limit * 0.8) # Activate once we clear most of the noise
+        trailing_limit = (
+            max(0.035, min(0.08, band_width * 0.40)) if band_width > 0 else 0.035
+        )
+        activation_point = max(
+            0.03, trailing_limit * 0.8
+        )  # Activate once we clear most of the noise
 
         if p_change >= activation_point or hwm >= hold_price * (1.0 + activation_point):
             if hwm > 0 and current_price <= hwm * (1.0 - trailing_limit):
