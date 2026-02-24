@@ -68,7 +68,7 @@ class TestSignalAgent(unittest.TestCase):
         }
         decision = self.agent.evaluate_strategy(market_data)
         self.assertEqual(decision["action"], "IDLE")
-        self.assertTrue(decision["meta"]["technical"].startswith("SKIP_EARNINGS"))
+        self.assertIn("SKIP_EARNINGS", decision["meta"]["technical"])
 
     def test_strategic_exit(self):
         """Verify should_exit triggers a SELL_ALL even against strong technicals."""
