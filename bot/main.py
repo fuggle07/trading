@@ -1030,6 +1030,10 @@ async def run_audit():
     # Exposure tracking to respect 65% baseline vs Star Reserve
     running_exposure = exposure
 
+    # Establish the true starting cash pool before simulating the BUY loop so
+    # consecutive iterations accurately reflect the sequential cash drain.
+    cash_pool = float(portfolio_manager.get_cash_balance())
+
     for ticker, sig in signals.items():
         if sig.get("action") == "BUY":
             reason = sig.get("reason", "Strategy Signal")
@@ -1074,7 +1078,6 @@ async def run_audit():
             # Removed old 85% hard-ceiling for non-Stars.
             # We now trust the conviction and dynamic swap logic.
             # Calculate Allocation
-            cash_pool = float(portfolio_manager.get_cash_balance())
             already_held_value = float(
                 held_tickers.get(ticker, {}).get("market_value", 0.0)
             )
