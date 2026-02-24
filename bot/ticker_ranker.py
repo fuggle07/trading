@@ -96,9 +96,16 @@ class TickerRanker:
 
         try:
             import asyncio
+            import concurrent.futures
 
+            if not hasattr(self, "_executor"):
+                self._executor = concurrent.futures.ThreadPoolExecutor(max_workers=30)
+
+            loop = asyncio.get_running_loop()
             response = await asyncio.wait_for(
-                self.sentiment_analyzer.model.generate_content_async(prompt),
+                loop.run_in_executor(
+                    self._executor, self.sentiment_analyzer.model.generate_content, prompt
+                ),
                 timeout=45,
             )
             text = response.text.strip()
