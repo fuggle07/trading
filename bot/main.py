@@ -177,7 +177,7 @@ async def fetch_historical_data(ticker):
             # Convert to DataFrame
             # Alpaca returns a dict with 'symbol' as key, list of bars as value if single symbol?
             # actually bars.df works great
-            df = bars.df.reset_index()
+            df = bars.df.reset_index()  # type: ignore
 
             # Filter for specific ticker just in case
             df = df[df["symbol"] == ticker]
@@ -552,16 +552,16 @@ async def run_audit():
     exposure = total_market_value / total_equity if total_equity > 0 else 0.0
 
     # Identify Held vs Non-Held for Swapping
-    held_tickers = {
+    held_tickers: dict = {
         item["ticker"]: item
         for item in val_data.get("breakdown", [])
         if item.get("holdings", 0) > 0
     }
 
     # Generate Initial Signals
-    signals = {}
-    eval_results = []
-    skipped_results = []
+    signals: dict = {}
+    eval_results: list = []
+    skipped_results: list = []
 
     for ticker, intel in ticker_intel.items():
         if intel is None:
@@ -1085,8 +1085,8 @@ async def run_audit():
                 continue
 
             # Fetch intelligence for sizing math
-            intel = ticker_intel.get(ticker)
-            if intel is None:
+            intel = ticker_intel.get(ticker) or {}
+            if not intel:
                 log_decision(
                     ticker, "SKIP", "Missing intelligence data during execution phase"
                 )
@@ -1364,12 +1364,12 @@ def equity_snapshot():
             WHERE rn = 1
         """
         price_rows = list(bq_client.query(price_query).result())
-        latest_prices = {{r.ticker: float(r.price) for r in price_rows}}
+        latest_prices = {r.ticker: float(r.price) for r in price_rows}
 
         # 3. Build breakdown
-        total_cash = 0.0
-        total_market_value = 0.0
-        positions = []
+        total_cash: float = 0.0
+        total_market_value: float = 0.0
+        positions: list = []
 
         for row in rows:
             ticker = row.asset_name
