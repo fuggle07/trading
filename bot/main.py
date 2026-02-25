@@ -860,6 +860,10 @@ async def run_audit():
     is_market_open = signal_agent.is_market_open()
     effective_enabled = trading_enabled and is_market_open
 
+    # Fetch accurate liquid cash to begin simulated or real execution stack.
+    # This must be tracked in sequential order (Sells -> Hedges -> Buys) to properly cascade dry-run rotation capital.
+    cash_pool = float(portfolio_manager.get_cash_balance())
+
     # 1. Execute SELLs First
     for ticker_obj, sig in signals.items():
         ticker = str(ticker_obj)
@@ -908,14 +912,15 @@ async def run_audit():
                     )
                     continue
 
+            sell_val = position_val * 0.5 if is_partial else position_val
             if not effective_enabled:
-                sell_val = position_val * 0.5 if is_partial else position_val
                 log_decision(
                     ticker,
                     action,
                     f"🧊 DRY RUN: Intent {action} ${sell_val:,.2f} ({reason})",
                 )
                 status = f"dry_run_{action.lower()}"
+                cash_pool += sell_val
             else:
                 exec_res = execution_manager.place_order(
                     ticker, "SELL", target_qty, sig["price"], reason=reason
@@ -924,8 +929,10 @@ async def run_audit():
                 log_decision(
                     ticker,
                     action,
-                    f"Execution Status: {status} | Value: ${position_val:,.2f} | Reason: {reason}",
+                    f"Execution Status: {status} | Value: ${sell_val:,.2f} | Reason: {reason}",
                 )
+                if "executed" in status:
+                    cash_pool += sell_val  # Optimistically add to cash_pool for immediate buying power
 
             # Registry Updates
             if "executed" in status:
@@ -971,28 +978,33 @@ async def run_audit():
 
         if needs_entry or needs_topup:
             order_val = target_hedge_val - current_hedge_val
+            order_val = min(order_val, cash_pool)  # Ensure hedge doesn't overdraw liquid cash
             hedge_price = float(ticker_intel.get(hedge_ticker, {}).get("price", 0.0))
 
-            if effective_enabled:
-                exec_res = execution_manager.place_order(
-                    hedge_ticker,
-                    "BUY",
-                    0,
-                    hedge_price,  # Fetch current price instead of 0.0
-                    reason=f"MACRO_HEDGE_{int(target_pct*100)}PCT_TRIGGERED",
-                    cash_available=float(order_val),
-                )
-                log_decision(
-                    hedge_ticker,
-                    "BUY",
-                    f"Hedge Scaling: Target {target_pct:.0%} | Scaling Order ${order_val:,.2f}",
-                )
-            else:
-                log_decision(
-                    hedge_ticker,
-                    "BUY",
-                    f"🧊 DRY RUN: Hedge Scaling Target {target_pct:.0%} | Order ${order_val:,.2f}",
-                )
+            if order_val >= 10:
+                if effective_enabled:
+                    exec_res = execution_manager.place_order(
+                        hedge_ticker,
+                        "BUY",
+                        0,
+                        hedge_price,  # Fetch current price instead of 0.0
+                        reason=f"MACRO_HEDGE_{int(target_pct*100)}PCT_TRIGGERED",
+                        cash_available=float(order_val),
+                    )
+                    log_decision(
+                        hedge_ticker,
+                        "BUY",
+                        f"Hedge Scaling: Target {target_pct:.0%} | Scaling Order ${order_val:,.2f}",
+                    )
+                    if "executed" in exec_res.get("status", "FAIL").lower():
+                        cash_pool -= order_val
+                else:
+                    log_decision(
+                        hedge_ticker,
+                        "BUY",
+                        f"🧊 DRY RUN: Hedge Scaling Target {target_pct:.0%} | Order ${order_val:,.2f}",
+                    )
+                    cash_pool -= order_val
 
     elif hedge_action == "CLEAR_HEDGE" and hedge_ticker in held_tickers:
         hedge_price = float(ticker_intel.get(hedge_ticker, {}).get("price", 0.0))
@@ -1015,10 +1027,6 @@ async def run_audit():
     # 2. Execute BUYs
     # Exposure tracking to respect 65% baseline vs Star Reserve
     running_exposure = exposure
-
-    # Establish the true starting cash pool before simulating the BUY loop so
-    # consecutive iterations accurately reflect the sequential cash drain.
-    cash_pool = float(portfolio_manager.get_cash_balance())
 
     # Calculate current sector exposure to enforce max-2 positions per sector
     sector_counts = {}
