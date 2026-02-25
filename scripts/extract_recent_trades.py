@@ -4,6 +4,7 @@ import csv
 import argparse
 from google.cloud import bigquery
 from datetime import datetime
+import pytz
 
 def extract_trades(hours=24, output_file=None):
     project_id = os.getenv("PROJECT_ID")
@@ -61,8 +62,9 @@ def extract_trades(hours=24, output_file=None):
             t.timestamp,
             t.ticker,
             t.BUY_SELL,
-            t.reason_signal,
-            c.AI,
+            COALESCE(TRIM(REGEXP_EXTRACT(t.reason_signal, r'(Signal:\\s*[^|]+)')), t.reason_signal) AS extracted_signal,
+            COALESCE(TRIM(REGEXP_EXTRACT(t.reason_signal, r'(AI:\\s*\\d+)')), '') AS extracted_ai_score,
+            c.AI AS gemini_ai,
             c.Sent,
             c.RSI,
             c.Vlty,
@@ -103,7 +105,7 @@ def extract_trades(hours=24, output_file=None):
         return
         
     # Write to CSV
-    headers = ["timestamp", "ticker", "BUY/SELL", "reason/signal", "AI", "Sent", "RSI", "Vlty", "F-Score", "Conf", "is_healthy", "price", "status"]
+    headers = ["timestamp", "ticker", "BUY/SELL", "Signal", "AI score", "Sent", "RSI", "Vlty", "F-Score", "Conf", "is_healthy", "price", "status", "AI"]
     
     try:
         with open(output_file, mode='w', newline='', encoding='utf-8') as f:
@@ -111,12 +113,16 @@ def extract_trades(hours=24, output_file=None):
             writer.writerow(headers)
             
             for row in rows:
+                nyc_time = ""
+                if row.timestamp:
+                    nyc_time = row.timestamp.astimezone(pytz.timezone('America/New_York')).isoformat()
+                    
                 writer.writerow([
-                    row.timestamp.isoformat() if row.timestamp else "",
+                    nyc_time,
                     row.ticker,
                     row.BUY_SELL,
-                    row.reason_signal,
-                    row.AI,
+                    row.extracted_signal,
+                    row.extracted_ai_score,
                     f"{row.Sent:.2f}" if row.Sent is not None else "",
                     f"{row.RSI:.2f}" if row.RSI is not None else "",
                     f"{row.Vlty:.4f}" if row.Vlty is not None else "",
@@ -124,7 +130,8 @@ def extract_trades(hours=24, output_file=None):
                     row.Conf,
                     row.is_healthy,
                     f"{row.price:.2f}" if row.price is not None else "",
-                    row.status
+                    row.status,
+                    row.gemini_ai
                 ])
         print(f"✅ Successfully exported {len(rows)} trades to {output_file}")
     except Exception as e:

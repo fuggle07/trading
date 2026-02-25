@@ -27,7 +27,6 @@ If you already own the stock, the bot checks your P&L **before** looking at new 
     1.  **Limit**: Scales continuously from **-3.5%** up to **-8.0%** from the High Water Mark (HWM), depending on the stock's historical volatility. Wild stocks get a longer leash.
     2.  **Activation**: Becomes fully active dynamically (usually around **+3%** to **+6%** profit) once the stock clears expected market noise.
 *   **Dynamic Hard Stop-Loss**: Scales continuously from a strict **-2.5%** floor all the way to **-12.0%** for highly volatile assets, protecting capital without premature whipsawing.
-*   **Sentiment Crash**: If sentiment drops below **-0.4**, the bot exits even if price looks fine.
 *   **RSI Overbought (≥ 85)**: Exit to capture extreme momentum exhaustion.
 
 ### Step B: The Volatility Filter
@@ -106,9 +105,8 @@ The bot exits positions (beyond the initial stop/profit targets) if:
 
 1.  **Profit Target (+5%)**: Locks in the gain.
 2.  **Stop Loss (-2.5%)**: Protects the capital pool.
-3.  **Sentiment Crash (< -0.4)**: News has turned seriously negative.
-4.  **RSI Overbought (≥ 80)**: Momentum exhaustion signal.
-5.  **Upper Bollinger Band**: Price has reverted to fair/overvalued territory.
+3.  **RSI Overbought (≥ 80)**: Momentum exhaustion signal.
+4.  **Upper Bollinger Band**: Price has reverted to fair/overvalued territory.
 
 ---
 
@@ -122,7 +120,6 @@ The bot exits positions (beyond the initial stop/profit targets) if:
 | **Bollinger Band** | Lower / Upper | Initial Buy / Sell signal |
 | **RSI (14)** | ≤ 30 / ≥ 80 | Oversold aggression / Overbought exit |
 | **Sentiment Gate** | ≥ 0.4 | Permission to BUY |
-| **Sentiment Exit** | < -0.4 | Forced SELL |
 | **F-Score** | ≤ 1 | High-confidence turnaround play only |
 | **F-Score** | < 5 | Fundamental rejection |
 | **F-Score** | ≥ 7 | Conviction bonus (+10) |

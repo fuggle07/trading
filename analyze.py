@@ -2,7 +2,7 @@ from google.cloud import bigquery
 from datetime import datetime
 import pandas as pd
 
-client = bigquery.Client(project='utopian-calling-429014-r9')
+client = bigquery.Client(project="utopian-calling-429014-r9")
 
 print("=== RECENT EXECUTIONS ===")
 q_exec = """

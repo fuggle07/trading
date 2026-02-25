@@ -537,12 +537,6 @@ class SignalAgent:
         if p_change <= -dynamic_stop:
             return "SELL_ALL"
 
-        # 4. Negative Sentiment Shift — tighten exit threshold if VIX is elevated
-        # Relaxed from -0.3/-0.4 to -0.6/-0.7 so we don't dump healthy blue chips on slight headwinds
-        sentiment_exit_threshold = -0.6 if vix > 25 else -0.7
-        if sentiment <= sentiment_exit_threshold:
-            return "SELL_ALL"
-
         return "HOLD"
 
     def check_conviction_swap(

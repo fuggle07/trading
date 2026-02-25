@@ -1194,6 +1194,24 @@ async def get_latest_confidence(ticker: str) -> Optional[int]:
     return 0
 
 
+async def get_recent_sentiments(ticker: str, limit: int = 9) -> list:
+    """Fetches the last N sentiment scores for a ticker from BQ watchlist_logs table to smooth out acute spikes."""
+    query = f"""
+        SELECT sentiment_score
+        FROM `{PROJECT_ID}.trading_data.watchlist_logs`
+        WHERE ticker = '{ticker}'
+        AND timestamp >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 24 HOUR)
+        ORDER BY timestamp DESC
+        LIMIT {limit}
+    """
+    try:
+        results = bq_client.query(query).result()
+        return [float(row.sentiment_score) for row in results if row.sentiment_score is not None]
+    except Exception as e:
+        logger.warning(f"[{ticker}] Could not fetch recent sentiments: {e}")
+        return []
+
+
 @app.route("/rank-tickers", methods=["POST"])
 async def run_ranker_endpoint():
     """Trigger the morning ticker ranking job."""
@@ -1390,6 +1408,7 @@ async def process_ticker_intelligence(
             deep_health_task = fundamental_agent.evaluate_deep_health(ticker)
         history_task = fetch_historical_data(ticker)
         confidence_task = get_latest_confidence(ticker)
+        sentiment_history_task = get_recent_sentiments(ticker, limit=9)
 
         # FMP Technical Indicators
         sma20_task = fundamental_agent.get_technical_indicator(ticker, "sma", period=20)
@@ -1409,6 +1428,7 @@ async def process_ticker_intelligence(
             sma50_task,
             rsi_task,
             std_task,
+            sentiment_history_task,
             return_exceptions=True,
         )
 
@@ -1438,6 +1458,9 @@ async def process_ticker_intelligence(
         res_std = (
             intel_results[7] if not isinstance(intel_results[7], Exception) else None
         )
+        res_recent_sentiments = (
+            intel_results[8] if not isinstance(intel_results[8], Exception) else []
+        )
 
         # Initialize defaults to prevent NameErrors if res_quote fails
         price = 0.0
@@ -1446,8 +1469,15 @@ async def process_ticker_intelligence(
         sentiment_score = 0.0
         gemini_reasoning = "N/A"
 
+        from bot.streaming import GLOBAL_PRICES, GLOBAL_AI_SENTIMENT
+
         if res_quote and isinstance(res_quote, dict) and "c" in res_quote:
             price = float(res_quote["c"])
+            
+            # Event-Driven Architecture: Override with instantaneous WebSocket price
+            if ticker in GLOBAL_PRICES:
+                price = float(GLOBAL_PRICES[ticker])
+                
             volume = float(res_quote.get("v", 0))
             avg_volume = float(res_quote.get("av", 1))
             current_prices[ticker] = price
@@ -1473,14 +1503,27 @@ async def process_ticker_intelligence(
                 "sma_stretch_pct": round(sma_stretch, 2),
             }
 
-            sentiment_result = await fetch_sentiment(
-                ticker, lessons, context=ai_context
-            )
+            # Process AI sentiment using Decoupled Worker if available
+            if ticker in GLOBAL_AI_SENTIMENT:
+                print(f"[{ticker}] ⚡ Decoupled AI Worker cache hit! Bypassing API latency.")
+                sentiment_result = GLOBAL_AI_SENTIMENT[ticker]
+            else:
+                sentiment_result = await fetch_sentiment(
+                    ticker, lessons, context=ai_context
+                )
+                
             sentiment_score, gemini_reasoning = (
                 sentiment_result
                 if isinstance(sentiment_result, tuple)
                 else (sentiment_result, "")
             )
+
+            # --- DAMPEN SENTIMENT SCORE ---
+            # Use the mean over the previous 9 runs + this run (total 10 runs)
+            if res_recent_sentiments:
+                all_sentiments = res_recent_sentiments + [sentiment_score]
+                sentiment_score = sum(all_sentiments) / len(all_sentiments)
+                sentiment_score = round(sentiment_score, 3)
 
         # 1. Technical Baseline Construction
         indicators = calculate_technical_indicators(res_history, ticker) or {}
@@ -1657,7 +1700,51 @@ async def debug_alpaca_endpoint(ticker):
         return jsonify({"status": "fatal", "error": str(e), "log": log}), 500
 
 
-# --- 5. LOCAL RUNNER ---
+# --- 5. BACKGROUND DAEMONS & SETUP ---
+import threading
+
+def ai_polling_worker(tickers):
+    """Decoupled intelligence loop that polls news and updates the generic score asynchronously."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    async def poll_all():
+        while True:
+            for ticker in tickers:
+                try:
+                    from bot.streaming import GLOBAL_AI_SENTIMENT
+                    lessons = feedback_agent.compile_lessons(ticker) if feedback_agent else ""
+                    res = await fetch_sentiment(ticker, lessons, context=None)
+                    GLOBAL_AI_SENTIMENT[ticker] = res
+                    # Add random jitter to avoid rate limits
+                    await asyncio.sleep(5)
+                except Exception as e:
+                    print(f"AI Worker error for {ticker}: {e}")
+            await asyncio.sleep(180) # Refresh watchlist every 3 mins
+            
+    loop.run_until_complete(poll_all())
+
+def initialize_daemons():
+    try:
+        from bot.streaming import launch_streams_in_background
+        key = os.environ.get("ALPACA_API_KEY")
+        secret = os.environ.get("ALPACA_API_SECRET")
+        tickers_env = os.environ.get("TICKERS", "")
+        base_tickers = [t.strip() for t in tickers_env.split(",") if t.strip()]
+        
+        # 1. Launch WebSockets (Trades & Prices)
+        launch_streams_in_background(key, secret, base_tickers, portfolio_manager)
+        
+        # 2. Launch Decoupled AI Worker
+        t = threading.Thread(target=ai_polling_worker, args=(base_tickers,), daemon=True)
+        t.start()
+    except Exception as e:
+        print(f"Failed to start daemons: {e}")
+
+# Automatically start background streams/bots
+initialize_daemons()
+
+# --- 6. LOCAL RUNNER ---
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     app.run(host="0.0.0.0", port=port)
