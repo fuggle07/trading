@@ -125,14 +125,14 @@ stock_historical_client = (
 
 
 async def fetch_historical_data(ticker):
-    """Fetches daily candles for the last 60 days using Alpaca, with FMP fallback."""
+    """Fetches daily candles for the last 60 days using Alpaca, with standard fallbacks."""
     if not ALPACA_KEY or not ALPACA_SECRET:
         print(f"⚠️  Alpaca keys missing for {ticker}")
-        # Automatically trigger FMP fallback if no Alpaca keys
-        return await fetch_historical_fmp(ticker)
+        # Automatically trigger fallback if no Alpaca keys
+        return await fetch_historical_fallback(ticker)
 
     if not stock_historical_client:
-        return await fetch_historical_fmp(ticker)
+        return await fetch_historical_fallback(ticker)
 
     end = datetime.now(timezone.utc)
     start = end - timedelta(days=90)  # Buffer for 60 trading days
@@ -169,15 +169,19 @@ async def fetch_historical_data(ticker):
         bars = await asyncio.wait_for(asyncio.to_thread(_get_alpaca), timeout=20)
 
         if not bars or not bars.data:
-            print(f"⚠️  Alpaca returned no data for {ticker}, trying FMP instead...")
-            return await fetch_historical_fmp(ticker)
+            print(
+                f"⚠️  Alpaca returned no data for {ticker}, trying Finnhub fallback..."
+            )
+            return await fetch_historical_fallback(ticker)
 
         df = bars.df.reset_index()  # type: ignore
         df = df[df["symbol"] == ticker]
 
         if df.empty:
-            print(f"⚠️  Alpaca data frame empty for {ticker}, trying FMP instead...")
-            return await fetch_historical_fmp(ticker)
+            print(
+                f"⚠️  Alpaca data frame empty for {ticker}, trying Finnhub fallback..."
+            )
+            return await fetch_historical_fallback(ticker)
 
         df_norm = pd.DataFrame(
             {
@@ -193,40 +197,54 @@ async def fetch_historical_data(ticker):
         return df_norm
 
     except asyncio.TimeoutError:
-        print(f"⏳ Alpaca Timeout for {ticker}, trying FMP instead...")
-        return await fetch_historical_fmp(ticker)
+        print(f"⏳ Alpaca Timeout for {ticker}, trying Finnhub fallback...")
+        return await fetch_historical_fallback(ticker)
     except Exception as e:
-        print(f"❌ Alpaca Error for {ticker}: {e}, trying FMP instead...")
-        return await fetch_historical_fmp(ticker)
+        print(f"❌ Alpaca Error for {ticker}: {e}, trying Finnhub fallback...")
+        return await fetch_historical_fallback(ticker)
 
 
-async def fetch_historical_fmp(ticker):
-    """Fallback helper to fetch historical data from fundamental_agent."""
-    fmp_data = None
-    if fundamental_agent:
-        fmp_data = await fundamental_agent.get_historical_prices(ticker)
+async def fetch_historical_fallback(ticker):
+    """Fallback helper to fetch historical data from Finnhub."""
+    if not finnhub_client:
+        print(
+            f"⚠️  Finnhub client unavailable, cannot fetch fallback data for {ticker}."
+        )
+        return None
 
-    if fmp_data and "historical" in fmp_data:
-        df_fmp = pd.DataFrame(fmp_data["historical"])
-        if not df_fmp.empty:
-            df_fmp["timestamp"] = pd.to_datetime(df_fmp["date"])
-            df_fmp = df_fmp.sort_values(by="timestamp").reset_index(drop=True)
-            df_fmp = df_fmp.tail(90).reset_index(drop=True)
+    try:
 
-            df_norm = pd.DataFrame(
+        def _fetch_finnhub(client):
+            # Get 90 days of daily data
+            end_ts = int(datetime.now().timestamp())
+            start_ts = int((datetime.now() - timedelta(days=90)).timestamp())
+            return client.stock_candles(ticker, "D", start_ts, end_ts)
+
+        res = await asyncio.wait_for(
+            asyncio.to_thread(_fetch_finnhub, finnhub_client), timeout=15
+        )
+
+        if res and res.get("s") == "ok":
+            df_fh = pd.DataFrame(
                 {
-                    "t": df_fmp["timestamp"],
-                    "o": df_fmp.get("open", df_fmp["close"]),
-                    "h": df_fmp.get("high", df_fmp["close"]),
-                    "l": df_fmp.get("low", df_fmp["close"]),
-                    "c": df_fmp["close"],
-                    "v": df_fmp.get("volume", 0),
+                    "t": pd.to_datetime(res["t"], unit="s", utc=True),
+                    "o": res["o"],
+                    "h": res["h"],
+                    "l": res["l"],
+                    "c": res["c"],
+                    "v": res["v"],
                 }
             )
-            print(f"[{ticker}] 📊 FMP Data Fetched: {len(df_norm)} rows")
-            return df_norm
 
-    print(f"⚠️  All historical data sources failed for {ticker}. Check API keys.")
+            print(f"[{ticker}] 📊 Finnhub Fallback Data Fetched: {len(df_fh)} rows")
+            return df_fh
+        else:
+            print(f"⚠️  Finnhub returned no valid candle data for {ticker}.")
+
+    except Exception as e:
+        print(f"⚠️  Finnhub Fallback failed for {ticker}: {e}")
+
+    print(f"⚠️  All historical data sources completely failed for {ticker}.")
     return None
 
 
