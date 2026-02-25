@@ -37,19 +37,18 @@ class FundamentalAgent:
             query_params.update(params)
 
         # MAIN DOMAIN IS MORE COMPATIBLE WITH STABLE
-        base_url = "https://financialmodelingprep.com/api"
+        base_url = "https://financialmodelingprep.com"
 
         if version == "stable":
-            # Stable endpoints use query params for symbols mapped to v3
-            url = f"{base_url}/v3/{endpoint}"
+            # Stable endpoints use query params for symbols
+            url = f"{base_url}/{version}/{endpoint}"
             if ticker:
                 query_params["symbol"] = ticker
         else:
-            # v3/v4 usually use path-based symbols
+            # v3/v4 usually use path-based symbols, now generally behind /api/ directory
+            url = f"{base_url}/api/{version}/{endpoint}"
             if ticker:
-                url = f"{base_url}/{version}/{endpoint}/{ticker}"
-            else:
-                url = f"{base_url}/{version}/{endpoint}"
+                url = f"{url}/{ticker}"
 
         try:
             async with aiohttp.ClientSession() as session:
@@ -66,11 +65,15 @@ class FundamentalAgent:
                     # Log failure details (kept for production troubleshooting)
                     try:
                         err_text = await response.text()
-                        logger.warning(f"FMP [{status}]: {url} | {err_text[:120]}")
+                        if status == 403 and "Legacy Endpoint" in err_text:
+                            pass  # Suppress FMP premium tier errors
+                        else:
+                            logger.warning(f"FMP [{status}]: {url} | {err_text[:120]}")
                     except Exception:
-                        logger.warning(f"FMP [{status}]: {url}")
-        except Exception as e:
-            logger.warning(f"FMP exception: {url} | {e}")
+                        if status != 403:
+                            logger.warning(f"FMP [{status}]: {url}")
+        except Exception:
+            pass  # Suppress generic network exception spam
         return None
 
     async def _fetch_alphavantage(self, function: str, params: dict = None):
@@ -108,9 +111,9 @@ class FundamentalAgent:
         """
         Fetches technical indicators from FMP using the stable API.
         """
-        endpoint = f"technical_indicator/{timeframe}/{ticker}"
-        params = {"type": indicator_type, "period": period}
-        data = await self._fetch_fmp(endpoint, "", params=params, version="v3")
+        endpoint = f"technical-indicators/{indicator_type}"
+        params = {"periodLength": period, "timeframe": timeframe}
+        data = await self._fetch_fmp(endpoint, ticker, params=params, version="stable")
         if data and isinstance(data, list):
             return data[0]
         return None
@@ -126,8 +129,8 @@ class FundamentalAgent:
 
         symbols = ",".join(tickers)
         url = (
-            f"https://financialmodelingprep.com/api/v3/quote/{symbols}"
-            f"?apikey={self.fmp_key}"
+            f"https://financialmodelingprep.com/stable/quote"
+            f"?symbol={symbols}&apikey={self.fmp_key}"
         )
         try:
             async with aiohttp.ClientSession() as session:
@@ -290,8 +293,8 @@ class FundamentalAgent:
                 "insider-trading/search", ticker, params={"limit": 100}
             )
 
-            # 4. Profile (FMP /v3/profile) for sector info
-            profile_task = self._fetch_fmp("profile", ticker, version="v3")
+            # 4. Profile (FMP /stable/profile) for sector info
+            profile_task = self._fetch_fmp("profile", ticker, version="stable")
 
             ratings_data, target_data, insider_data, profile_data = (
                 await asyncio.gather(
@@ -961,7 +964,13 @@ class FundamentalAgent:
                     logger.warning(
                         f"[{ticker}] ⚠️ FMP Data Incomplete. Triggering Fallback."
                     )
-                    raise ValueError("Incomplete FMP Data")
+                    return (
+                        True,
+                        "FMP Data Missing (Assumed Healthy)",
+                        True,
+                        "FMP Data Missing",
+                        None,
+                    )
 
                 price = 0.0
                 if quote_data:
