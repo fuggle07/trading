@@ -978,7 +978,9 @@ async def run_audit():
 
         if needs_entry or needs_topup:
             order_val = target_hedge_val - current_hedge_val
-            order_val = min(order_val, cash_pool)  # Ensure hedge doesn't overdraw liquid cash
+            order_val = min(
+                order_val, cash_pool
+            )  # Ensure hedge doesn't overdraw liquid cash
             hedge_price = float(ticker_intel.get(hedge_ticker, {}).get("price", 0.0))
 
             if order_val >= 10:
