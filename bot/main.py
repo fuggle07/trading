@@ -1164,7 +1164,7 @@ async def run_audit():
                 is_star=is_star,
             )
 
-            # Max Allowed to Buy = Absolute Maximum Strategy Cap (25%) - Currently Held Value
+            # Max Allowed to Buy = Absolute Maximum Strategy Cap (28%) - Currently Held Value
             max_permitted_buy = max(0, (total_equity * 0.28) - already_held_value)
 
             # Buy amount = Target Allocation chunk (We treat every signal as a fresh addition to max out winners)
