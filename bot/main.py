@@ -54,14 +54,6 @@ finnhub_client = finnhub.Client(api_key=FINNHUB_KEY) if FINNHUB_KEY else None
 sentiment_analyzer = SentimentAnalyzer(PROJECT_ID)
 
 # Initialize Trading Agents
-# Load Mortgage Rate and calculate Tax-Adjusted Hurdle
-# Assuming 35% tax deductibility as per user request
-raw_mortgage_rate = float(os.environ.get("MORTGAGE_RATE", 0.0))
-tax_adjusted_hurdle = 0.0  # Cash is at Alpaca (external to offset). No hurdle gate.
-
-print(f"🏦 Mortgage Rate: {raw_mortgage_rate:.2%}")
-print(f"📉 Tax-Adjusted Hurdle: {tax_adjusted_hurdle:.2%}")
-
 # Handle Volatility Sensitivity
 base_vol_threshold = 0.425
 vol_sensitivity = float(os.environ.get("VOLATILITY_SENSITIVITY", 1.0))
@@ -71,7 +63,7 @@ print(f"🌊 Volatility Sensitivity: {vol_sensitivity:.1f}")
 print(f"🛡️  Final Volatility Threshold: {final_vol_threshold:.1%}")
 
 signal_agent = SignalAgent(
-    hurdle_rate=tax_adjusted_hurdle, vol_threshold=final_vol_threshold
+    hurdle_rate=0.0, vol_threshold=final_vol_threshold
 )
 
 
