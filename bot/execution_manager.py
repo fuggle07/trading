@@ -172,14 +172,14 @@ class ExecutionManager:
                         stop_loss=StopLossRequest(stop_price=stop_price),
                     )
                 else:
-                    # Selling: Use a tight Limit Order to exit gracefully without getting gouged (e.g. -0.5% buffer)
-                    limit_price = round(price * 0.995, 2)
-                    order_data = LimitOrderRequest(
+                    # Selling: Use a Market Order to exit cleanly immediately with no stalled requests
+                    from alpaca.trading.requests import MarketOrderRequest
+
+                    order_data = MarketOrderRequest(
                         symbol=ticker,
                         qty=quantity,
                         side=side,
                         time_in_force=TimeInForce.DAY,
-                        limit_price=limit_price,
                     )
 
                 logger.info(
