@@ -542,7 +542,7 @@ class SignalAgent:
                 return False
 
             # Optional: Enforce F-Score > 5 for swaps
-            if potential_fundamentals.get("f_score", 0) < 5:
+            if (potential_fundamentals.get("f_score") or 0) < 5:
                 return False
 
         # 2. Confidence Hurdle (Switching Cost buffer)
