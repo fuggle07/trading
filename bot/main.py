@@ -125,129 +125,109 @@ stock_historical_client = (
 
 
 async def fetch_historical_data(ticker):
-    """Fetches daily candles for the last 60 days using Alpaca."""
-    loop = asyncio.get_event_loop()
+    """Fetches daily candles for the last 60 days using Alpaca, with FMP fallback."""
+    if not ALPACA_KEY or not ALPACA_SECRET:
+        print(f"⚠️  Alpaca keys missing for {ticker}")
+        # Automatically trigger FMP fallback if no Alpaca keys
+        return await fetch_historical_fmp(ticker)
 
-    def get_candles():
-        if not ALPACA_KEY or not ALPACA_SECRET:
-            print(f"⚠️  Alpaca keys missing for {ticker}")
-            return None
+    if not stock_historical_client:
+        return await fetch_historical_fmp(ticker)
 
+    end = datetime.now(timezone.utc)
+    start = end - timedelta(days=90)  # Buffer for 60 trading days
+
+    def _get_alpaca():
+        request_params = StockBarsRequest(
+            symbol_or_symbols=ticker,
+            timeframe=TimeFrame.Day,
+            start=start,
+            end=end,
+            feed="iex",
+        )
+        bars = None
         try:
-            # client = StockHistoricalDataClient(ALPACA_KEY, ALPACA_SECRET) # Use global client
-            if not stock_historical_client:
-                return None
+            bars = stock_historical_client.get_stock_bars(request_params)
+        except Exception as e:
+            print(f"⚠️  IEX feed failed for {ticker}: {e}, trying SIP...")
 
-            # Alpaca expects datetime objects
-            end = datetime.now(timezone.utc)
-            start = end - timedelta(days=90)  # Buffer for 60 trading days
-
+        if not bars or not bars.data:
             request_params = StockBarsRequest(
                 symbol_or_symbols=ticker,
                 timeframe=TimeFrame.Day,
                 start=start,
                 end=end,
-                feed="iex",
+                feed="sip",
             )
-
-            bars = None
             try:
                 bars = stock_historical_client.get_stock_bars(request_params)
             except Exception as e:
-                print(f"⚠️  IEX feed failed for {ticker}: {e}, trying SIP...")
-
-            if not bars or not bars.data:
-                # Fallback to SIP
-                request_params = StockBarsRequest(
-                    symbol_or_symbols=ticker,
-                    timeframe=TimeFrame.Day,
-                    start=start,
-                    end=end,
-                    feed="sip",
-                )
-                try:
-                    bars = stock_historical_client.get_stock_bars(request_params)
-                except Exception as e:
-                    print(f"⚠️  SIP feed failed for {ticker}: {e}")
-
-            if not bars or not bars.data:
-                # FMP Fallback
-                print(
-                    f"⚠️  Alpaca returned no data for {ticker}, trying FMP instead..."
-                )
-                fmp_data = None
-                if fundamental_agent:
-                    fmp_data = await fundamental_agent.get_historical_prices(ticker)
-
-                if fmp_data and "historical" in fmp_data:
-                    df_fmp = pd.DataFrame(fmp_data["historical"])
-                    if not df_fmp.empty:
-                        df_fmp["timestamp"] = pd.to_datetime(df_fmp["date"])
-                        # FMP returns newest first, so we reverse it to oldest-first
-                        df_fmp = df_fmp.sort_values(by="timestamp").reset_index(
-                            drop=True
-                        )
-                        # Keep last 90 rows (trading days)
-                        df_fmp = df_fmp.tail(90).reset_index(drop=True)
-
-                        df_norm = pd.DataFrame(
-                            {
-                                "t": df_fmp["timestamp"],
-                                "o": df_fmp.get("open", df_fmp["close"]),
-                                "h": df_fmp.get("high", df_fmp["close"]),
-                                "l": df_fmp.get("low", df_fmp["close"]),
-                                "c": df_fmp["close"],
-                                "v": df_fmp.get("volume", 0),
-                            }
-                        )
-                        print(f"[{ticker}] 📊 FMP Data Fetched: {len(df_norm)} rows")
-                        return df_norm
-
-                print(
-                    f"⚠️  All historical data sources failed for {ticker}. Check API keys."
-                )
-                return None
-
-            # Convert to DataFrame
-            # Alpaca returns a dict with 'symbol' as key, list of bars as value if single symbol?
-            # actually bars.df works great
-            df = bars.df.reset_index()  # type: ignore
-
-            # Filter for specific ticker just in case
-            df = df[df["symbol"] == ticker]
-
-            if df.empty:
-                print(f"⚠️  Alpaca data frame empty for {ticker}")
-                return None
-
-            # Normalize column names
-            # Alpaca: timestamp, open, high, low, close, volume, trade_count, vwap
-            # Internal: t, o, h, l, c, v
-            df_norm = pd.DataFrame(
-                {
-                    "t": df["timestamp"],
-                    "o": df["open"],
-                    "h": df["high"],
-                    "l": df["low"],
-                    "c": df["close"],
-                    "v": df["volume"],
-                }
-            )
-
-            print(f"[{ticker}] 📊 Alpaca Data Fetched: {len(df)} rows")
-            return df_norm
-
-        except Exception as e:
-            print(f"❌ Alpaca Error for {ticker}: {e}")
-            return None
+                print(f"⚠️  SIP feed failed for {ticker}: {e}")
+        return bars
 
     try:
-        return await asyncio.wait_for(
-            loop.run_in_executor(None, get_candles), timeout=20
+        bars = await asyncio.wait_for(asyncio.to_thread(_get_alpaca), timeout=20)
+
+        if not bars or not bars.data:
+            print(f"⚠️  Alpaca returned no data for {ticker}, trying FMP instead...")
+            return await fetch_historical_fmp(ticker)
+
+        df = bars.df.reset_index()  # type: ignore
+        df = df[df["symbol"] == ticker]
+
+        if df.empty:
+            print(f"⚠️  Alpaca data frame empty for {ticker}, trying FMP instead...")
+            return await fetch_historical_fmp(ticker)
+
+        df_norm = pd.DataFrame(
+            {
+                "t": df["timestamp"],
+                "o": df["open"],
+                "h": df["high"],
+                "l": df["low"],
+                "c": df["close"],
+                "v": df["volume"],
+            }
         )
+        print(f"[{ticker}] 📊 Alpaca Data Fetched: {len(df)} rows")
+        return df_norm
+
     except asyncio.TimeoutError:
-        print(f"⏳ Alpaca Timeout for {ticker}")
-        return None
+        print(f"⏳ Alpaca Timeout for {ticker}, trying FMP instead...")
+        return await fetch_historical_fmp(ticker)
+    except Exception as e:
+        print(f"❌ Alpaca Error for {ticker}: {e}, trying FMP instead...")
+        return await fetch_historical_fmp(ticker)
+
+
+async def fetch_historical_fmp(ticker):
+    """Fallback helper to fetch historical data from fundamental_agent."""
+    fmp_data = None
+    if fundamental_agent:
+        fmp_data = await fundamental_agent.get_historical_prices(ticker)
+
+    if fmp_data and "historical" in fmp_data:
+        df_fmp = pd.DataFrame(fmp_data["historical"])
+        if not df_fmp.empty:
+            df_fmp["timestamp"] = pd.to_datetime(df_fmp["date"])
+            df_fmp = df_fmp.sort_values(by="timestamp").reset_index(drop=True)
+            df_fmp = df_fmp.tail(90).reset_index(drop=True)
+
+            df_norm = pd.DataFrame(
+                {
+                    "t": df_fmp["timestamp"],
+                    "o": df_fmp.get("open", df_fmp["close"]),
+                    "h": df_fmp.get("high", df_fmp["close"]),
+                    "l": df_fmp.get("low", df_fmp["close"]),
+                    "c": df_fmp["close"],
+                    "v": df_fmp.get("volume", 0),
+                }
+            )
+            print(f"[{ticker}] 📊 FMP Data Fetched: {len(df_norm)} rows")
+            return df_norm
+
+    print(f"⚠️  All historical data sources failed for {ticker}. Check API keys.")
+    return None
 
 
 async def get_macro_context() -> dict:
