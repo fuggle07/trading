@@ -6,13 +6,15 @@ import pandas as pd
 from flask import Flask, jsonify
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict
-from bot.telemetry import log_watchlist_data, log_macro_snapshot, log_decision
+from bot.telemetry import log_watchlist_data, log_macro_snapshot, log_decision, log_performance
 import pytz
 import traceback
+import threading
 from google.cloud import bigquery
 from alpaca.data.historical import StockHistoricalDataClient
-from alpaca.data.requests import StockBarsRequest, StockLatestQuoteRequest
+from alpaca.data.requests import StockBarsRequest, StockLatestQuoteRequest, StockLatestTradeRequest
 from alpaca.data.timeframe import TimeFrame
+from bot.streaming import GLOBAL_AI_SENTIMENT, launch_streams_in_background, GLOBAL_PRICES
 from bot.signal_agent import SignalAgent
 from bot.execution_manager import ExecutionManager
 from bot.portfolio_manager import PortfolioManager
@@ -1172,8 +1174,6 @@ async def run_audit():
 
     # Performance Logging (Post-Trade Source of Truth)
     try:
-        from bot.telemetry import log_performance
-
         final_conv_prices = {t: intel["price"] for t, intel in ticker_intel.items()}
         perf_metrics = portfolio_manager.calculate_total_equity(final_conv_prices)
 
@@ -1406,8 +1406,6 @@ async def process_ticker_intelligence(
             res_quote = None
 
         if not res_quote and stock_historical_client:
-            from alpaca.data.requests import StockLatestTradeRequest
-
             try:
                 req = StockLatestTradeRequest(symbol_or_symbols=[ticker])
                 trade_res = await asyncio.to_thread(
@@ -1668,8 +1666,6 @@ async def run_audit_endpoint():
         )
     except Exception as e:
         print(f"🔥 Critical Failure: {e}")
-        import traceback
-
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
 
@@ -1689,10 +1685,6 @@ async def debug_alpaca_endpoint(ticker):
         return jsonify({"status": "error", "log": log, "message": "Keys missing"}), 500
 
     try:
-        from alpaca.data.historical import StockHistoricalDataClient
-        from alpaca.data.requests import StockBarsRequest
-        from alpaca.data.timeframe import TimeFrame
-
         client = StockHistoricalDataClient(key, secret)
 
         end = datetime.now(timezone.utc)
@@ -1738,8 +1730,6 @@ async def debug_alpaca_endpoint(ticker):
 
 
 # --- 5. BACKGROUND DAEMONS & SETUP ---
-import threading
-
 
 def ai_polling_worker(tickers):
     """Decoupled intelligence loop that polls news and updates the generic score asynchronously."""
@@ -1750,8 +1740,6 @@ def ai_polling_worker(tickers):
         while True:
             for ticker in tickers:
                 try:
-                    from bot.streaming import GLOBAL_AI_SENTIMENT
-
                     lessons = (
                         feedback_agent.compile_lessons(ticker) if feedback_agent else ""
                     )
@@ -1768,8 +1756,6 @@ def ai_polling_worker(tickers):
 
 def initialize_daemons():
     try:
-        from bot.streaming import launch_streams_in_background
-
         key = os.environ.get("ALPACA_API_KEY")
         secret = os.environ.get("ALPACA_API_SECRET")
         tickers_env = os.environ.get("TICKERS", "")

@@ -922,30 +922,7 @@ class FundamentalAgent:
         if cached:
             logger.info(f"[{ticker}] 💾 Using cached health for {ticker}")
 
-            # Extract f_score from metrics_json if available
-        #     # Let's check the query in _get_cached_evaluation.
-        #     # (Self-correction: I need to check _get_cached_evaluation definition)
-
-        #     # Actually, I'll update _get_cached_evaluation to include metrics_json
-        #     # and then parse it here.
-
-        #     # For now, if we match cache:
-        #     try:
-        #         # We need to extract the F-Score part from the reason if we don't have metrics_json
-        #         import re
-        #         d_reason = cached["deep_health_reason"]
-        #         f_score_match = re.search(r"F-Score (\d+)/9", d_reason)
-        #         f_score = int(f_score_match.group(1)) if f_score_match else 0
-        #     except Exception:
-        #         f_score = 0
-
-        #     return (
-        #         cached["is_healthy"],
-        #         cached["health_reason"],
-        #         cached["is_deep_healthy"],
-        #         cached["deep_health_reason"],
-        #         f_score
-        #     )
+        cached = None
         cached = None
 
         # 2. No Cache -> Proceed to analysis
