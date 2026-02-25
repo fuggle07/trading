@@ -62,9 +62,7 @@ final_vol_threshold = base_vol_threshold * vol_sensitivity
 print(f"🌊 Volatility Sensitivity: {vol_sensitivity:.1f}")
 print(f"🛡️  Final Volatility Threshold: {final_vol_threshold:.1%}")
 
-signal_agent = SignalAgent(
-    hurdle_rate=0.0, vol_threshold=final_vol_threshold
-)
+signal_agent = SignalAgent(hurdle_rate=0.0, vol_threshold=final_vol_threshold)
 
 
 # Stop-loss cooldown registry — prevents re-entering a position within
