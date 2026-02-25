@@ -207,30 +207,36 @@ async def fetch_historical_data(ticker):
 async def fetch_historical_fallback(ticker):
     """Universal fallback helper to fetch historical data using YahooQuery."""
     try:
+
         def _fetch_yq():
             from yahooquery import Ticker
+
             yq_ticker = Ticker(ticker)
             return yq_ticker.history(period="6mo")
 
         df_yq = await asyncio.to_thread(_fetch_yq)
-        
+
         # Verify it actually returns a DataFrame and not a dict with empty properties
-        if hasattr(df_yq, 'empty') and not df_yq.empty:
+        if hasattr(df_yq, "empty") and not df_yq.empty:
             df_yq = df_yq.reset_index()
-            
+
             df_yq["timestamp"] = pd.to_datetime(df_yq["date"], utc=True)
             df_yq = df_yq.sort_values(by="timestamp").tail(90).reset_index(drop=True)
 
-            df_norm = pd.DataFrame({
-                "t": df_yq["timestamp"],
-                "o": df_yq["open"],
-                "h": df_yq["high"],
-                "l": df_yq["low"],
-                "c": df_yq["close"],
-                "v": df_yq["volume"],
-            })
+            df_norm = pd.DataFrame(
+                {
+                    "t": df_yq["timestamp"],
+                    "o": df_yq["open"],
+                    "h": df_yq["high"],
+                    "l": df_yq["low"],
+                    "c": df_yq["close"],
+                    "v": df_yq["volume"],
+                }
+            )
 
-            print(f"[{ticker}] 📊 YahooQuery Fallback Data Fetched: {len(df_norm)} rows")
+            print(
+                f"[{ticker}] 📊 YahooQuery Fallback Data Fetched: {len(df_norm)} rows"
+            )
             return df_norm
 
     except Exception as e:
