@@ -1,5 +1,7 @@
 import logging
 import os
+import time
+import random
 
 logger = logging.getLogger(__name__)
 
@@ -102,38 +104,42 @@ class PortfolioManager:
             new_avg = 0.0
 
         # 3. Construct Transaction Query
-        # We update both rows in one go if possible, or sequentially.
-        # Since BQ DML doesn't support multi-table UPDATE in 1 statement comfortably without simple WHERE,
-        # we run two statements.
+        # Wrap updates in a retry block with exponential backoff to handle DML table locking
+        # concurrent updates across WebSocket events.
+        max_retries = 6
+        base_delay = 1.0
 
-        try:
-            # A. Update Asset Row (Holdings & Avg Price)
-            asset_dml = f"""
-            UPDATE `{self.table_id}`
-            SET holdings = {new_holdings},
-            avg_price = {new_avg},
-            last_updated = CURRENT_TIMESTAMP()
-            WHERE asset_name = '{ticker}'
-            """
-            self.client.query(asset_dml).result(timeout=10)
+        for attempt in range(max_retries):
+            try:
+                # BQ Scripting: combine both updates in a single execution job.
+                script_dml = f"""
+                UPDATE `{self.table_id}`
+                SET holdings = {new_holdings},
+                avg_price = {new_avg},
+                last_updated = CURRENT_TIMESTAMP()
+                WHERE asset_name = '{ticker}';
+                
+                UPDATE `{self.table_id}`
+                SET cash_balance = cash_balance + ({cash_delta}),
+                last_updated = CURRENT_TIMESTAMP()
+                WHERE asset_name = 'USD';
+                """
 
-            # B. Update Cash Pool (USD)
-            # cash_delta is negative for BUY, positive for SELL
-            cash_dml = f"""
-            UPDATE `{self.table_id}`
-            SET cash_balance = cash_balance + ({cash_delta}),
-            last_updated = CURRENT_TIMESTAMP()
-            WHERE asset_name = 'USD'
-            """
-            self.client.query(cash_dml).result(timeout=10)
-
-            logger.info(
-                f"Ledger Sync: {ticker} | Holdings: {new_holdings} | Avg: ${new_avg:.2f} | Cash Delta: ${cash_delta:.2f}"
-            )
-
-        except Exception as e:
-            logger.critical(f"SYNC FAILURE: Database transaction failed! {e}")
-            raise e
+                self.client.query(script_dml).result(timeout=15)
+                logger.info(
+                    f"Ledger Sync: {ticker} | Holdings: {new_holdings} | Avg: ${new_avg:.2f} | Cash Delta: ${cash_delta:.2f}"
+                )
+                break
+            except Exception as e:
+                if "concurrent update" in str(e).lower() and attempt < max_retries - 1:
+                    sleep_time = base_delay * (2**attempt) + random.uniform(0, 1)
+                    logger.warning(
+                        f"Concurrent BQ update detected for {ticker}. Retrying in {sleep_time:.2f}s... (Attempt {attempt+1}/{max_retries})"
+                    )
+                    time.sleep(sleep_time)
+                else:
+                    logger.critical(f"SYNC FAILURE: Database transaction failed! {e}")
+                    raise e
 
     def calculate_total_equity(self, current_prices: dict):
         """
