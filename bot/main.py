@@ -67,7 +67,8 @@ signal_agent = SignalAgent(hurdle_rate=0.0, vol_threshold=final_vol_threshold)
 
 # Stop-loss cooldown registry — prevents re-entering a position within
 # STOP_LOSS_COOLDOWN_MINUTES of a stop being triggered. In-memory: resets on restart.
-STOP_LOSS_COOLDOWN_MINUTES = 30
+# Changed from intraday (30m) to 3 full days to prevent catching falling knives
+STOP_LOSS_COOLDOWN_MINUTES = 4320
 _stop_loss_cooldown: Dict[str, datetime] = {}
 
 # High-water-mark registry — tracks the peak intraday price for each held position.
@@ -201,10 +202,11 @@ async def get_macro_context() -> dict:
         rates_task = fundamental_agent.get_treasury_rates()
         calendar_task = fundamental_agent.get_economic_calendar()
         qqq_sma_task = fundamental_agent.get_index_technicals("QQQ", window=50)
+        spy_sma_task = fundamental_agent.get_index_technicals("SPY", window=200)
         fx_task = fundamental_agent.get_forex_rate("AUDUSD")
 
-        indices, rates, calendar, qqq_sma50, aud_usd = await asyncio.gather(
-            indices_task, rates_task, calendar_task, qqq_sma_task, fx_task
+        indices, rates, calendar, qqq_sma50, spy_sma200, aud_usd = await asyncio.gather(
+            indices_task, rates_task, calendar_task, qqq_sma_task, spy_sma_task, fx_task
         )
 
         indices = indices or {}
@@ -213,6 +215,7 @@ async def get_macro_context() -> dict:
 
         # Add technicals to the indices dict for the signal agent
         indices["qqq_sma50"] = float(qqq_sma50 or 0.0)
+        indices["spy_sma200"] = float(spy_sma200 or 0.0)
 
         macro_data["indices"] = indices
         macro_data["rates"] = rates
@@ -240,7 +243,13 @@ async def get_macro_context() -> dict:
             qqq_price = indices.get("qqq_price", 0.0)
             if qqq_price > 0 and qqq_sma50 > 0:
                 trend = "Bullish" if qqq_price > qqq_sma50 else "Bearish"
-                parts.append(f"Trend: {trend}")
+                parts.append(f"QQQ Trend: {trend}")
+                
+            spy_price = indices.get("spy_price", 0.0)
+            if spy_price > 0 and spy_sma200 > 0:
+                spy_trend = "Bullish" if spy_price > spy_sma200 else "Bearish"
+                indices["spy_trend"] = spy_trend
+                parts.append(f"SPY Trend: {spy_trend}")
 
         if isinstance(rates, dict) and rates.get("10Y") is not None:
             parts.append(f"10Y Yield: {float(rates['10Y']):.2f}%")
@@ -547,8 +556,11 @@ async def run_audit():
                 "holding_value": held_tickers.get(ticker, {}).get("market_value", 0.0),
                 "avg_price": held_tickers.get(ticker, {}).get("avg_price", 0.0),
                 "prediction_confidence": intel.get("confidence", 0),
-                "is_low_exposure": exposure < 0.85,
-                "exposure_ratio": (float(exposure / 0.85)),
+                
+                # Time Stop calculation
+                "hold_time_days": (
+                    (datetime.now(timezone.utc) - _position_entry_times[ticker]).total_seconds() / 86400.0
+                ) if ticker in _position_entry_times else 0.0,
                 "band_width": float(intel.get("band_width", 0.0)),
                 "vix": float(macro_data.get("vix", 0.0)),
                 "volume": intel.get("volume", 0.0),
@@ -694,15 +706,6 @@ async def run_audit():
 
             room_to_buy = max(0.0, target_alloc - already_held_val)
 
-            # Non-stars respect the global exposure cap proxy
-            if not is_star_flag:
-                room_to_global_cap = float(
-                    max(
-                        0.0,
-                        total_equity * 0.85 - total_equity * exposure,
-                    )
-                )
-                room_to_buy = min(room_to_buy, room_to_global_cap)
 
             # We must be able to deploy at least $1000 to warrant swapping into this ticker
             if room_to_buy < 1000:
@@ -963,6 +966,15 @@ async def run_audit():
     # consecutive iterations accurately reflect the sequential cash drain.
     cash_pool = float(portfolio_manager.get_cash_balance())
 
+    # Calculate current sector exposure to enforce max-2 positions per sector
+    sector_counts = {}
+    for ht, hdata in held_tickers.items():
+        if hdata.get("holdings", 0.0) > 0:
+            h_intel = ticker_intel.get(ht, {})
+            sec = h_intel.get("sector", "Unknown")
+            if sec != "Unknown":
+                sector_counts[sec] = sector_counts.get(sec, 0) + 1
+
     for ticker, sig in signals.items():
         if sig.get("action") == "BUY":
             reason = sig.get("reason", "Strategy Signal")
@@ -1004,12 +1016,15 @@ async def run_audit():
                 )
                 continue
 
-            # Removed old 85% hard-ceiling for non-Stars.
-            # We now trust the conviction and dynamic swap logic.
-            # Calculate Allocation
-            already_held_value = float(
-                held_tickers.get(ticker, {}).get("market_value", 0.0)
-            )
+            # 3. Macro Trend Guard — block INITIAL_DEPLOYMENT if SPY trend is Bearish
+            spy_trend = macro_data.get("indices", {}).get("spy_trend", "Bullish")
+            if spy_trend == "Bearish" and reason == "INITIAL_DEPLOYMENT" and not is_star:
+                log_decision(
+                    ticker,
+                    "SKIP",
+                    "SPY is below 200 SMA (Bearish Trend): Blocking new long equity positions.",
+                )
+                continue
 
             # Fetch intelligence for sizing math
             intel = ticker_intel.get(ticker)
@@ -1018,6 +1033,26 @@ async def run_audit():
                     ticker, "SKIP", "Missing intelligence data during execution phase"
                 )
                 continue
+
+            # 4. Sector Limit Gate
+            # Enforce max 2 positions per sector
+            ticker_sector = intel.get("sector", "Unknown")
+            is_new_position = (held_tickers.get(ticker, {}).get("holdings", 0.0) == 0.0)
+            
+            if is_new_position and ticker_sector != "Unknown":
+                current_sector_count = sector_counts.get(ticker_sector, 0)
+                if current_sector_count >= 2:
+                    log_decision(
+                        ticker,
+                        "SKIP",
+                        f"Sector Limit Exceeded: Already hold {current_sector_count} {ticker_sector} positions.",
+                    )
+                    continue
+
+            # Calculate Allocation
+            already_held_value = float(
+                held_tickers.get(ticker, {}).get("market_value", 0.0)
+            )
 
             sentiment = float(intel.get("sentiment", 0.0))
 
@@ -1056,6 +1091,9 @@ async def run_audit():
                     running_exposure += (
                         (allocation / total_equity) if total_equity > 0 else 0
                     )
+                    
+                    if is_new_position and ticker_sector != "Unknown":
+                        sector_counts[ticker_sector] = sector_counts.get(ticker_sector, 0) + 1
 
                     # IMMEDIATELY deduct from local cash_pool so dry-runs realistically cascade
                     cash_pool -= allocation
@@ -1098,6 +1136,8 @@ async def run_audit():
                         # execution_manager.place_order syncs BigQuery, but we need to update our local loop variable
                         cash_pool -= allocation
                         cash_pool = max(0, cash_pool)
+                        if is_new_position and ticker_sector != "Unknown":
+                            sector_counts[ticker_sector] = sector_counts.get(ticker_sector, 0) + 1
 
                 else:
                     log_decision(
@@ -1562,6 +1602,7 @@ async def process_ticker_intelligence(
             "deep_health_reason": d_re,
             "f_score": f_sc,
             "confidence": int(res_conf or 0),
+            "sector": res_intel.get("sector", "Unknown"),
             "indicators": indicators,
             "history_res": res_history,
             "rsi": (

@@ -66,6 +66,7 @@ class ExecutionManager:
         price,
         cash_available=0.0,
         reason="Strategy Signal",
+        band_width=0.05,
     ):
         """
         Executes an order if funds/holdings allow, then logs it.
@@ -152,10 +153,14 @@ class ExecutionManager:
                 if action == "BUY":
                     # Buffer entry by +0.1% to guarantee fill while bounding slippage
                     limit_price = round(price * 1.001, 2)
-                    # Hard stop at -12% on broker servers
-                    stop_price = round(price * 0.88, 2)
-                    # Profit target at +10%
-                    profit_price = round(price * 1.10, 2)
+                    
+                    # Mathematical Expectancy: Risk 1 to make 2 based on the asset's specific volatility
+                    # Floor stop at -4%, Cap at -15%
+                    stop_distance = min(0.15, max(0.04, band_width * 1.5))
+                    profit_distance = stop_distance * 2.0  # +2R target
+                    
+                    stop_price = round(price * (1 - stop_distance), 2)
+                    profit_price = round(price * (1 + profit_distance), 2)
 
                     order_data = LimitOrderRequest(
                         symbol=ticker,

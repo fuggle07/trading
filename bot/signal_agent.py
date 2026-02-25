@@ -66,7 +66,6 @@ class SignalAgent:
         current_price: float,
         upper: float,
         lower: float,
-        is_low_exposure: bool = False,
     ) -> str:
         """
         Calculates signal based on Bollinger Bands.
@@ -83,9 +82,7 @@ class SignalAgent:
         # Calculate Band Width % (Volatility Filter)
         band_width = (up - lo) / price
 
-        # We enforce a strict strict volatility limit (e.g. 35%).
-        # Previously, if the bot had low exposure, it would relax this by 50% (up to 52.5%),
-        # allowing dangerously erratic stocks through.
+        # We enforce a strict volatility limit.
         if band_width > self.vol_threshold:
             return "VOLATILE_IGNORE"
 
@@ -168,7 +165,7 @@ class SignalAgent:
             if market_data.get("avg_price") is not None
             else 0.0
         )
-        is_low_exposure = market_data.get("is_low_exposure", False)
+        sentiment = float(market_data.get("sentiment_score", 0))
         rsi = float(
             market_data.get("rsi") if market_data.get("rsi") is not None else 50.0
         )
@@ -189,7 +186,6 @@ class SignalAgent:
             current_price,
             indicators.get("upper", 0),
             indicators.get("lower", 0),
-            is_low_exposure,
         )
 
         # --- MOMENTUM BREAKOUT OVERLAY ---
@@ -237,28 +233,6 @@ class SignalAgent:
             conviction = 0
         else:
             final_action = "IDLE"
-            # ENHANCEMENT: Low Exposure Aggression (Dynamic Slope)
-            if is_low_exposure:
-                exposure_ratio = float(market_data.get("exposure_ratio", 1.0))
-
-                # Dynamic thresholds: Scale down as we have less exposure
-                if exposure_ratio < 0.3:
-                    target_sent = 0.0
-                    target_ai = 60
-                elif exposure_ratio < 0.6:
-                    target_sent = 0.1
-                    target_ai = 65
-                else:
-                    target_sent = 0.2
-                    target_ai = 70
-
-                # Use effective_ai_score so new tickers can bypass the 0 score
-                if sentiment >= target_sent and effective_ai_score >= target_ai:
-                    final_action = "BUY"
-                    conviction = 70 + int(
-                        (1.0 - exposure_ratio) * 15
-                    )  # Boost conviction slightly if deep low
-                    technical_signal = "PROACTIVE_WARRANTED_ENTRY"
 
             # --- RSI OVERLAY (Oversold Aggression) ---
             if rsi <= 30 and sentiment > 0.4:
@@ -284,6 +258,7 @@ class SignalAgent:
             vix = market_data.get("vix", 0.0)
             band_width = market_data.get("band_width", 0.0)
             has_scaled_out = market_data.get("has_scaled_out", False)
+            days_held = market_data.get("hold_time_days", 0.0)
 
             exit_signal = self.should_exit(
                 ticker,
@@ -294,6 +269,7 @@ class SignalAgent:
                 vix,
                 hwm,
                 has_scaled_out,
+                days_held,
             )
 
             if exit_signal != "HOLD":
@@ -342,7 +318,7 @@ class SignalAgent:
 
             elif f_score <= 1:
                 # CASE B: Confirmed Bad Fundamentals -> Turnaround Play requirements
-                turnaround_sentiment = 0.2 if is_low_exposure else 0.4
+                turnaround_sentiment = 0.4
                 if effective_ai_score >= 70 and sentiment >= turnaround_sentiment:
                     final_action = "BUY"
                     conviction = 75
@@ -354,11 +330,11 @@ class SignalAgent:
 
             else:
                 # CASE C: Normal/Good Fundamentals -> Use dynamic threshold
-                f_score_threshold = 2 if is_low_exposure else 5
+                f_score_threshold = 5
 
                 if f_score < f_score_threshold:
                     # Check for bypass if low-ish score but high AI confidence
-                    bypass_threshold = 65 if is_low_exposure else 80
+                    bypass_threshold = 80
                     if effective_ai_score >= bypass_threshold:
                         technical_signal = f"BUY_FSCORE_{f_score}_BYPASS"
                         conviction = max(conviction, 80)
@@ -502,9 +478,10 @@ class SignalAgent:
         vix: float = 0.0,
         hwm: float = 0.0,
         has_scaled_out: bool = False,
+        days_held: float = 0.0,
     ) -> str:
         """
-        Exit logic with Trailing Stop and partial profit-taking (Scale Out).
+        Exit logic with Trailing Stop, Time Stop, and partial profit-taking.
         Returns: "HOLD", "SELL_ALL", or "SELL_PARTIAL_50"
         """
         p_change = (current_price - hold_price) / hold_price
@@ -535,6 +512,11 @@ class SignalAgent:
             dynamic_stop = 0.025
 
         if p_change <= -dynamic_stop:
+            return "SELL_ALL"
+
+        # 4. Time Stop (Capital Recycling)
+        # If the setup hasn't proven itself (+3%) within 7 trading days, we are wrong.
+        if days_held > 7.0 and p_change < 0.03:
             return "SELL_ALL"
 
         return "HOLD"

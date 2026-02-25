@@ -268,6 +268,7 @@ class FundamentalAgent:
         intelligence = {
             "analyst_consensus": "Neutral",
             "institutional_momentum": "Neutral",
+            "sector": "Unknown",
         }
 
         if not self.fmp_key:
@@ -289,8 +290,11 @@ class FundamentalAgent:
                 "insider-trading/search", ticker, params={"limit": 100}
             )
 
-            ratings_data, target_data, insider_data = await asyncio.gather(
-                ratings_task, target_task, insider_task
+            # 4. Profile (FMP /v3/profile) for sector info
+            profile_task = self._fetch_fmp("profile", ticker, version="v3")
+
+            ratings_data, target_data, insider_data, profile_data = await asyncio.gather(
+                ratings_task, target_task, insider_task, profile_task
             )
 
             if ratings_data and isinstance(ratings_data, list):
@@ -330,6 +334,9 @@ class FundamentalAgent:
                     )
                 else:
                     intelligence["insider_momentum"] = "No Recent Activity"
+
+            if profile_data and isinstance(profile_data, list):
+                intelligence["sector"] = profile_data[0].get("sector", "Unknown")
 
         except Exception as e:
             logger.error(f"[{ticker}] ⚠️ Failed to fetch intelligence metrics: {e}")
