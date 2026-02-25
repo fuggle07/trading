@@ -122,6 +122,24 @@ class FundamentalAgent:
             return data[0]
         return None
 
+    async def get_historical_prices(self, ticker: str, timeseries: int = 90) -> dict:
+        """
+        Fetches historical daily prices using FMP /v3/historical-price-full/.
+        Used as a primary fallback when Alpaca IEX/SIP data feeds are disconnected or fail.
+        """
+        if not self.fmp_key:
+            return None
+
+        data = await self._fetch_fmp(
+            "historical-price-full",
+            ticker,
+            params={"timeseries": timeseries},
+            version="v3",
+        )
+        if data and isinstance(data, dict) and "historical" in data:
+            return data
+        return None
+
     async def get_batch_quotes(self, tickers: list) -> dict:
         """
         Fetches real-time quotes for ALL tickers in a single FMP API call.

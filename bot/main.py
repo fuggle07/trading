@@ -171,7 +171,41 @@ async def fetch_historical_data(ticker):
                     print(f"⚠️  SIP feed failed for {ticker}: {e}")
 
             if not bars or not bars.data:
-                print(f"⚠️  Alpaca returned no data for {ticker}")
+                # FMP Fallback
+                print(
+                    f"⚠️  Alpaca returned no data for {ticker}, trying FMP instead..."
+                )
+                fmp_data = None
+                if fundamental_agent:
+                    fmp_data = await fundamental_agent.get_historical_prices(ticker)
+
+                if fmp_data and "historical" in fmp_data:
+                    df_fmp = pd.DataFrame(fmp_data["historical"])
+                    if not df_fmp.empty:
+                        df_fmp["timestamp"] = pd.to_datetime(df_fmp["date"])
+                        # FMP returns newest first, so we reverse it to oldest-first
+                        df_fmp = df_fmp.sort_values(by="timestamp").reset_index(
+                            drop=True
+                        )
+                        # Keep last 90 rows (trading days)
+                        df_fmp = df_fmp.tail(90).reset_index(drop=True)
+
+                        df_norm = pd.DataFrame(
+                            {
+                                "t": df_fmp["timestamp"],
+                                "o": df_fmp.get("open", df_fmp["close"]),
+                                "h": df_fmp.get("high", df_fmp["close"]),
+                                "l": df_fmp.get("low", df_fmp["close"]),
+                                "c": df_fmp["close"],
+                                "v": df_fmp.get("volume", 0),
+                            }
+                        )
+                        print(f"[{ticker}] 📊 FMP Data Fetched: {len(df_norm)} rows")
+                        return df_norm
+
+                print(
+                    f"⚠️  All historical data sources failed for {ticker}. Check API keys."
+                )
                 return None
 
             # Convert to DataFrame
