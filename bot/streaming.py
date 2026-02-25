@@ -1,6 +1,7 @@
 import os
 import threading
 import logging
+import asyncio
 from alpaca.trading.stream import TradingStream
 from alpaca.data.live import StockDataStream
 from alpaca.trading.models import TradeUpdate
@@ -38,7 +39,13 @@ def start_trade_stream(api_key, api_secret, portfolio_manager):
         paper = os.getenv("ALPACA_PAPER_TRADING", "True").lower() == "true"
         stream = TradingStream(api_key, api_secret, paper=paper)
 
+        _db_lock = None
+
         async def on_trade_update(data: TradeUpdate):
+            nonlocal _db_lock
+            if _db_lock is None:
+                _db_lock = asyncio.Lock()
+
             event = data.event
             order = data.order
             ticker = order.symbol
@@ -52,16 +59,30 @@ def start_trade_stream(api_key, api_secret, portfolio_manager):
 
                 # Deduct cost or add revenue
                 commission = max(1.00, qty * 0.005)  # Simulated IBKR commission
-                if action == "BUY":
-                    cost = (price * qty) + commission
-                    portfolio_manager.update_ledger(
-                        ticker, -cost, qty, price, action="BUY"
-                    )
-                elif action == "SELL":
-                    revenue = (price * qty) - commission
-                    portfolio_manager.update_ledger(
-                        ticker, revenue, -qty, price, action="SELL"
-                    )
+
+                # Serialise ledger database queries so we don't block the WebSocket event loop
+                # AND prevent BigQuery 'Concurrent DML Update' lock contentions when rapid partial-fills arrive
+                async with _db_lock:
+                    if action == "BUY":
+                        cost = (price * qty) + commission
+                        await asyncio.to_thread(
+                            portfolio_manager.update_ledger,
+                            ticker,
+                            -cost,
+                            qty,
+                            price,
+                            "BUY",
+                        )
+                    elif action == "SELL":
+                        revenue = (price * qty) - commission
+                        await asyncio.to_thread(
+                            portfolio_manager.update_ledger,
+                            ticker,
+                            revenue,
+                            -qty,
+                            price,
+                            "SELL",
+                        )
 
                 logger.info(
                     f"✅ Exact Fill Processed via WS: {action} {qty} {ticker} @ {price}"
