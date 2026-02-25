@@ -780,6 +780,22 @@ async def run_audit():
             },
         )
 
+        # Before executing the swap, ensure we actually have allocation room for the rising star.
+        # If the rising star is already at its max portfolio capacity (20% cap), selling the weakest link
+        # will just turn into uninvested cash rather than a true rotation.
+        star_already_held = float(
+            held_tickers.get(rising_star, {}).get("market_value", 0.0)
+        )
+        star_max_permitted = max(0, (total_equity * 0.20) - star_already_held)
+
+        if should_swap and star_max_permitted < 1000:
+            log_decision(
+                rising_star,
+                "SKIP",
+                f"Conviction Swap Blocked: Cannot rotate into {rising_star} because it is already at maximum allocation cap (MaxAllowed: ${star_max_permitted:.2f}).",
+            )
+            should_swap = False
+
         if should_swap:
             star_sig = signals.get(rising_star, {})
             star_meta = star_sig.get("meta", {})
