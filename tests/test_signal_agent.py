@@ -32,7 +32,7 @@ class TestSignalAgent(unittest.TestCase):
     def test_evaluate_bands_volatile(self):
         """Test that wide bands trigger VOLATILE_IGNORE unconditionally (strict cap)."""
         # Price 100, Width = (140-80)/100 = 60%.  Limit is 35%.
-        signal = self.agent.evaluate_bands(100.0, 140.0, 80.0, is_low_exposure=True)
+        signal = self.agent.evaluate_bands(100.0, 140.0, 80.0)
         self.assertEqual(signal, "VOLATILE_IGNORE")
 
     def test_momentum_breakout(self):
@@ -164,7 +164,6 @@ class TestSignalAgent(unittest.TestCase):
             "is_deep_healthy": True,
             "f_score": 8,
             "prediction_confidence": 88,
-            "is_low_exposure": True,
         }
         decision = self.agent.evaluate_strategy(market_data)
         self.assertTrue(decision["meta"]["is_star"])
