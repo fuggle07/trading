@@ -6,15 +6,28 @@ import pandas as pd
 from flask import Flask, jsonify
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict
-from bot.telemetry import log_watchlist_data, log_macro_snapshot, log_decision, log_performance
+from bot.telemetry import (
+    log_watchlist_data,
+    log_macro_snapshot,
+    log_decision,
+    log_performance,
+)
 import pytz
 import traceback
 import threading
 from google.cloud import bigquery
 from alpaca.data.historical import StockHistoricalDataClient
-from alpaca.data.requests import StockBarsRequest, StockLatestQuoteRequest, StockLatestTradeRequest
+from alpaca.data.requests import (
+    StockBarsRequest,
+    StockLatestQuoteRequest,
+    StockLatestTradeRequest,
+)
 from alpaca.data.timeframe import TimeFrame
-from bot.streaming import GLOBAL_AI_SENTIMENT, launch_streams_in_background, GLOBAL_PRICES
+from bot.streaming import (
+    GLOBAL_AI_SENTIMENT,
+    launch_streams_in_background,
+    GLOBAL_PRICES,
+)
 from bot.signal_agent import SignalAgent
 from bot.execution_manager import ExecutionManager
 from bot.portfolio_manager import PortfolioManager
@@ -246,7 +259,7 @@ async def get_macro_context() -> dict:
             if qqq_price > 0 and qqq_sma50 > 0:
                 trend = "Bullish" if qqq_price > qqq_sma50 else "Bearish"
                 parts.append(f"QQQ Trend: {trend}")
-                
+
             spy_price = indices.get("spy_price", 0.0)
             if spy_price > 0 and spy_sma200 > 0:
                 spy_trend = "Bullish" if spy_price > spy_sma200 else "Bearish"
@@ -558,11 +571,17 @@ async def run_audit():
                 "holding_value": held_tickers.get(ticker, {}).get("market_value", 0.0),
                 "avg_price": held_tickers.get(ticker, {}).get("avg_price", 0.0),
                 "prediction_confidence": intel.get("confidence", 0),
-                
                 # Time Stop calculation
                 "hold_time_days": (
-                    (datetime.now(timezone.utc) - _position_entry_times[ticker]).total_seconds() / 86400.0
-                ) if ticker in _position_entry_times else 0.0,
+                    (
+                        (
+                            datetime.now(timezone.utc) - _position_entry_times[ticker]
+                        ).total_seconds()
+                        / 86400.0
+                    )
+                    if ticker in _position_entry_times
+                    else 0.0
+                ),
                 "band_width": float(intel.get("band_width", 0.0)),
                 "vix": float(macro_data.get("vix", 0.0)),
                 "volume": intel.get("volume", 0.0),
@@ -707,7 +726,6 @@ async def run_audit():
             )
 
             room_to_buy = max(0.0, target_alloc - already_held_val)
-
 
             # We must be able to deploy at least $1000 to warrant swapping into this ticker
             if room_to_buy < 1000:
@@ -1020,7 +1038,11 @@ async def run_audit():
 
             # 3. Macro Trend Guard — block INITIAL_DEPLOYMENT if SPY trend is Bearish
             spy_trend = macro_data.get("indices", {}).get("spy_trend", "Bullish")
-            if spy_trend == "Bearish" and reason == "INITIAL_DEPLOYMENT" and not is_star:
+            if (
+                spy_trend == "Bearish"
+                and reason == "INITIAL_DEPLOYMENT"
+                and not is_star
+            ):
                 log_decision(
                     ticker,
                     "SKIP",
@@ -1039,8 +1061,8 @@ async def run_audit():
             # 4. Sector Limit Gate
             # Enforce max 2 positions per sector
             ticker_sector = intel.get("sector", "Unknown")
-            is_new_position = (held_tickers.get(ticker, {}).get("holdings", 0.0) == 0.0)
-            
+            is_new_position = held_tickers.get(ticker, {}).get("holdings", 0.0) == 0.0
+
             if is_new_position and ticker_sector != "Unknown":
                 current_sector_count = sector_counts.get(ticker_sector, 0)
                 if current_sector_count >= 2:
@@ -1093,9 +1115,11 @@ async def run_audit():
                     running_exposure += (
                         (allocation / total_equity) if total_equity > 0 else 0
                     )
-                    
+
                     if is_new_position and ticker_sector != "Unknown":
-                        sector_counts[ticker_sector] = sector_counts.get(ticker_sector, 0) + 1
+                        sector_counts[ticker_sector] = (
+                            sector_counts.get(ticker_sector, 0) + 1
+                        )
 
                     # IMMEDIATELY deduct from local cash_pool so dry-runs realistically cascade
                     cash_pool -= allocation
@@ -1139,7 +1163,9 @@ async def run_audit():
                         cash_pool -= allocation
                         cash_pool = max(0, cash_pool)
                         if is_new_position and ticker_sector != "Unknown":
-                            sector_counts[ticker_sector] = sector_counts.get(ticker_sector, 0) + 1
+                            sector_counts[ticker_sector] = (
+                                sector_counts.get(ticker_sector, 0) + 1
+                            )
 
                 else:
                     log_decision(
@@ -1730,6 +1756,7 @@ async def debug_alpaca_endpoint(ticker):
 
 
 # --- 5. BACKGROUND DAEMONS & SETUP ---
+
 
 def ai_polling_worker(tickers):
     """Decoupled intelligence loop that polls news and updates the generic score asynchronously."""

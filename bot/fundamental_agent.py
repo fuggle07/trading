@@ -293,8 +293,10 @@ class FundamentalAgent:
             # 4. Profile (FMP /v3/profile) for sector info
             profile_task = self._fetch_fmp("profile", ticker, version="v3")
 
-            ratings_data, target_data, insider_data, profile_data = await asyncio.gather(
-                ratings_task, target_task, insider_task, profile_task
+            ratings_data, target_data, insider_data, profile_data = (
+                await asyncio.gather(
+                    ratings_task, target_task, insider_task, profile_task
+                )
             )
 
             if ratings_data and isinstance(ratings_data, list):
