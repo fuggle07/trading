@@ -150,9 +150,27 @@ async def fetch_historical_data(ticker):
                 feed="iex",
             )
 
-            bars = stock_historical_client.get_stock_bars(request_params)
+            bars = None
+            try:
+                bars = stock_historical_client.get_stock_bars(request_params)
+            except Exception as e:
+                print(f"⚠️  IEX feed failed for {ticker}: {e}, trying SIP...")
 
-            if not bars.data:
+            if not bars or not bars.data:
+                # Fallback to SIP
+                request_params = StockBarsRequest(
+                    symbol_or_symbols=ticker,
+                    timeframe=TimeFrame.Day,
+                    start=start,
+                    end=end,
+                    feed="sip",
+                )
+                try:
+                    bars = stock_historical_client.get_stock_bars(request_params)
+                except Exception as e:
+                    print(f"⚠️  SIP feed failed for {ticker}: {e}")
+
+            if not bars or not bars.data:
                 print(f"⚠️  Alpaca returned no data for {ticker}")
                 return None
 
