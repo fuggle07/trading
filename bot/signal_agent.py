@@ -461,11 +461,11 @@ class SignalAgent:
         allocation = (equity * risk_pct) / Decimal(str(dynamic_stop_distance))
 
         # 5. Elite/Star Minimums
-        if is_star and allocation < (equity * Decimal("0.20")):
-            allocation = equity * Decimal("0.20")
+        if is_star and allocation < (equity * Decimal("0.25")):
+            allocation = equity * Decimal("0.25")
 
-        # 6. Hard Caps (Max 40% per stock)
-        max_cap = equity * Decimal("0.20")
+        # 6. Hard Caps (Max 25% per stock)
+        max_cap = equity * Decimal("0.25")
         return float(min(allocation, max_cap))
 
     def should_exit(

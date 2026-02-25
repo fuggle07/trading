@@ -795,12 +795,12 @@ async def run_audit():
         )
 
         # Before executing the swap, ensure we actually have allocation room for the rising star.
-        # If the rising star is already at its max portfolio capacity (20% cap), selling the weakest link
+        # If the rising star is already at its max portfolio capacity (25% cap), selling the weakest link
         # will just turn into uninvested cash rather than a true rotation.
         star_already_held = float(
             held_tickers.get(rising_star, {}).get("market_value", 0.0)
         )
-        star_max_permitted = max(0, (total_equity * 0.20) - star_already_held)
+        star_max_permitted = max(0, (total_equity * 0.25) - star_already_held)
 
         if should_swap and star_max_permitted < 1000:
             log_decision(
@@ -1148,13 +1148,13 @@ async def run_audit():
                 is_star=is_star,
             )
 
-            # Max Allowed to Buy = Absolute Maximum Strategy Cap (40%) - Currently Held Value
-            max_permitted_buy = max(0, (total_equity * 0.20) - already_held_value)
+            # Max Allowed to Buy = Absolute Maximum Strategy Cap (25%) - Currently Held Value
+            max_permitted_buy = max(0, (total_equity * 0.25) - already_held_value)
 
             # Buy amount = Target Allocation chunk (We treat every signal as a fresh addition to max out winners)
             allocation = target_allocation
 
-            # Ensure the order amount doesn't breach the absolute 40% portfolio cap
+            # Ensure the order amount doesn't breach the absolute 25% portfolio cap
             allocation = min(allocation, max_permitted_buy)
 
             # Ensure the order doesn't exceed available liquid cash in the iteration
