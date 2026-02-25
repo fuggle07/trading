@@ -165,7 +165,7 @@ class ExecutionManager:
                         symbol=ticker,
                         qty=quantity,
                         side=side,
-                        time_in_force=TimeInForce.DAY,
+                        time_in_force=TimeInForce.GTC,
                         limit_price=limit_price,
                         order_class=OrderClass.BRACKET,
                         take_profit=TakeProfitRequest(limit_price=profit_price),
@@ -179,7 +179,7 @@ class ExecutionManager:
                         symbol=ticker,
                         qty=quantity,
                         side=side,
-                        time_in_force=TimeInForce.DAY,
+                        time_in_force=TimeInForce.GTC,
                     )
 
                 logger.info(
