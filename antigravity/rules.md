@@ -10,6 +10,7 @@
 - **Type Safety:** Use Python type hints for all function arguments and return types.
 - **Async Strategy:** Use `asyncio` and `aiohttp` for exchange API interactions to minimize latency.
 - **Error Handling:** Implement explicit try-except blocks for `RequestException` and `json.JSONDecodeError`. Use exponential backoff for rate-limited endpoints.
+- **Linting** Make sure all changed Python files are linted with `black` BEFORE they are committed.
 
 ## 3. Risk Management & Safety (CRITICAL)
 - **Slippage Guard:** Every order execution function must include a `max_slippage` parameter, defaulting to 0.005 (0.5%).
