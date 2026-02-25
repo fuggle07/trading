@@ -13,9 +13,7 @@ variables:
 # 1. Lint - PEP 8 check using Black
 lint_python:
   stage: lint
-  image: 
-    name: python:3.12-slim-bookworm
-    pull_policy: if-not-present
+  image: python:3.12-slim-bookworm
   script:
     - pip install black
     - black --check bot/ scripts/*.py utilities/*.py
@@ -23,9 +21,7 @@ lint_python:
 # 2. Test - Run Python Unit Tests
 unit_tests:
   stage: test
-  image: 
-    name: python:3.12-slim-bookworm
-    pull_policy: if-not-present
+  image: python:3.12-slim-bookworm
   before_script:
     - pip install -r requirements.txt
     - pip install -r requirements-dev.txt
