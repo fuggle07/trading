@@ -1206,7 +1206,11 @@ async def get_recent_sentiments(ticker: str, limit: int = 9) -> list:
     """
     try:
         results = bq_client.query(query).result()
-        return [float(row.sentiment_score) for row in results if row.sentiment_score is not None]
+        return [
+            float(row.sentiment_score)
+            for row in results
+            if row.sentiment_score is not None
+        ]
     except Exception as e:
         logger.warning(f"[{ticker}] Could not fetch recent sentiments: {e}")
         return []
@@ -1473,11 +1477,11 @@ async def process_ticker_intelligence(
 
         if res_quote and isinstance(res_quote, dict) and "c" in res_quote:
             price = float(res_quote["c"])
-            
+
             # Event-Driven Architecture: Override with instantaneous WebSocket price
             if ticker in GLOBAL_PRICES:
                 price = float(GLOBAL_PRICES[ticker])
-                
+
             volume = float(res_quote.get("v", 0))
             avg_volume = float(res_quote.get("av", 1))
             current_prices[ticker] = price
@@ -1505,13 +1509,15 @@ async def process_ticker_intelligence(
 
             # Process AI sentiment using Decoupled Worker if available
             if ticker in GLOBAL_AI_SENTIMENT:
-                print(f"[{ticker}] ⚡ Decoupled AI Worker cache hit! Bypassing API latency.")
+                print(
+                    f"[{ticker}] ⚡ Decoupled AI Worker cache hit! Bypassing API latency."
+                )
                 sentiment_result = GLOBAL_AI_SENTIMENT[ticker]
             else:
                 sentiment_result = await fetch_sentiment(
                     ticker, lessons, context=ai_context
                 )
-                
+
             sentiment_score, gemini_reasoning = (
                 sentiment_result
                 if isinstance(sentiment_result, tuple)
@@ -1703,43 +1709,52 @@ async def debug_alpaca_endpoint(ticker):
 # --- 5. BACKGROUND DAEMONS & SETUP ---
 import threading
 
+
 def ai_polling_worker(tickers):
     """Decoupled intelligence loop that polls news and updates the generic score asynchronously."""
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    
+
     async def poll_all():
         while True:
             for ticker in tickers:
                 try:
                     from bot.streaming import GLOBAL_AI_SENTIMENT
-                    lessons = feedback_agent.compile_lessons(ticker) if feedback_agent else ""
+
+                    lessons = (
+                        feedback_agent.compile_lessons(ticker) if feedback_agent else ""
+                    )
                     res = await fetch_sentiment(ticker, lessons, context=None)
                     GLOBAL_AI_SENTIMENT[ticker] = res
                     # Add random jitter to avoid rate limits
                     await asyncio.sleep(5)
                 except Exception as e:
                     print(f"AI Worker error for {ticker}: {e}")
-            await asyncio.sleep(180) # Refresh watchlist every 3 mins
-            
+            await asyncio.sleep(180)  # Refresh watchlist every 3 mins
+
     loop.run_until_complete(poll_all())
+
 
 def initialize_daemons():
     try:
         from bot.streaming import launch_streams_in_background
+
         key = os.environ.get("ALPACA_API_KEY")
         secret = os.environ.get("ALPACA_API_SECRET")
         tickers_env = os.environ.get("TICKERS", "")
         base_tickers = [t.strip() for t in tickers_env.split(",") if t.strip()]
-        
+
         # 1. Launch WebSockets (Trades & Prices)
         launch_streams_in_background(key, secret, base_tickers, portfolio_manager)
-        
+
         # 2. Launch Decoupled AI Worker
-        t = threading.Thread(target=ai_polling_worker, args=(base_tickers,), daemon=True)
+        t = threading.Thread(
+            target=ai_polling_worker, args=(base_tickers,), daemon=True
+        )
         t.start()
     except Exception as e:
         print(f"Failed to start daemons: {e}")
+
 
 # Automatically start background streams/bots
 initialize_daemons()

@@ -4,7 +4,12 @@ import requests
 from google.cloud import bigquery
 from datetime import datetime, timezone
 from alpaca.trading.client import TradingClient
-from alpaca.trading.requests import MarketOrderRequest, LimitOrderRequest, TakeProfitRequest, StopLossRequest
+from alpaca.trading.requests import (
+    MarketOrderRequest,
+    LimitOrderRequest,
+    TakeProfitRequest,
+    StopLossRequest,
+)
 from alpaca.trading.enums import OrderSide, TimeInForce, OrderClass
 
 # Configure logging
@@ -149,9 +154,9 @@ class ExecutionManager:
                     limit_price = round(price * 1.001, 2)
                     # Hard stop at -12% on broker servers
                     stop_price = round(price * 0.88, 2)
-                    # Profit target at +10% 
+                    # Profit target at +10%
                     profit_price = round(price * 1.10, 2)
-                    
+
                     order_data = LimitOrderRequest(
                         symbol=ticker,
                         qty=quantity,
@@ -160,7 +165,7 @@ class ExecutionManager:
                         limit_price=limit_price,
                         order_class=OrderClass.BRACKET,
                         take_profit=TakeProfitRequest(limit_price=profit_price),
-                        stop_loss=StopLossRequest(stop_price=stop_price)
+                        stop_loss=StopLossRequest(stop_price=stop_price),
                     )
                 else:
                     # Selling: Use a tight Limit Order to exit gracefully without getting gouged (e.g. -0.5% buffer)
@@ -170,7 +175,7 @@ class ExecutionManager:
                         qty=quantity,
                         side=side,
                         time_in_force=TimeInForce.DAY,
-                        limit_price=limit_price
+                        limit_price=limit_price,
                     )
 
                 logger.info(
@@ -200,8 +205,10 @@ class ExecutionManager:
         # 2. Update Local Ledger (Shadow Ledger)
         # REMOVED: Now delegating ledger updates exclusively to Alpaca TradeUpdates WebSocket
         # to ensure cryptographic truth of actual fills, rather than assuming success.
-        
-        logger.info(f"[{ticker}] ⌛ Waiting for TradeUpdate WebSocket to confirm fill and update ledger...")
+
+        logger.info(
+            f"[{ticker}] ⌛ Waiting for TradeUpdate WebSocket to confirm fill and update ledger..."
+        )
 
         # 3. Log to BigQuery
         execution_id = f"exec-{int(datetime.now().timestamp())}-{ticker}"
