@@ -67,10 +67,12 @@ class FundamentalAgent:
                         err_text = await response.text()
                         if status == 403 and "Legacy Endpoint" in err_text:
                             pass  # Suppress FMP premium tier errors
+                        elif status == 404 and ("calendar" in url or bool(err_text) == False):
+                            pass  # Suppress missing FMP calendar endpoints
                         else:
                             logger.warning(f"FMP [{status}]: {url} | {err_text[:120]}")
                     except Exception:
-                        if status != 403:
+                        if status not in [403, 404]:
                             logger.warning(f"FMP [{status}]: {url}")
         except Exception:
             pass  # Suppress generic network exception spam
@@ -127,40 +129,43 @@ class FundamentalAgent:
         if not self.fmp_key or not tickers:
             return {}
 
-        symbols = ",".join(tickers)
-        url = (
-            f"https://financialmodelingprep.com/stable/quote"
-            f"?symbol={symbols}&apikey={self.fmp_key}"
-        )
+        result = {}
         try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(
-                    url, timeout=aiohttp.ClientTimeout(total=10)
-                ) as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        result = {}
-                        for item in data:
-                            symbol = item.get("symbol")
-                            if symbol:
-                                result[symbol] = {
-                                    "c": float(item.get("price", 0) or 0),
-                                    "h": float(item.get("dayHigh", 0) or 0),
-                                    "l": float(item.get("dayLow", 0) or 0),
-                                    "o": float(item.get("open", 0) or 0),
-                                    "pc": float(item.get("previousClose", 0) or 0),
-                                    "v": float(item.get("volume", 0) or 0),
-                                    "av": float(item.get("avgVolume", 0) or 1),
-                                }
-                        logger.info(
-                            f"Batch quotes: {len(result)}/{len(tickers)} tickers fetched"
-                        )
-                        return result
-                    else:
-                        logger.warning(
-                            f"Batch quotes HTTP {resp.status} — falling back to Finnhub per-ticker"
-                        )
-                        return {}
+            # The stable FMP endpoint only supports one symbol at a time for free/starter tiers.
+            # We fetch them concurrently to replicate batch speed.
+            async def _fetch_single_quote(ticker):
+                data = await self._fetch_fmp("quote", ticker, version="stable")
+                if data and isinstance(data, list):
+                    item = data[0]
+                    return ticker, {
+                        "c": float(item.get("price", 0) or 0),
+                        "h": float(item.get("dayHigh", 0) or 0),
+                        "l": float(item.get("dayLow", 0) or 0),
+                        "o": float(item.get("open", 0) or 0),
+                        "pc": float(item.get("previousClose", 0) or 0),
+                        "v": float(item.get("volume", 0) or 0),
+                        "av": float(item.get("avgVolume", 0) or 1),
+                    }
+                return ticker, None
+
+            tasks = [_fetch_single_quote(t) for t in tickers]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            for res in results:
+                if isinstance(res, tuple) and res[1] is not None:
+                    ticker, quote_data = res
+                    result[ticker] = quote_data
+
+            if result:
+                logger.info(
+                    f"Batch quotes: {len(result)}/{len(tickers)} tickers fetched from FMP"
+                )
+                return result
+            else:
+                logger.warning(
+                    f"Batch quotes failed for FMP — falling back to Finnhub per-ticker"
+                )
+                return {}
         except Exception as e:
             logger.warning(
                 f"Batch quotes exception: {e} — falling back to Finnhub per-ticker"
@@ -387,7 +392,9 @@ class FundamentalAgent:
                     ]
                     return high_impact[:5]
             except Exception as e:
-                logger.error(f"⚠️ Finnhub Economic Calendar Fallback failed: {e}")
+                # Many free tier finnhub keys lack the economicCalendar payload, so swallow the 403
+                if "403" not in str(e):
+                    logger.error(f"⚠️ Finnhub Economic Calendar Fallback failed: {e}")
 
         return []
 

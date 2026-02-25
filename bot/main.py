@@ -1146,7 +1146,7 @@ async def run_audit():
                     log_decision(
                         ticker,
                         "SKIP",
-                        f"🧊 DRY RUN: Intent BUY rejected (Insufficient Allocation ${allocation:.2f} < $1000)",
+                        f"🧊 DRY RUN: Intent BUY rejected: Final Alloc ${allocation:.2f} < $1000 (Target: ${target_allocation:.2f}, MaxAllowed: ${max_permitted_buy:.2f}, Cash: ${cash_pool:.2f})",
                     )
                     status = "skipped_insufficient_funds"
             else:
@@ -1189,7 +1189,7 @@ async def run_audit():
                     log_decision(
                         ticker,
                         "SKIP",
-                        f"Insufficient Allocation (${allocation:.2f} < $1000) or Room to Buy.",
+                        f"Intent BUY rejected: Final Alloc ${allocation:.2f} < $1000 (Target: ${target_allocation:.2f}, MaxAllowed: ${max_permitted_buy:.2f}, Cash: ${cash_pool:.2f})",
                     )
                     status = "skipped_insufficient_funds"
 
