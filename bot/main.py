@@ -170,7 +170,7 @@ async def fetch_historical_data(ticker):
 
         if not bars or not bars.data:
             print(
-                f"⚠️  Alpaca returned no data for {ticker}, trying Finnhub fallback..."
+                f"⚠️  Alpaca returned no data for {ticker}, trying YahooQuery fallback..."
             )
             return await fetch_historical_fallback(ticker)
 
@@ -179,7 +179,7 @@ async def fetch_historical_data(ticker):
 
         if df.empty:
             print(
-                f"⚠️  Alpaca data frame empty for {ticker}, trying Finnhub fallback..."
+                f"⚠️  Alpaca data frame empty for {ticker}, trying YahooQuery fallback..."
             )
             return await fetch_historical_fallback(ticker)
 
@@ -197,52 +197,44 @@ async def fetch_historical_data(ticker):
         return df_norm
 
     except asyncio.TimeoutError:
-        print(f"⏳ Alpaca Timeout for {ticker}, trying Finnhub fallback...")
+        print(f"⏳ Alpaca Timeout for {ticker}, trying YahooQuery fallback...")
         return await fetch_historical_fallback(ticker)
     except Exception as e:
-        print(f"❌ Alpaca Error for {ticker}: {e}, trying Finnhub fallback...")
+        print(f"❌ Alpaca Error for {ticker}: {e}, trying YahooQuery fallback...")
         return await fetch_historical_fallback(ticker)
 
 
 async def fetch_historical_fallback(ticker):
-    """Fallback helper to fetch historical data from Finnhub."""
-    if not finnhub_client:
-        print(
-            f"⚠️  Finnhub client unavailable, cannot fetch fallback data for {ticker}."
-        )
-        return None
-
+    """Universal fallback helper to fetch historical data using YahooQuery."""
     try:
+        def _fetch_yq():
+            from yahooquery import Ticker
+            yq_ticker = Ticker(ticker)
+            return yq_ticker.history(period="6mo")
 
-        def _fetch_finnhub(client):
-            # Get 90 days of daily data
-            end_ts = int(datetime.now().timestamp())
-            start_ts = int((datetime.now() - timedelta(days=90)).timestamp())
-            return client.stock_candles(ticker, "D", start_ts, end_ts)
+        df_yq = await asyncio.to_thread(_fetch_yq)
+        
+        # Verify it actually returns a DataFrame and not a dict with empty properties
+        if hasattr(df_yq, 'empty') and not df_yq.empty:
+            df_yq = df_yq.reset_index()
+            
+            df_yq["timestamp"] = pd.to_datetime(df_yq["date"], utc=True)
+            df_yq = df_yq.sort_values(by="timestamp").tail(90).reset_index(drop=True)
 
-        res = await asyncio.wait_for(
-            asyncio.to_thread(_fetch_finnhub, finnhub_client), timeout=15
-        )
+            df_norm = pd.DataFrame({
+                "t": df_yq["timestamp"],
+                "o": df_yq["open"],
+                "h": df_yq["high"],
+                "l": df_yq["low"],
+                "c": df_yq["close"],
+                "v": df_yq["volume"],
+            })
 
-        if res and res.get("s") == "ok":
-            df_fh = pd.DataFrame(
-                {
-                    "t": pd.to_datetime(res["t"], unit="s", utc=True),
-                    "o": res["o"],
-                    "h": res["h"],
-                    "l": res["l"],
-                    "c": res["c"],
-                    "v": res["v"],
-                }
-            )
-
-            print(f"[{ticker}] 📊 Finnhub Fallback Data Fetched: {len(df_fh)} rows")
-            return df_fh
-        else:
-            print(f"⚠️  Finnhub returned no valid candle data for {ticker}.")
+            print(f"[{ticker}] 📊 YahooQuery Fallback Data Fetched: {len(df_norm)} rows")
+            return df_norm
 
     except Exception as e:
-        print(f"⚠️  Finnhub Fallback failed for {ticker}: {e}")
+        print(f"⚠️  YahooQuery Fallback failed for {ticker}: {e}")
 
     print(f"⚠️  All historical data sources completely failed for {ticker}.")
     return None

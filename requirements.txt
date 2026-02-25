@@ -67,5 +67,6 @@ urllib3==2.6.3
 Werkzeug==3.1.5
 yarl==1.22.0
 yfinance==0.2.40
-lxml==6.0.2
-html5lib==1.1
+yahooquery==2.4.1
+requests-futures>=1.0.1
+tqdm>=4.65.0
