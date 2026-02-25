@@ -37,11 +37,11 @@ class FundamentalAgent:
             query_params.update(params)
 
         # MAIN DOMAIN IS MORE COMPATIBLE WITH STABLE
-        base_url = "https://financialmodelingprep.com"
+        base_url = "https://financialmodelingprep.com/api"
 
         if version == "stable":
-            # Stable endpoints use query params for symbols
-            url = f"{base_url}/{version}/{endpoint}"
+            # Stable endpoints use query params for symbols mapped to v3
+            url = f"{base_url}/v3/{endpoint}"
             if ticker:
                 query_params["symbol"] = ticker
         else:
@@ -108,9 +108,9 @@ class FundamentalAgent:
         """
         Fetches technical indicators from FMP using the stable API.
         """
-        endpoint = f"technical-indicators/{indicator_type}"
-        params = {"periodLength": period, "timeframe": timeframe}
-        data = await self._fetch_fmp(endpoint, ticker, params=params, version="stable")
+        endpoint = f"technical_indicator/{timeframe}/{ticker}"
+        params = {"type": indicator_type, "period": period}
+        data = await self._fetch_fmp(endpoint, "", params=params, version="v3")
         if data and isinstance(data, list):
             return data[0]
         return None
@@ -126,8 +126,8 @@ class FundamentalAgent:
 
         symbols = ",".join(tickers)
         url = (
-            f"https://financialmodelingprep.com/stable/quote"
-            f"?symbol={symbols}&apikey={self.fmp_key}"
+            f"https://financialmodelingprep.com/api/v3/quote/{symbols}"
+            f"?apikey={self.fmp_key}"
         )
         try:
             async with aiohttp.ClientSession() as session:
@@ -174,8 +174,8 @@ class FundamentalAgent:
         from_date = datetime.now().strftime("%Y-%m-%d")
         to_date = (datetime.now() + timedelta(days=window_days)).strftime("%Y-%m-%d")
 
-        # Use stable earning-calendar to avoid v3 legacy errors
-        endpoint = "earning-calendar"
+        # Use stable earning_calendar to avoid v3 legacy errors
+        endpoint = "earning_calendar"
         data = await self._fetch_fmp(
             endpoint, "", params={"from": from_date, "to": to_date}, version="stable"
         )
@@ -352,7 +352,7 @@ class FundamentalAgent:
         """
         # 1. Try FMP (stable)
         if self.fmp_key:
-            data = await self._fetch_fmp("economic-calendar", "", version="stable")
+            data = await self._fetch_fmp("economic_calendar", "", version="stable")
             if data and isinstance(data, list):
                 high_impact = [
                     ev

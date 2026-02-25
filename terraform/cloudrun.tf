@@ -131,7 +131,7 @@ resource "google_cloud_run_v2_service" "trading_bot" {
         }
       }
       env {
-        name = "DISCORD_WEBHOOK"
+        name = "DISCORD_WEBHOOK_URL"
         value_source {
           secret_key_ref {
             secret  = "DISCORD_WEBHOOK"
