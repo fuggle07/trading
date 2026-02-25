@@ -67,7 +67,9 @@ class FundamentalAgent:
                         err_text = await response.text()
                         if status == 403 and "Legacy Endpoint" in err_text:
                             pass  # Suppress FMP premium tier errors
-                        elif status == 404 and ("calendar" in url or bool(err_text) == False):
+                        elif status == 404 and (
+                            "calendar" in url or bool(err_text) == False
+                        ):
                             pass  # Suppress missing FMP calendar endpoints
                         else:
                             logger.warning(f"FMP [{status}]: {url} | {err_text[:120]}")
