@@ -112,18 +112,9 @@ The bot exits positions (beyond the initial stop/profit targets) if:
 
 ---
 
-## 5. The Financial Benchmark (The Hurdle Rate)
-
-The Aberfeldie Node operates on a **"Beat the Bank"** philosophy. Every dollar in cash sits in the mortgage offset account, effectively earning the current mortgage rate tax-free.
-
-### The Calculation
-1.  **Raw Mortgage Rate**: Set via `MORTGAGE_RATE` env var (e.g., 5.40%).
-2.  **Tax-Adjusted Hurdle**: `Rate × (1 - 0.35)` (35% tax benefit).
-3.  **The Goal**: Only deploy capital for opportunities with a high probability of beating this benchmark.
-
 ---
 
-## 6. Summary Table
+## 5. Summary Table
 
 | Input | Threshold | Role |
 | :--- | :--- | :--- |
@@ -139,5 +130,3 @@ The Aberfeldie Node operates on a **"Beat the Bank"** philosophy. Every dollar i
 | **Profit Target** | +5% | Exit to lock half gain |
 | **Trailing Stop** | -3.5% to -8.0% | Dynamic high-water mark trailing exit |
 | **Stop Loss** | -2.5% to -12.0% | Exit to protect capital (Volatility-scaled) |
-| **Mortgage Rate** | Env var `MORTGAGE_RATE` | Raw bank benchmark |
-| **Benchmark** | Rate × 0.65 (3.5%) | Effective benchmark to beat |
