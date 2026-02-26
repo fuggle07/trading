@@ -517,12 +517,12 @@ class FundamentalAgent:
                     price = float(item.get("price", 0) or 0)
                     if sym == "SPY":
                         results["spy_perf"] = float(
-                            item.get("changesPercentage", 0) or 0
+                            item.get("changePercentage", 0) or 0
                         )
                         results["spy_price"] = price
                     elif sym == "QQQ":
                         results["qqq_perf"] = float(
-                            item.get("changesPercentage", 0) or 0
+                            item.get("changePercentage", 0) or 0
                         )
                         results["qqq_price"] = price
 
