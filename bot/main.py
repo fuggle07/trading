@@ -1143,11 +1143,14 @@ async def run_audit():
                 continue
 
             # 4. Sector Limit Gate
-            # Enforce max 2 positions per sector
+            # Enforce max 2 positions per sector (disabled by default)
+            enforce_sector_limits = (
+                os.getenv("ENFORCE_SECTOR_LIMITS", "False").lower() == "true"
+            )
             ticker_sector = intel.get("sector", "Unknown")
             is_new_position = held_tickers.get(ticker, {}).get("holdings", 0.0) == 0.0
 
-            if is_new_position and ticker_sector != "Unknown":
+            if enforce_sector_limits and is_new_position and ticker_sector != "Unknown":
                 current_sector_count = sector_counts.get(ticker_sector, 0)
                 if current_sector_count >= 2:
                     log_decision(
