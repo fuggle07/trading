@@ -500,8 +500,18 @@ class FundamentalAgent:
 
         if self.fmp_key:
             # 1. Fetch SPY/QQQ (ETFs - usually free on stable quote)
-            data = await self._fetch_fmp("quote", "SPY,QQQ", version="stable")
-            if data and isinstance(data, list):
+            # The stable API no longer supports comma-separated symbols for quote, so we fetch separately
+            spy_task = self._fetch_fmp("quote", "SPY", version="stable")
+            qqq_task = self._fetch_fmp("quote", "QQQ", version="stable")
+            spy_data, qqq_data = await asyncio.gather(spy_task, qqq_task)
+
+            data = []
+            if spy_data and isinstance(spy_data, list):
+                data.extend(spy_data)
+            if qqq_data and isinstance(qqq_data, list):
+                data.extend(qqq_data)
+
+            if data:
                 for item in data:
                     sym = item.get("symbol")
                     price = float(item.get("price", 0) or 0)
