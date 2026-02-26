@@ -8,8 +8,10 @@ from alpaca.trading.requests import (
     LimitOrderRequest,
     TakeProfitRequest,
     StopLossRequest,
+    MarketOrderRequest,
+    GetOrdersRequest,
 )
-from alpaca.trading.enums import OrderSide, TimeInForce, OrderClass
+from alpaca.trading.enums import OrderSide, TimeInForce, OrderClass, QueryOrderStatus
 
 # Configure logging
 logger = logging.getLogger("execution-manager")
@@ -146,6 +148,23 @@ class ExecutionManager:
             try:
                 side = OrderSide.BUY if action == "BUY" else OrderSide.SELL
 
+                if side == OrderSide.SELL:
+                    # Cancel existing open orders before selling to free up locked shares
+                    try:
+                        req = GetOrdersRequest(
+                            status=QueryOrderStatus.OPEN, symbols=[ticker]
+                        )
+                        open_orders = self.trading_client.get_orders(req)
+                        for open_order in open_orders:
+                            self.trading_client.cancel_order_by_id(open_order.id)
+                            logger.info(
+                                f"[{ticker}] 🧹 Cancelled open GTC bracket: {open_order.id}"
+                            )
+                    except Exception as ce:
+                        logger.warning(
+                            f"[{ticker}] ⚠️ Failed to clear open orders: {ce}"
+                        )
+
                 # Prepare Order to avoid execution slippage
                 # BUY uses OTOCO Bracket (Limit entry, Stop Loss, Take Profit)
                 # SELL uses standard Limit or Market to exit cleanly
@@ -173,8 +192,6 @@ class ExecutionManager:
                     )
                 else:
                     # Selling: Use a Market Order to exit cleanly immediately with no stalled requests
-                    from alpaca.trading.requests import MarketOrderRequest
-
                     order_data = MarketOrderRequest(
                         symbol=ticker,
                         qty=quantity,
