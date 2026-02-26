@@ -23,6 +23,7 @@ When the bot evaluates a stock (e.g., NVDA), it follows this step-by-step logic:
 ### Step A: The Exit Override (Institutional Risk Model)
 If you already own the stock, the bot checks your P&L **before** looking at new opportunities:
 *   **Partial Scaling (+5%)**: If the stock is up 5% from your average cost, the bot **SELLS 50%**. This locks in gains while leaving half exposed to further upside.
+*   **Sentiment Soft Stop (+2.5%)**: If the stock is up at least 2.5% from your average cost, but the AI determines sentiment has flipped negative, the bot **SELLS 25%**. This takes risk off the table proactively while allowing the remaining 75% to rely on trailing stops.
 *   **Volatility-Scaled Trailing Stop**: 
     1.  **Limit**: Scales continuously from **-3.5%** up to **-8.0%** from the High Water Mark (HWM), depending on the stock's historical volatility. Wild stocks get a longer leash.
     2.  **Activation**: Becomes fully active dynamically (usually around **+3%** to **+6%** profit) once the stock clears expected market noise.
@@ -66,6 +67,10 @@ If you already own the stock, the bot checks your P&L **before** looking at new 
 
 *   **Basic Health Check**: If EPS < 0 or PE > 100 (`is_healthy = False`), BUY is also rejected.
 
+### Step F (Part 2): Sector Limit Gate
+*   **Condition**: The bot prefers diversification. By default, sector limits are disabled to allow momentum trading, but if `ENFORCE_SECTOR_LIMITS=true` is set in the environment:
+*   **Action**: The bot will strictly reject any new entry into a sector if the portfolio already holds **2 positions** in that identical sector.
+
 ### Step G: Macro Hedging (AI-Aware Defense)
 The bot continuously monitors the **VIX** and **NASDAQ Trend (QQQ vs SMA-50)**. Before entering a hedge (**PSQ**), it consults Gemini. If Gemini provides a "Veto" (Sentiment < -0.2 for PSQ, implying a market recovery), the hedge is skipped.
 
@@ -84,8 +89,8 @@ Unlike fixed sizing, the bot mathematically equates physical dollar risk across 
     * *Result:* Extremely volatile stocks (like AMD with a 10% stop) will automatically scale your purchased shares down heavily compared to stable stocks (like LLY with a 2.5% stop). If either stock hits its unique stop, you lose the exact identical amount of dollars.
 4.  **Cascading Executions**: During active trading, the bot buys highest-conviction stocks first, immediately deducting the exact cost from its local working memory. Subsequent runner-up trades perfectly scale down into the remaining fraction of available cash until the pool hits $1,000. 
 
-*   **Max Cap**: 20% of total equity per position.
-*   **Star Floor**: Elite trades are guaranteed at least a 20% allocation.
+*   **Max Cap**: 28% of total equity per position.
+*   **Star Floor**: Elite trades are guaranteed at least a target allocation to maximize winners.
 
 ---
 
@@ -125,5 +130,6 @@ The bot exits positions (beyond the initial stop/profit targets) if:
 | **F-Score** | ≥ 7 | Conviction bonus (+10) |
 | **AI Confidence** | ≥ 80 + F-Score ≥ 7 | Star rating — conviction swap priority |
 | **Profit Target** | +5% | Exit to lock half gain |
+| **Sentiment Fade** | +2.5% | Exit 25% if sentiment flips negative (Soft Stop) |
 | **Trailing Stop** | -3.5% to -8.0% | Dynamic high-water mark trailing exit |
 | **Stop Loss** | -2.5% to -12.0% | Exit to protect capital (Volatility-scaled) |
