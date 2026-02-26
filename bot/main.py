@@ -877,7 +877,8 @@ async def run_audit():
         hedge_will_trade = True
 
     has_trade_signals = any(
-        sig.get("action") in ["SELL", "SELL_ALL", "SELL_PARTIAL_50", "BUY"]
+        sig.get("action")
+        in ["SELL", "SELL_ALL", "SELL_PARTIAL_50", "SELL_PARTIAL_25", "BUY"]
         for sig in signals.values()
     )
 
@@ -899,7 +900,7 @@ async def run_audit():
         ticker = str(ticker_obj)
         action = str(sig.get("action"))
 
-        if action in ["SELL", "SELL_ALL", "SELL_PARTIAL_50"]:
+        if action in ["SELL", "SELL_ALL", "SELL_PARTIAL_50", "SELL_PARTIAL_25"]:
             reason = str(sig.get("reason", "Strategy Signal"))
 
             # Extract position data
@@ -908,13 +909,15 @@ async def run_audit():
             current_qty = float(pos.get("qty", 0))
 
             # Determine sell quantity
-            is_partial = action == "SELL_PARTIAL_50"
+            is_partial = action in ["SELL_PARTIAL_50", "SELL_PARTIAL_25"]
             target_qty = 0  # Default to SELL ALL
 
             if is_partial:
-                # Scaled-out logic: sell 50%
-                target_qty = int(current_qty * 0.5)
-                # Safety: if we have shares but 50% is 0 (e.g. 1 share), sell at least 1
+                if action == "SELL_PARTIAL_50":
+                    target_qty = int(current_qty * 0.5)
+                else:
+                    target_qty = int(current_qty * 0.25)
+                # Safety: if we have shares but partial is 0 (e.g. 1 share), sell at least 1
                 if target_qty == 0 and current_qty > 0:
                     target_qty = int(current_qty)
 
@@ -942,7 +945,14 @@ async def run_audit():
                     )
                     continue
 
-            sell_val = position_val * 0.5 if is_partial else position_val
+            if is_partial:
+                sell_val = (
+                    position_val * 0.5
+                    if action == "SELL_PARTIAL_50"
+                    else position_val * 0.25
+                )
+            else:
+                sell_val = position_val
             if not effective_enabled:
                 log_decision(
                     ticker,

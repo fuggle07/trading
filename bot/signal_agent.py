@@ -491,6 +491,11 @@ class SignalAgent:
         if p_change >= 0.05 and not has_scaled_out:
             return "SELL_PARTIAL_50"
 
+        # 1.5 Sentiment Breakdown Partial Scale Out
+        # Sell 25% if we're up at least 2.5% but sentiment flips negative.
+        if p_change >= 0.025 and sentiment < 0.0 and not has_scaled_out:
+            return "SELL_PARTIAL_25"
+
         # 2. Dynamic Trailing Stop
         # Base limit is 3.5%, but scales up to 8% for highly volatile stocks.
         trailing_limit = (
