@@ -1665,12 +1665,10 @@ async def process_ticker_intelligence(
                 else (sentiment_result, "")
             )
 
-            # --- DAMPEN SENTIMENT SCORE ---
-            # Use the mean over the previous 9 runs + this run (total 10 runs)
-            if res_recent_sentiments:
-                all_sentiments = res_recent_sentiments + [sentiment_score]
-                sentiment_score = sum(all_sentiments) / len(all_sentiments)
-                sentiment_score = round(sentiment_score, 3)
+            # We removed the moving-average dampening logic for sentiment here.
+            # Because Gemini is now rigorously cached on a 30-minute interval,
+            # blending current sentiment with 10 previous 2-minute loops (now reading data from 5 hours ago)
+            # would artificially dilute real-time crisis breakouts and lag the bot's reaction time.
 
         # 1. Technical Baseline Construction
         indicators = calculate_technical_indicators(res_history, ticker) or {}

@@ -10,6 +10,10 @@ class SentimentAnalyzer:
         self.project_id = project_id
         self.location = location
         self.model = None
+        self._cache = (
+            {}
+        )  # {ticker: {"score": float, "reasoning": str, "timestamp": datetime}}
+        self._cache_ttl_minutes = 30
         self._init_vertex()
 
     def _init_vertex(self):
@@ -30,6 +34,20 @@ class SentimentAnalyzer:
         """
         if not self.model:
             return 0.0, ""
+
+        from datetime import datetime
+
+        now = datetime.now()
+
+        # 1. Check native 30-minute cache to save massive API costs
+        if ticker in self._cache:
+            cache_entry = self._cache[ticker]
+            age_minutes = (now - cache_entry["timestamp"]).total_seconds() / 60.0
+            if age_minutes < self._cache_ttl_minutes:
+                logger.info(
+                    f"[{ticker}] ⚡ Gemini Cache Hit ({age_minutes:.1f}m old). Saving GCP costs."
+                )
+                return cache_entry["score"], cache_entry["reasoning"]
 
         # Limit to top 5 news items to fit context window efficiently and stay relevant
         top_news = news_items[:5]
@@ -125,6 +143,13 @@ class SentimentAnalyzer:
             data = json.loads(result_text)
             score = float(data.get("score", 0.0))
             reasoning = data.get("reasoning", "No reasoning provided.")
+
+            # Store inside the local TTL cache to save costs
+            self._cache[ticker] = {
+                "score": score,
+                "reasoning": reasoning,
+                "timestamp": now,
+            }
 
             logger.info(
                 f"[{ticker}] 🧠 Gemini Analysis: Score={score} | Reason: {reasoning}"
