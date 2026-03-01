@@ -752,6 +752,11 @@ async def run_audit():
         if sig is None:
             continue
 
+        # Ensure we only rotate into a stock that actually has a valid structural entry (technical/proactive BUY)
+        # Bypassing this would force capital into neutral setups just based on raw AI score.
+        if sig.get("action") != "BUY":
+            continue
+
         effective_conf = sig.get("meta", {}).get("effective_ai_score", 0)
         sentiment = float(sig.get("meta", {}).get("sentiment", 0.0))
 
